@@ -6,6 +6,7 @@ import { RoutePage } from './pages/RoutePage'
 import { MapPage } from './pages/MapPage'
 import { LeaderboardPage } from './pages/LeaderboardPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { AdminTopoPage } from './pages/admin/AdminTopoPage'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/map" element={<MapPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/admin/topo" element={<AdminTopoPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
