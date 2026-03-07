@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { TopoViewer } from '../components/topo/TopoViewer'
 import { RouteList } from '../components/topo/RouteList'
 import { routeTypeLabel, gradeColor } from '../lib/utils'
+import { useGps } from '../hooks/useGps'
+import { distanceMeters, formatDistance, bearing } from '../lib/map/geo'
+import { ConditionReport } from '../components/route/ConditionReport'
 
 const GRADE_FILTERS = ['Все', '4-5a', '5b-5c', '6a-6b', '6b+-6c+', '7a+'] as const
 
@@ -24,6 +27,8 @@ export function SectorPage() {
   const { sectorId } = useParams<{ sectorId: string }>()
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [gradeFilter, setGradeFilter] = useState('Все')
+  const [showCondition, setShowCondition] = useState(false)
+  const { position } = useGps()
 
   const sector = useLiveQuery(
     () => (sectorId ? db.sectors.get(sectorId) : undefined),
@@ -67,6 +72,16 @@ export function SectorPage() {
   const filteredRoutes = routes?.filter(r => matchesGradeFilter(r.gradeSort, gradeFilter)) ?? []
   const activeTopo = topos?.[0]
 
+  // GPS approach info
+  const approachInfo = useMemo(() => {
+    if (!position || !sector) return null
+    const dist = distanceMeters(position.latitude, position.longitude, sector.latitude, sector.longitude)
+    const brng = bearing(position.latitude, position.longitude, sector.latitude, sector.longitude)
+    const directions = ['С', 'СВ', 'В', 'ЮВ', 'Ю', 'ЮЗ', 'З', 'СЗ']
+    const dir = directions[Math.round(brng / 45) % 8]
+    return { distance: formatDistance(dist), direction: dir, raw: dist }
+  }, [position, sector])
+
   return (
     <div>
       {/* Header */}
@@ -86,6 +101,30 @@ export function SectorPage() {
         {sector.approachDescription && (
           <p className="text-xs text-gray-400 mb-2">Подход: {sector.approachDescription}</p>
         )}
+
+        {/* GPS distance to sector */}
+        {approachInfo && (
+          <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm mb-2 ${
+            approachInfo.raw < 100
+              ? 'bg-green-50 text-green-700'
+              : 'bg-blue-50 text-blue-700'
+          }`}>
+            <span className="text-lg">📍</span>
+            <span>
+              <span className="font-medium">{approachInfo.distance}</span>
+              {' '}на {approachInfo.direction}
+              {approachInfo.raw < 100 && ' — вы рядом!'}
+            </span>
+          </div>
+        )}
+
+        {/* Condition report button */}
+        <button
+          onClick={() => setShowCondition(true)}
+          className="text-xs text-blue-600 underline"
+        >
+          Сообщить об условиях
+        </button>
       </div>
 
       {/* Topo viewer */}
@@ -192,6 +231,13 @@ export function SectorPage() {
           </div>
         )}
       </div>
+
+      {showCondition && sectorId && (
+        <ConditionReport
+          sectorId={sectorId}
+          onClose={() => setShowCondition(false)}
+        />
+      )}
     </div>
   )
 }
