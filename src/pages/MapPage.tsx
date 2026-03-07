@@ -6,7 +6,7 @@ export function MapPage() {
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="w-full" style={{ height: 'calc(100dvh - 56px)' }}>
       <OfflineMap sectors={sectors ?? []} />
     </div>
   )

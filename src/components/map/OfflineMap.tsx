@@ -159,7 +159,7 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
   }
 
   return (
-    <div className="relative w-full flex-1" style={{ minHeight: 300 }}>
+    <div className="relative w-full h-full">
       <div ref={mapContainer} className="absolute inset-0" />
 
       {/* GPS center button */}
