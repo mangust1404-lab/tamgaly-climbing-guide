@@ -7,7 +7,6 @@ import { RouteList } from '../components/topo/RouteList'
 import { routeTypeLabel, gradeColor } from '../lib/utils'
 import { useGps } from '../hooks/useGps'
 import { distanceMeters, formatDistance, bearing } from '../lib/map/geo'
-import { ConditionReport } from '../components/route/ConditionReport'
 
 const GRADE_FILTERS = ['Все', '4-5a', '5b-5c', '6a-6b', '6b+-6c+', '7a+'] as const
 
@@ -27,7 +26,6 @@ export function SectorPage() {
   const { sectorId } = useParams<{ sectorId: string }>()
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [gradeFilter, setGradeFilter] = useState('Все')
-  const [showCondition, setShowCondition] = useState(false)
   const { position } = useGps()
 
   const sector = useLiveQuery(
@@ -118,13 +116,6 @@ export function SectorPage() {
           </div>
         )}
 
-        {/* Condition report button */}
-        <button
-          onClick={() => setShowCondition(true)}
-          className="text-xs text-blue-600 underline"
-        >
-          Сообщить об условиях
-        </button>
       </div>
 
       {/* Topo viewer */}
@@ -232,12 +223,6 @@ export function SectorPage() {
         )}
       </div>
 
-      {showCondition && sectorId && (
-        <ConditionReport
-          sectorId={sectorId}
-          onClose={() => setShowCondition(false)}
-        />
-      )}
     </div>
   )
 }
