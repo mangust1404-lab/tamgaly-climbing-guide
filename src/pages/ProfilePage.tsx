@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { calculateTotalScore } from '../lib/scoring/points'
@@ -154,6 +155,16 @@ export function ProfilePage() {
           )}
         </>
       )}
+
+      {/* Admin link */}
+      <div className="mt-8 pt-4 border-t border-gray-100">
+        <Link
+          to="/admin/topo"
+          className="text-xs text-gray-400 underline"
+        >
+          Админ: редактор топо
+        </Link>
+      </div>
     </div>
   )
 }

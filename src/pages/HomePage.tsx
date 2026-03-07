@@ -8,7 +8,14 @@ const AREA_ID = 'tamgaly-tas'
 
 export function HomePage() {
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
+  const routes = useLiveQuery(() => db.routes.toArray())
   const [dl, setDl] = useState<DownloadProgress | null>(null)
+
+  // Count routes per sector
+  const routeCounts = new Map<string, number>()
+  routes?.forEach((r) => {
+    routeCounts.set(r.sectorId, (routeCounts.get(r.sectorId) || 0) + 1)
+  })
 
   const handleDownload = useCallback(async () => {
     try {
@@ -77,7 +84,14 @@ export function HomePage() {
               to={`/sector/${sector.id}`}
               className="block bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
             >
-              <div className="font-medium">{sector.name}</div>
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{sector.name}</span>
+                {routeCounts.get(sector.id) && (
+                  <span className="text-xs text-gray-400">
+                    {routeCounts.get(sector.id)} маршр.
+                  </span>
+                )}
+              </div>
               {sector.orientation && (
                 <div className="text-xs text-gray-400 mt-1">
                   {sector.orientation}
