@@ -60,9 +60,23 @@ function numberRoutes(routes: Route[]) {
   return routes
 }
 
+const SEED_VERSION = 2 // bump to force re-seed
+
 export async function seedDemoData() {
-  const existingAreas = await db.areas.count()
-  if (existingAreas > 0) return
+  // Check seed version — if old data exists, wipe and re-seed
+  const meta = await db.syncMeta.get('seedVersion')
+  if (meta?.value === String(SEED_VERSION)) return
+
+  // Clear old data
+  await db.transaction('rw', [db.areas, db.sectors, db.routes, db.topos, db.topoRoutes, db.syncMeta], async () => {
+    await db.areas.clear()
+    await db.sectors.clear()
+    await db.routes.clear()
+    await db.topos.clear()
+    await db.topoRoutes.clear()
+  })
+
+  routeCounter = 0
 
   const area: Area = {
     id: 'tamgaly-tas',
@@ -313,10 +327,11 @@ export async function seedDemoData() {
     ]),
   ]
 
-  await db.transaction('rw', [db.areas, db.sectors, db.routes], async () => {
+  await db.transaction('rw', [db.areas, db.sectors, db.routes, db.syncMeta], async () => {
     await db.areas.add(area)
     await db.sectors.bulkAdd(sectors)
     await db.routes.bulkAdd(allRoutes)
+    await db.syncMeta.put({ key: 'seedVersion', value: String(SEED_VERSION) })
   })
 
   console.log(`Seeded: 1 area, ${sectors.length} sectors, ${allRoutes.length} routes`)
