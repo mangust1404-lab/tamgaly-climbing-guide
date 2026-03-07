@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { AscentForm } from '../components/route/AscentForm'
+import { ReviewForm } from '../components/route/ReviewForm'
 import { routeTypeLabel, gradeColor } from '../lib/utils'
 
 const STYLE_LABELS: Record<string, string> = {
@@ -16,6 +17,7 @@ const STYLE_LABELS: Record<string, string> = {
 export function RoutePage() {
   const { routeId } = useParams<{ routeId: string }>()
   const [showAscentForm, setShowAscentForm] = useState(false)
+  const [showReviewForm, setShowReviewForm] = useState(false)
 
   const route = useLiveQuery(
     () => (routeId ? db.routes.get(routeId) : undefined),
@@ -35,9 +37,33 @@ export function RoutePage() {
     [routeId],
   )
 
+  const reviews = useLiveQuery(
+    () =>
+      routeId
+        ? db.reviews.where('routeId').equals(routeId).reverse().sortBy('createdAt')
+        : [],
+    [routeId],
+  )
+
   if (!route) {
     return <div className="p-4 text-gray-400">Маршрут не найден</div>
   }
+
+  // Average rating from reviews
+  const avgRating = reviews && reviews.length > 0
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : null
+
+  // Grade consensus
+  const gradeVotes = reviews?.filter(r => r.gradeOpinion) ?? []
+  const gradeConsensus = gradeVotes.length >= 2
+    ? (() => {
+        const counts: Record<string, number> = {}
+        gradeVotes.forEach(r => { counts[r.gradeOpinion!] = (counts[r.gradeOpinion!] || 0) + 1 })
+        const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+        return top[0] === 'Fair' ? null : top[0] // Only show if not "Fair"
+      })()
+    : null
 
   return (
     <div className="p-4">
@@ -56,11 +82,19 @@ export function RoutePage() {
         </span>
         <div>
           <h1 className="text-2xl font-bold">{route.name}</h1>
-          <p className="text-gray-500 text-sm">
-            {routeTypeLabel(route.routeType)}
-            {route.lengthM && ` · ${route.lengthM}м`}
-            {route.pitches > 1 && ` · ${route.pitches} верёвок`}
-          </p>
+          <div className="flex items-center gap-2 text-gray-500 text-sm">
+            <span>{routeTypeLabel(route.routeType)}</span>
+            {route.lengthM && <span>· {route.lengthM}м</span>}
+            {route.pitches > 1 && <span>· {route.pitches} верёвок</span>}
+            {avgRating && (
+              <span className="text-yellow-500">★ {avgRating}</span>
+            )}
+            {gradeConsensus && (
+              <span className={gradeConsensus === 'Soft' ? 'text-green-600' : 'text-red-600'}>
+                {gradeConsensus === 'Soft' ? 'Мягче' : 'Жёстче'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -84,21 +118,31 @@ export function RoutePage() {
         </div>
       )}
 
-      <button
-        onClick={() => setShowAscentForm(true)}
-        className="w-full bg-green-600 text-white rounded-lg px-4 py-3 font-medium mb-6"
-      >
-        Залогировать пролаз
-      </button>
+      {/* Action buttons */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setShowAscentForm(true)}
+          className="flex-1 bg-green-600 text-white rounded-lg px-4 py-3 font-medium"
+        >
+          Залогировать пролаз
+        </button>
+        <button
+          onClick={() => setShowReviewForm(true)}
+          className="bg-blue-100 text-blue-700 rounded-lg px-4 py-3 font-medium"
+        >
+          Отзыв
+        </button>
+      </div>
 
+      {/* Ascents */}
       <h2 className="text-lg font-semibold mb-3">
         Пролазы {ascents ? `(${ascents.length})` : ''}
       </h2>
 
       {!ascents || ascents.length === 0 ? (
-        <p className="text-gray-400 text-sm">Пока никто не пролез</p>
+        <p className="text-gray-400 text-sm mb-6">Пока никто не пролез</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 mb-6">
           {ascents.map((ascent) => (
             <div
               key={ascent.id}
@@ -127,10 +171,60 @@ export function RoutePage() {
         </div>
       )}
 
+      {/* Reviews */}
+      {reviews && reviews.length > 0 && (
+        <>
+          <h2 className="text-lg font-semibold mb-3">
+            Отзывы ({reviews.length})
+          </h2>
+          <div className="space-y-2">
+            {reviews.map((review) => (
+              <div
+                key={review.id}
+                className="bg-white border border-gray-200 rounded-lg p-3"
+              >
+                <div className="flex justify-between items-center">
+                  <div className="text-yellow-400 text-sm">
+                    {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                  </div>
+                  {review.gradeOpinion && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      review.gradeOpinion === 'Soft' ? 'bg-green-100 text-green-700'
+                        : review.gradeOpinion === 'Hard' ? 'bg-red-100 text-red-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {review.gradeOpinion === 'Soft' ? 'Мягче' : review.gradeOpinion === 'Hard' ? 'Жёстче' : 'Норм'}
+                    </span>
+                  )}
+                </div>
+                {review.comment && (
+                  <p className="text-xs text-gray-600 mt-1">{review.comment}</p>
+                )}
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-[10px] text-gray-400">
+                    {new Date(review.createdAt).toLocaleDateString('ru')}
+                  </span>
+                  {review.syncStatus === 'pending' && (
+                    <span className="text-xs text-orange-500">ожидает синхр.</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {showAscentForm && (
         <AscentForm
           route={route}
           onClose={() => setShowAscentForm(false)}
+        />
+      )}
+
+      {showReviewForm && (
+        <ReviewForm
+          route={route}
+          onClose={() => setShowReviewForm(false)}
         />
       )}
     </div>
