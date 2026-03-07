@@ -7,7 +7,7 @@ import { distanceMeters, formatDistance } from '../../lib/map/geo'
 import type { Sector } from '../../lib/db/schema'
 
 // Tamgaly-Tas center coordinates
-const DEFAULT_CENTER: [number, number] = [43.805, 75.535] // [lat, lng] for Leaflet
+const DEFAULT_CENTER: [number, number] = [44.0639, 76.9950] // [lat, lng] for Leaflet
 const DEFAULT_ZOOM = 14
 
 interface OfflineMapProps {
