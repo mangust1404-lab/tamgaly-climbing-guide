@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
+import { AscentForm } from '../components/route/AscentForm'
 
 export function RoutePage() {
   const { routeId } = useParams<{ routeId: string }>()
+  const [showAscentForm, setShowAscentForm] = useState(false)
 
   const route = useLiveQuery(
     () => (routeId ? db.routes.get(routeId) : undefined),
@@ -62,8 +65,20 @@ export function RoutePage() {
         </p>
       )}
 
-      {/* TODO: Кнопка "Залогировать пролаз" */}
-      <button className="w-full bg-green-600 text-white rounded-lg px-4 py-3 font-medium mb-6">
+      {route.tags && route.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-4">
+          {route.tags.map((tag) => (
+            <span key={tag} className="bg-gray-100 text-gray-600 text-xs rounded-full px-2 py-0.5">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={() => setShowAscentForm(true)}
+        className="w-full bg-green-600 text-white rounded-lg px-4 py-3 font-medium mb-6"
+      >
         Залогировать пролаз
       </button>
 
@@ -81,18 +96,33 @@ export function RoutePage() {
               className="bg-white border border-gray-200 rounded-lg p-3"
             >
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">{ascent.style}</span>
+                <span className="text-sm font-medium capitalize">{ascent.style}</span>
                 <span className="text-xs text-gray-400">{ascent.date}</span>
               </div>
+              {ascent.rating && (
+                <div className="text-yellow-400 text-xs mt-0.5">
+                  {'★'.repeat(ascent.rating)}{'☆'.repeat(5 - ascent.rating)}
+                </div>
+              )}
               {ascent.notes && (
                 <p className="text-xs text-gray-500 mt-1">{ascent.notes}</p>
               )}
-              <div className="text-xs text-blue-600 mt-1">
-                +{ascent.points} очков
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-xs text-blue-600 font-medium">+{ascent.points} очков</span>
+                {ascent.syncStatus === 'pending' && (
+                  <span className="text-xs text-orange-500">ожидает синхронизации</span>
+                )}
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {showAscentForm && (
+        <AscentForm
+          route={route}
+          onClose={() => setShowAscentForm(false)}
+        />
       )}
     </div>
   )
