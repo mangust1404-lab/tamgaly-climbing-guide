@@ -39,3 +39,6 @@ public/tiles/*.pmtiles
 
 # Topo image tiles (large files, managed separately)
 public/topos/*/
+
+# Server SQLite database
+server/data/

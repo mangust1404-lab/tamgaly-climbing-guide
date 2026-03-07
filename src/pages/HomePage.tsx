@@ -1,9 +1,22 @@
+import { useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
+import { downloadArea, type DownloadProgress } from '../lib/offline/downloadManager'
+
+const AREA_ID = 'tamgaly-tas'
 
 export function HomePage() {
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
+  const [dl, setDl] = useState<DownloadProgress | null>(null)
+
+  const handleDownload = useCallback(async () => {
+    try {
+      await downloadArea(AREA_ID, setDl)
+    } catch {
+      // error already in dl state
+    }
+  }, [])
 
   return (
     <div className="p-4">
@@ -19,10 +32,36 @@ export function HomePage() {
         >
           Открыть карту
         </Link>
-        <button className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium">
-          Скачать офлайн
+        <button
+          onClick={handleDownload}
+          disabled={dl?.stage === 'fetching' || dl?.stage === 'saving'}
+          className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50"
+        >
+          {dl?.stage === 'fetching' || dl?.stage === 'saving'
+            ? 'Загрузка...'
+            : dl?.stage === 'done'
+              ? 'Обновить данные'
+              : 'Скачать офлайн'}
         </button>
       </div>
+
+      {dl && (
+        <div className={`mb-4 rounded-lg px-3 py-2 text-sm ${
+          dl.stage === 'error' ? 'bg-red-50 text-red-700' :
+          dl.stage === 'done' ? 'bg-green-50 text-green-700' :
+          'bg-blue-50 text-blue-700'
+        }`}>
+          <p>{dl.message}</p>
+          {dl.stage !== 'error' && dl.stage !== 'done' && (
+            <div className="mt-1 h-1.5 bg-blue-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                style={{ width: `${dl.percent}%` }}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       <h2 className="text-lg font-semibold mb-3">Секторы</h2>
 
