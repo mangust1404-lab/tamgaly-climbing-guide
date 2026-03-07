@@ -65,14 +65,7 @@ export function SectorPage() {
     [topos, routes],
   )
 
-  if (!sector) {
-    return <div className="p-4 text-gray-400">Сектор не найден</div>
-  }
-
-  const filteredRoutes = routes?.filter(r => matchesGradeFilter(r.gradeSort, gradeFilter)) ?? []
-  const activeTopo = topos?.[0]
-
-  // GPS approach info
+  // GPS approach info (must be before any conditional return — hooks rules)
   const approachInfo = useMemo(() => {
     if (!position || !sector) return null
     const dist = distanceMeters(position.latitude, position.longitude, sector.latitude, sector.longitude)
@@ -81,6 +74,13 @@ export function SectorPage() {
     const dir = directions[Math.round(brng / 45) % 8]
     return { distance: formatDistance(dist), direction: dir, raw: dist }
   }, [position, sector])
+
+  if (!sector) {
+    return <div className="p-4 text-gray-400">Сектор не найден</div>
+  }
+
+  const filteredRoutes = routes?.filter(r => matchesGradeFilter(r.gradeSort, gradeFilter)) ?? []
+  const activeTopo = topos?.[0]
 
   return (
     <div>

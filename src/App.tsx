@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, Component, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Layout } from './components/ui/Layout'
 import { HomePage } from './pages/HomePage'
@@ -19,21 +19,47 @@ function Loading() {
   )
 }
 
+// Error boundary to show errors on screen instead of white page
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 20, color: 'red', fontFamily: 'monospace', fontSize: 14 }}>
+          <h2>Error:</h2>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{this.state.error.message}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, color: '#666' }}>
+            {this.state.error.stack}
+          </pre>
+          <button onClick={() => { this.setState({ error: null }); window.location.href = '/' }}
+            style={{ marginTop: 10, padding: '8px 16px', background: '#333', color: '#fff', border: 'none', borderRadius: 4 }}>
+            Reload
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/sector/:sectorId" element={<SectorPage />} />
-          <Route path="/route/:routeId" element={<RoutePage />} />
-          <Route path="/map" element={<Suspense fallback={<Loading />}><MapPage /></Suspense>} />
-          <Route path="/leaderboard" element={<Suspense fallback={<Loading />}><LeaderboardPage /></Suspense>} />
-          <Route path="/profile" element={<Suspense fallback={<Loading />}><ProfilePage /></Suspense>} />
-          <Route path="/admin/topo" element={<Suspense fallback={<Loading />}><AdminTopoPage /></Suspense>} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/sector/:sectorId" element={<SectorPage />} />
+            <Route path="/route/:routeId" element={<RoutePage />} />
+            <Route path="/map" element={<Suspense fallback={<Loading />}><MapPage /></Suspense>} />
+            <Route path="/leaderboard" element={<Suspense fallback={<Loading />}><LeaderboardPage /></Suspense>} />
+            <Route path="/profile" element={<Suspense fallback={<Loading />}><ProfilePage /></Suspense>} />
+            <Route path="/admin/topo" element={<Suspense fallback={<Loading />}><AdminTopoPage /></Suspense>} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

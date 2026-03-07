@@ -16,7 +16,7 @@ export function LeaderboardPage() {
   const [period, setPeriod] = useState<Period>('all')
 
   const ascents = useLiveQuery(() =>
-    db.ascents.where('style').notEqual('attempt').toArray(),
+    db.ascents.toArray().then(all => all.filter(a => a.style !== 'attempt')),
   )
 
   const routes = useLiveQuery(() => db.routes.toArray())

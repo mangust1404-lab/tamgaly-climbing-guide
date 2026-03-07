@@ -4,13 +4,14 @@ import './index.css'
 import App from './App'
 import { seedDemoData } from './lib/db/seed'
 
-// Seed data FIRST, then render app
-seedDemoData()
-  .catch(console.error)
-  .finally(() => {
-    createRoot(document.getElementById('root')!).render(
-      <StrictMode>
-        <App />
-      </StrictMode>,
-    )
-  })
+// Render app immediately
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+// Seed data in background — useLiveQuery will pick it up reactively
+seedDemoData().catch((err) => {
+  console.error('Seed failed:', err)
+})
