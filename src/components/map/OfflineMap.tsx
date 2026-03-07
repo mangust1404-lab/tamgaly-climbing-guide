@@ -2,7 +2,6 @@ import { useRef, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { registerPMTilesProtocol } from '../../lib/map/pmtiles'
 import { useGps } from '../../hooks/useGps'
 import { distanceMeters, formatDistance } from '../../lib/map/geo'
 import type { Sector } from '../../lib/db/schema'
@@ -19,6 +18,7 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const gpsMarkerRef = useRef<maplibregl.Marker | null>(null)
+  const markersRef = useRef<maplibregl.Marker[]>([])
   const navigate = useNavigate()
   const { position } = useGps()
   const [nearestSector, setNearestSector] = useState<{ name: string; distance: string } | null>(null)
@@ -26,9 +26,6 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return
-
-    const pmtilesProtocol = registerPMTilesProtocol()
-    maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile)
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
@@ -58,49 +55,56 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
     })
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
-
-    // Add sector markers when map loads
-    map.on('load', () => {
-      sectors.forEach((sector) => {
-        const el = document.createElement('div')
-        el.className = 'sector-marker'
-        el.innerHTML = `
-          <div style="
-            background: #1e3a5f;
-            color: white;
-            padding: 4px 10px;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 600;
-            white-space: nowrap;
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-            border: 2px solid white;
-          ">${sector.name}</div>
-        `
-        el.addEventListener('click', () => {
-          navigate(`/sector/${sector.id}`)
-        })
-
-        new maplibregl.Marker({ element: el })
-          .setLngLat([sector.longitude, sector.latitude])
-          .addTo(map)
-      })
-    })
-
     mapRef.current = map
 
     return () => {
       map.remove()
       mapRef.current = null
     }
+  }, [])
+
+  // Update sector markers when sectors change
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    // Remove old markers
+    markersRef.current.forEach((m) => m.remove())
+    markersRef.current = []
+
+    sectors.forEach((sector) => {
+      const el = document.createElement('div')
+      el.innerHTML = `
+        <div style="
+          background: #1e3a5f;
+          color: white;
+          padding: 4px 10px;
+          border-radius: 16px;
+          font-size: 12px;
+          font-weight: 600;
+          white-space: nowrap;
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          border: 2px solid white;
+        ">${sector.name}</div>
+      `
+      el.addEventListener('click', () => {
+        navigate(`/sector/${sector.id}`)
+      })
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([sector.longitude, sector.latitude])
+        .addTo(map)
+
+      markersRef.current.push(marker)
+    })
   }, [sectors, navigate])
 
   // Update GPS position on map
   useEffect(() => {
     if (!mapRef.current || !position) return
 
-    const { latitude, longitude, accuracy } = position
+    const { latitude, longitude } = position
 
     if (!gpsMarkerRef.current) {
       const el = document.createElement('div')
@@ -148,13 +152,13 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
   }
 
   return (
-    <div className="relative w-full h-full">
-      <div ref={mapContainer} className="w-full h-full" />
+    <div className="relative w-full" style={{ height: 'calc(100dvh - 60px)' }}>
+      <div ref={mapContainer} className="absolute inset-0" />
 
       {/* GPS center button */}
       <button
         onClick={centerOnGps}
-        className="absolute bottom-20 right-3 bg-white rounded-full w-10 h-10 shadow-lg flex items-center justify-center text-lg"
+        className="absolute bottom-4 right-3 bg-white rounded-full w-10 h-10 shadow-lg flex items-center justify-center text-lg z-10"
         title="Моя позиция"
       >
         📍
@@ -162,7 +166,7 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
 
       {/* Nearest sector info */}
       {nearestSector && (
-        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur rounded-lg px-3 py-2 shadow text-sm">
+        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur rounded-lg px-3 py-2 shadow text-sm z-10">
           <span className="text-gray-500">Ближайший:</span>{' '}
           <span className="font-semibold">{nearestSector.name}</span>{' '}
           <span className="text-blue-600">{nearestSector.distance}</span>
@@ -171,7 +175,7 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
 
       {/* GPS accuracy warning */}
       {position && position.accuracy > 50 && (
-        <div className="absolute top-3 right-3 bg-yellow-100 text-yellow-800 rounded-lg px-3 py-1 text-xs shadow">
+        <div className="absolute top-3 right-3 bg-yellow-100 text-yellow-800 rounded-lg px-3 py-1 text-xs shadow z-10">
           GPS: ±{Math.round(position.accuracy)}м
         </div>
       )}

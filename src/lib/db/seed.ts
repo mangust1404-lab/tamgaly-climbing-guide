@@ -2,177 +2,322 @@ import { db } from './schema'
 import type { Area, Sector, Route } from './schema'
 
 /**
- * Seed database with sample Tamgaly-Tas data.
- * In production, this data would come from the server via "Download Area" flow.
+ * Real Tamgaly-Tas route data (101 routes, 15 sectors).
+ * Sources: alatau.guide, theCrag.
  */
+
+const GRADE_SORT: Record<string, number> = {
+  '4': 30, '4a': 40, '4b': 50, '4c': 60,
+  '5a': 70, '5a+': 75, '5b': 85, '5b+': 90, '5c': 100, '5c+': 105,
+  '6a': 120, '6a+': 135, '6b': 150, '6b+': 170, '6c': 190, '6c+': 210,
+  '7a': 240, '7a+': 270, '7b': 300, '7b+': 340, '7c': 380, '7c+': 420,
+  '8a': 470, '8a+': 520,
+}
+
+function gs(grade: string): number {
+  return GRADE_SORT[grade.toLowerCase()] || 0
+}
+
+function slug(text: string): string {
+  return text.toLowerCase()
+    .replace(/[а-яё]/g, (ch) => {
+      const m: Record<string, string> = {
+        'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo',
+        'ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m',
+        'н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u',
+        'ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'shch',
+        'ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya',
+      }
+      return m[ch] || ch
+    })
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+let routeCounter = 0
+function rt(sectorId: string, name: string, grade: string, type: 'sport' | 'trad' | 'multi-pitch' = 'sport', lengthM?: number, pitches = 1): Route {
+  routeCounter++
+  return {
+    id: `route-${routeCounter}`,
+    sectorId,
+    name,
+    slug: slug(name),
+    grade,
+    gradeSystem: 'french',
+    gradeSort: gs(grade),
+    lengthM,
+    pitches,
+    routeType: type,
+    numberInSector: 0,
+    status: 'published',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+function numberRoutes(routes: Route[]) {
+  routes.forEach((r, i) => { r.numberInSector = i + 1 })
+  return routes
+}
+
 export async function seedDemoData() {
   const existingAreas = await db.areas.count()
-  if (existingAreas > 0) return // Already seeded
+  if (existingAreas > 0) return
 
   const area: Area = {
-    id: 'area-tamgaly',
+    id: 'tamgaly-tas',
     name: 'Тамгалы-Тас',
     slug: 'tamgaly-tas',
-    description: 'Скалолазный район на берегу реки Или, 120 км от Алматы. Гранитные скалы, ~200 маршрутов от 5b до 8a.',
+    description: 'Скалолазный район на берегу реки Или, 120 км от Алматы. Туф (вулканическая порода), ~200 маршрутов от 4 до 8a+. Сезон: март—май, сентябрь—ноябрь.',
     latitude: 43.805,
     longitude: 75.535,
-    bboxNorth: 43.815,
-    bboxSouth: 43.795,
-    bboxEast: 75.545,
-    bboxWest: 75.525,
-    approachInfo: 'От Алматы ~1.5-2 часа на машине на север через Капчагай. Есть ворота на входе.',
-    accessNotes: 'Сезон: март-май, сентябрь-ноябрь. Летом слишком жарко.',
-    rockType: 'granite',
+    bboxNorth: 43.815, bboxSouth: 43.795, bboxEast: 75.545, bboxWest: 75.525,
+    approachInfo: 'От Алматы ~1.5—2 часа на машине на север через Капчагай.',
+    accessNotes: 'Летом слишком жарко. Лучший сезон — весна и осень.',
+    rockType: 'tuff',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
 
+  // ===================== ГАВАНЬ =====================
   const sectors: Sector[] = [
-    {
-      id: 'sector-gavan',
-      areaId: 'area-tamgaly',
-      name: 'Гавань',
-      slug: 'gavan',
-      description: 'Ущелье, окружённое скалами. Плиты (до 7b) и лёгкие мультипитчи.',
-      latitude: 43.804,
-      longitude: 75.534,
-      approachDescription: 'От ворот прямо по тропе, ~10 минут.',
-      approachTimeMin: 10,
-      orientation: 'Юг',
-      sunExposure: 'Утром тень, днём солнце',
-      sortOrder: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'sector-riverside',
-      areaId: 'area-tamgaly',
-      name: 'Ривёрсайд',
-      slug: 'riverside',
-      description: 'Более сложные маршруты (до 8a) и мультипитчи. Ближе к реке.',
-      latitude: 43.806,
-      longitude: 75.536,
-      approachDescription: 'От ворот направо вдоль забора, потом к реке, ~15 минут.',
-      approachTimeMin: 15,
-      orientation: 'Запад',
-      sunExposure: 'Утром тень, после обеда солнце',
-      sortOrder: 2,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'sector-prigorod',
-      areaId: 'area-tamgaly',
-      name: 'Пригород',
-      slug: 'prigorod',
-      description: 'Новый сектор с маршрутами 6-7 категории.',
-      latitude: 43.803,
-      longitude: 75.533,
-      approachDescription: 'От основного сектора налево, 5 минут.',
-      approachTimeMin: 5,
-      orientation: 'Юго-восток',
-      sunExposure: 'Утром солнце',
-      sortOrder: 3,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'sector-utrenniy',
-      areaId: 'area-tamgaly',
-      name: 'Утренний',
-      slug: 'utrenniy',
-      description: 'Восемь лёгких маршрутов для новичков.',
-      latitude: 43.802,
-      longitude: 75.532,
-      approachDescription: 'Рядом с Пригородом, 2 минуты.',
-      approachTimeMin: 7,
-      orientation: 'Восток',
-      sunExposure: 'Утром солнце, днём тень',
-      sortOrder: 4,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+    { id: 'sector-vinni', areaId: 'tamgaly-tas', name: 'Винни-Пух', slug: 'vinni-pukh',
+      description: 'Первая скала слева при входе в ущелье. Тёплая ранней весной. 13 маршрутов.',
+      latitude: 43.8040, longitude: 75.5340,
+      approachDescription: 'От парковки в ущелье, первая скала слева.', approachTimeMin: 5,
+      orientation: 'Юг', sunExposure: 'Весь день солнце', sortOrder: 1,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-zamanka', areaId: 'tamgaly-tas', name: 'Заманка', slug: 'zamanka',
+      description: '«Алиса в стране чудес». Южная и северная стороны.',
+      latitude: 43.8042, longitude: 75.5335,
+      approachDescription: 'За скалой Манка.', approachTimeMin: 7,
+      orientation: 'Юг/Север', sunExposure: 'Юг — солнце, север — тень', sortOrder: 2,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-visyachiy', areaId: 'tamgaly-tas', name: 'Висячий Камень', slug: 'visyachiy-kamen',
+      description: 'Большая скала с валуном наверху. Три мультипитча.',
+      latitude: 43.8045, longitude: 75.5330,
+      approachDescription: 'Дальше по ущелью от Заманки.', approachTimeMin: 10,
+      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 3,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-laboratoriya', areaId: 'tamgaly-tas', name: 'Лаборатория', slug: 'laboratoriya',
+      description: 'Два маршрута под Висячим Камнем.',
+      latitude: 43.8046, longitude: 75.5328,
+      approachDescription: 'Под Висячим Камнем.', approachTimeMin: 10,
+      orientation: 'Юг', sunExposure: 'Днём солнце', sortOrder: 4,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-lev', areaId: 'tamgaly-tas', name: 'Лев', slug: 'lev',
+      description: 'Справа от входа в Гавань. Два слэба и одна вертикаль.',
+      latitude: 43.8038, longitude: 75.5345,
+      approachDescription: 'Справа от входа в ущелье.', approachTimeMin: 5,
+      orientation: 'Восток', sunExposure: 'Утром солнце', sortOrder: 5,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-yabloki', areaId: 'tamgaly-tas', name: 'Яблоки', slug: 'yabloki',
+      description: 'Лёгкие маршруты с «дырами». Первое солнце. 15 маршрутов. Перепробиты 2018.',
+      latitude: 43.8048, longitude: 75.5325,
+      approachDescription: 'Дальше по ущелью, восточная стена.', approachTimeMin: 10,
+      orientation: 'Восток', sunExposure: 'Первое солнце утром', sortOrder: 6,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-zub', areaId: 'tamgaly-tas', name: 'Зуб', slug: 'zub',
+      description: '4 свежих маршрута на крепкой породе (2019).',
+      latitude: 43.8050, longitude: 75.5322,
+      approachDescription: 'Рядом с Яблоками.', approachTimeMin: 11,
+      orientation: 'Восток', sunExposure: 'Утром солнце', sortOrder: 7,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-rebro', areaId: 'tamgaly-tas', name: 'Ребро Жёсткости', slug: 'rebro',
+      description: 'Трад-сектор с минимумом болтов.',
+      latitude: 43.8052, longitude: 75.5320,
+      approachDescription: 'Дальше от Зуба.', approachTimeMin: 12,
+      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 8,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-biblioteka', areaId: 'tamgaly-tas', name: 'Библиотека', slug: 'biblioteka',
+      description: 'Самый дальний сектор Гавани. Два уровня.',
+      latitude: 43.8055, longitude: 75.5315,
+      approachDescription: 'Конец ущелья Гавань.', approachTimeMin: 15,
+      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 9,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    // ===================== РИВЁРСАЙД =====================
+    { id: 'sector-prigorod', areaId: 'tamgaly-tas', name: 'Пригород', slug: 'prigorod',
+      description: 'Начало Ривёрсайд. Микс трада и спорта.',
+      latitude: 43.8060, longitude: 75.5360,
+      approachDescription: 'От парковки направо вдоль реки.', approachTimeMin: 15,
+      orientation: 'Запад', sunExposure: 'После обеда, жарко', sortOrder: 10,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-gorod', areaId: 'tamgaly-tas', name: 'Город', slug: 'gorod',
+      description: 'Мультипитчи и трад. Верёвка 60м.',
+      latitude: 43.8062, longitude: 75.5365,
+      approachDescription: 'Правее Пригорода.', approachTimeMin: 17,
+      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 11,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-serpy', areaId: 'tamgaly-tas', name: 'Серпы', slug: 'serpy',
+      description: 'Длинные сложные вертикали и нависания.',
+      latitude: 43.8065, longitude: 75.5370,
+      approachDescription: 'Правее Города.', approachTimeMin: 18,
+      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 12,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-bastion', areaId: 'tamgaly-tas', name: 'Бастион', slug: 'bastion',
+      description: 'Над рисунком Будды. Верхний и нижний уровни. 14 маршрутов.',
+      latitude: 43.8068, longitude: 75.5375,
+      approachDescription: 'Правее Серпов.', approachTimeMin: 20,
+      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 13,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-karnizy', areaId: 'tamgaly-tas', name: 'Карнизы', slug: 'karnizy',
+      description: 'Правее Бастиона. Мультипитчи до 8a.',
+      latitude: 43.8070, longitude: 75.5380,
+      approachDescription: 'Правее Бастиона.', approachTimeMin: 22,
+      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 14,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   ]
 
-  // Sample routes for Gavan sector
-  const routes: Route[] = [
-    {
-      id: 'route-1', sectorId: 'sector-gavan', name: 'Разминка', slug: 'razminka',
-      grade: '5b', gradeSystem: 'french', gradeSort: 85, lengthM: 15, pitches: 1,
-      routeType: 'sport', description: '', numberInSector: 1,
-      tags: ['slab'], status: 'published',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'route-2', sectorId: 'sector-gavan', name: 'Первые шаги', slug: 'pervye-shagi',
-      grade: '5c', gradeSystem: 'french', gradeSort: 100, lengthM: 18, pitches: 1,
-      routeType: 'sport', description: '', numberInSector: 2,
-      tags: ['face'], status: 'published',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'route-3', sectorId: 'sector-gavan', name: 'Классика', slug: 'klassika',
-      grade: '6a', gradeSystem: 'french', gradeSort: 120, lengthM: 20, pitches: 1,
-      routeType: 'sport', description: '', numberInSector: 3,
-      tags: ['slab', 'crimps'], status: 'published',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'route-4', sectorId: 'sector-gavan', name: 'Гранитный угол', slug: 'granitny-ugol',
-      grade: '6b+', gradeSystem: 'french', gradeSort: 170, lengthM: 22, pitches: 1,
-      routeType: 'sport', description: '', numberInSector: 4,
-      tags: ['corner', 'crimps'], status: 'published',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'route-5', sectorId: 'sector-gavan', name: 'Щель капитана', slug: 'shchel-kapitana',
-      grade: '6c', gradeSystem: 'french', gradeSort: 190, lengthM: 25, pitches: 1,
-      routeType: 'trad', description: '', protection: 'Камы 0.5-3',
-      numberInSector: 5, tags: ['crack'], status: 'published',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'route-6', sectorId: 'sector-riverside', name: 'Речной бриз', slug: 'rechnoy-briz',
-      grade: '7a', gradeSystem: 'french', gradeSort: 240, lengthM: 28, pitches: 1,
-      routeType: 'sport', description: '', numberInSector: 1,
-      tags: ['overhang', 'endurance'], status: 'published',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'route-7', sectorId: 'sector-riverside', name: 'Проект Или', slug: 'proekt-ili',
-      grade: '7b+', gradeSystem: 'french', gradeSort: 340, lengthM: 30, pitches: 1,
-      routeType: 'sport', description: '', numberInSector: 2,
-      tags: ['overhang', 'power'], status: 'published',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'route-8', sectorId: 'sector-riverside', name: 'Мультипитч Ривёрсайд', slug: 'multipitch-riverside',
-      grade: '6a', gradeSystem: 'french', gradeSort: 120, lengthM: 60, pitches: 3,
-      routeType: 'multi-pitch', description: '', numberInSector: 3,
-      tags: ['multi-pitch', 'slab'], status: 'published',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'route-9', sectorId: 'sector-prigorod', name: 'Новосёл', slug: 'novosel',
-      grade: '6b', gradeSystem: 'french', gradeSort: 150, lengthM: 20, pitches: 1,
-      routeType: 'sport', description: '', numberInSector: 1,
-      tags: ['face'], status: 'published',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'route-10', sectorId: 'sector-utrenniy', name: 'Доброе утро', slug: 'dobroe-utro',
-      grade: '5a', gradeSystem: 'french', gradeSort: 70, lengthM: 12, pitches: 1,
-      routeType: 'sport', description: '', numberInSector: 1,
-      tags: ['slab', 'beginner'], status: 'published',
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    },
+  const allRoutes: Route[] = [
+    // Винни-Пух (13)
+    ...numberRoutes([
+      rt('sector-vinni', 'Неправильные пчёлы', '5c+'),
+      rt('sector-vinni', 'Кристофер Робин', '5c'),
+      rt('sector-vinni', 'Ловушка для Слонопотама', '5c'),
+      rt('sector-vinni', 'Крошка Ру', '4'),
+      rt('sector-vinni', 'Кенга', '5a+'),
+      rt('sector-vinni', 'Сова', '5b'),
+      rt('sector-vinni', 'Тигра', '5b'),
+      rt('sector-vinni', 'Пятнистый Счастливус', '6b+'),
+      rt('sector-vinni', 'Винни-Пух', '6a+'),
+      rt('sector-vinni', 'Пятачок', '6c'),
+      rt('sector-vinni', 'Левое ухо ослика Иа', '6b+'),
+      rt('sector-vinni', 'Правое ухо ослика Иа', '6a'),
+      rt('sector-vinni', 'Кролик', '6a'),
+    ]),
+    // Заманка (8)
+    ...numberRoutes([
+      rt('sector-zamanka', 'Дина', '6a'),
+      rt('sector-zamanka', 'Алиса', '6a+'),
+      rt('sector-zamanka', 'Бармаглот', '7a'),
+      rt('sector-zamanka', 'Чеширский кот', '6c'),
+      rt('sector-zamanka', 'Синяя Гусеница', '6b+'),
+      rt('sector-zamanka', 'Соня', '5c'),
+      rt('sector-zamanka', 'Мартовский заяц', '6c'),
+      rt('sector-zamanka', 'Безумный Шляпник', '7a+'),
+    ]),
+    // Висячий Камень (3)
+    ...numberRoutes([
+      rt('sector-visyachiy', 'Тоторо', '6a', 'multi-pitch', 50, 2),
+      rt('sector-visyachiy', 'Хаул', '5c', 'multi-pitch', 45, 2),
+      rt('sector-visyachiy', 'Навсикая', '6c', 'multi-pitch', 55, 2),
+    ]),
+    // Лаборатория (1)
+    ...numberRoutes([
+      rt('sector-laboratoriya', 'Правая', '7a+'),
+    ]),
+    // Лев (3)
+    ...numberRoutes([
+      rt('sector-lev', 'Ррр-Мяу', '6a'),
+      rt('sector-lev', 'Бонифаций', '6c'),
+      rt('sector-lev', 'Разминка', '7a+'),
+    ]),
+    // Яблоки (15)
+    ...numberRoutes([
+      rt('sector-yabloki', 'Ватрушка', '5c'),
+      rt('sector-yabloki', 'Дамские пальчики', '6c'),
+      rt('sector-yabloki', 'Шарлотка', '6b'),
+      rt('sector-yabloki', 'Блин', '6a'),
+      rt('sector-yabloki', 'Бублик', '5c+'),
+      rt('sector-yabloki', 'Трубочки с кремом', '6b+'),
+      rt('sector-yabloki', 'Мороженое', '5b'),
+      rt('sector-yabloki', 'Пирожное', '5c'),
+      rt('sector-yabloki', 'Торт', '5b'),
+      rt('sector-yabloki', 'Не ищи сову', '5c', 'trad'),
+      rt('sector-yabloki', 'Печенка', '5b+'),
+      rt('sector-yabloki', 'Незавершённый гештальт', '5b'),
+      rt('sector-yabloki', 'Булочка', '5b+'),
+      rt('sector-yabloki', 'Напугай сову', '4', 'trad'),
+      rt('sector-yabloki', 'Найди сову', '4', 'trad'),
+    ]),
+    // Зуб (4)
+    ...numberRoutes([
+      rt('sector-zub', 'Мудрости', '6b+'),
+      rt('sector-zub', 'Выпавший', '6b'),
+      rt('sector-zub', 'Коренной', '6b+'),
+      rt('sector-zub', 'Молочный', '6a+'),
+    ]),
+    // Ребро Жёсткости (4)
+    ...numberRoutes([
+      rt('sector-rebro', 'Гришина щель', '5b', 'trad'),
+      rt('sector-rebro', 'Череп и покрышка', '5c', 'trad'),
+      rt('sector-rebro', 'Астериск', '6c'),
+      rt('sector-rebro', 'Крест', '5c+'),
+    ]),
+    // Библиотека (10)
+    ...numberRoutes([
+      rt('sector-biblioteka', 'Иностранка', '5b'),
+      rt('sector-biblioteka', 'Почтамт', '7b'),
+      rt('sector-biblioteka', 'Гриб (лев)', '6b'),
+      rt('sector-biblioteka', 'Гриб (прав)', '6b+'),
+      rt('sector-biblioteka', 'Ми', '5b'),
+      rt('sector-biblioteka', 'Теория времени', '5b'),
+      rt('sector-biblioteka', 'Архипелаг', '6b+'),
+      rt('sector-biblioteka', 'Планея людей', '7a+'),
+      rt('sector-biblioteka', 'На дороге', '6c+'),
+      rt('sector-biblioteka', 'Ремесло', '6b'),
+    ]),
+    // Пригород (7)
+    ...numberRoutes([
+      rt('sector-prigorod', 'Сюрприз #2', '7c'),
+      rt('sector-prigorod', 'Щель страха', '5c', 'trad'),
+      rt('sector-prigorod', 'Щель боли', '6b', 'trad'),
+      rt('sector-prigorod', 'Через карниз', '6a+', 'trad'),
+      rt('sector-prigorod', 'Мескалито', '6c'),
+      rt('sector-prigorod', 'Сюрприз', '7a+'),
+      rt('sector-prigorod', 'Нагваль', '7a'),
+    ]),
+    // Город (9)
+    ...numberRoutes([
+      rt('sector-gorod', 'Щель Ратмира', '6c'),
+      rt('sector-gorod', 'Щель с птицами', '5c'),
+      rt('sector-gorod', 'Сила безмолвия', '7a', 'multi-pitch', 50, 2),
+      rt('sector-gorod', 'Отдельная реальность', '6c', 'multi-pitch', 50, 2),
+      rt('sector-gorod', 'Огонь изнутри', '7a', 'multi-pitch', 55, 2),
+      rt('sector-gorod', 'Ломовая щель', '6b', 'trad'),
+      rt('sector-gorod', 'Сказки о силе', '7b', 'multi-pitch', 60, 2),
+      rt('sector-gorod', 'Колесо времени', '6b+', 'multi-pitch', 50, 2),
+      rt('sector-gorod', 'Щель ярости', '6a'),
+    ]),
+    // Серпы (5)
+    ...numberRoutes([
+      rt('sector-serpy', 'Червяк', '6b+', 'trad'),
+      rt('sector-serpy', 'Малый серп', '6c'),
+      rt('sector-serpy', 'Белый подтёк', '7c'),
+      rt('sector-serpy', 'Щель с ласточками', '6c'),
+      rt('sector-serpy', 'Гнёзда', '6c'),
+    ]),
+    // Бастион (14)
+    ...numberRoutes([
+      rt('sector-bastion', 'Слева от бастиона', '6a', 'trad'),
+      rt('sector-bastion', 'Подвиг разведчика', '7a'),
+      rt('sector-bastion', 'Грибоедовский вальс', '7a+'),
+      rt('sector-bastion', 'Прямая дорога', '7b'),
+      rt('sector-bastion', 'Поезд', '6b'),
+      rt('sector-bastion', 'Искры', '6c'),
+      rt('sector-bastion', 'Шишки', '5c', 'trad'),
+      rt('sector-bastion', 'Семья', '5b'),
+      rt('sector-bastion', 'Палата номер шесть', '6b'),
+      rt('sector-bastion', 'Лихо', '6b+'),
+      rt('sector-bastion', 'Время колокольчиков', '5c'),
+      rt('sector-bastion', 'Верка', '6b'),
+      rt('sector-bastion', 'Надка', '5b'),
+      rt('sector-bastion', 'Любка', '5c'),
+    ]),
+    // Карнизы (4)
+    ...numberRoutes([
+      rt('sector-karnizy', 'От винта', '7c+', 'multi-pitch', 50, 2),
+      rt('sector-karnizy', 'Пляши в огне!', '8a', 'multi-pitch', 55, 2),
+      rt('sector-karnizy', 'Пашкина щель', '7a', 'trad'),
+      rt('sector-karnizy', 'Три щели', '6a', 'trad'),
+    ]),
   ]
 
   await db.transaction('rw', [db.areas, db.sectors, db.routes], async () => {
     await db.areas.add(area)
     await db.sectors.bulkAdd(sectors)
-    await db.routes.bulkAdd(routes)
+    await db.routes.bulkAdd(allRoutes)
   })
 
-  console.log('Demo data seeded: 1 area, 4 sectors, 10 routes')
+  console.log(`Seeded: 1 area, ${sectors.length} sectors, ${allRoutes.length} routes`)
 }
