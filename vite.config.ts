@@ -53,6 +53,16 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          maplibre: ['maplibre-gl'],
+          openseadragon: ['openseadragon'],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': '/src',

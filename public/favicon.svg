@@ -1,3 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="48">🧗</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <rect width="48" height="48" rx="8" fill="#1e3a5f"/>
+  <path d="M14 38 L24 8 L34 38" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="24" cy="8" r="3" fill="#4285f4"/>
+  <line x1="18" y1="26" x2="30" y2="26" stroke="white" stroke-width="2" stroke-linecap="round"/>
 </svg>
