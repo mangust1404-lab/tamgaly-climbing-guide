@@ -57,7 +57,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          maplibre: ['maplibre-gl'],
+          leaflet: ['leaflet'],
           openseadragon: ['openseadragon'],
         },
       },
