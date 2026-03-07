@@ -3,6 +3,15 @@ import { useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { AscentForm } from '../components/route/AscentForm'
+import { routeTypeLabel, gradeColor } from '../lib/utils'
+
+const STYLE_LABELS: Record<string, string> = {
+  onsight: 'Онсайт',
+  flash: 'Флэш',
+  redpoint: 'Редпоинт',
+  toprope: 'Топроуп',
+  attempt: 'Попытка',
+}
 
 export function RoutePage() {
   const { routeId } = useParams<{ routeId: string }>()
@@ -42,13 +51,13 @@ export function RoutePage() {
       )}
 
       <div className="flex items-start gap-3 mb-4">
-        <span className="text-xl font-mono font-bold text-blue-700 bg-blue-50 rounded px-3 py-1">
+        <span className={`text-xl font-mono font-bold rounded px-3 py-1 ${gradeColor(route.grade)}`}>
           {route.grade}
         </span>
         <div>
           <h1 className="text-2xl font-bold">{route.name}</h1>
           <p className="text-gray-500 text-sm">
-            {route.routeType}
+            {routeTypeLabel(route.routeType)}
             {route.lengthM && ` · ${route.lengthM}м`}
             {route.pitches > 1 && ` · ${route.pitches} верёвок`}
           </p>
@@ -96,7 +105,7 @@ export function RoutePage() {
               className="bg-white border border-gray-200 rounded-lg p-3"
             >
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium capitalize">{ascent.style}</span>
+                <span className="text-sm font-medium">{STYLE_LABELS[ascent.style] ?? ascent.style}</span>
                 <span className="text-xs text-gray-400">{ascent.date}</span>
               </div>
               {ascent.rating && (

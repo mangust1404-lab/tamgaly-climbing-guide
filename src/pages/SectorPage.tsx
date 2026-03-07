@@ -4,10 +4,26 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { TopoViewer } from '../components/topo/TopoViewer'
 import { RouteList } from '../components/topo/RouteList'
+import { routeTypeLabel, gradeColor } from '../lib/utils'
+
+const GRADE_FILTERS = ['Все', '4-5a', '5b-5c', '6a-6b', '6b+-6c+', '7a+'] as const
+
+function matchesGradeFilter(gradeSort: number, filter: string): boolean {
+  if (filter === 'Все') return true
+  switch (filter) {
+    case '4-5a': return gradeSort >= 30 && gradeSort <= 75
+    case '5b-5c': return gradeSort >= 85 && gradeSort <= 105
+    case '6a-6b': return gradeSort >= 120 && gradeSort <= 150
+    case '6b+-6c+': return gradeSort >= 170 && gradeSort <= 210
+    case '7a+': return gradeSort >= 240
+    default: return true
+  }
+}
 
 export function SectorPage() {
   const { sectorId } = useParams<{ sectorId: string }>()
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
+  const [gradeFilter, setGradeFilter] = useState('Все')
 
   const sector = useLiveQuery(
     () => (sectorId ? db.sectors.get(sectorId) : undefined),
@@ -38,7 +54,6 @@ export function SectorPage() {
         const trs = await db.topoRoutes.where('topoId').equals(topo.id).toArray()
         allTr.push(...trs)
       }
-      // Attach route data
       const routeMap = new Map((routes || []).map((r) => [r.id, r]))
       return allTr.map((tr) => ({ ...tr, route: routeMap.get(tr.routeId) }))
     },
@@ -49,6 +64,7 @@ export function SectorPage() {
     return <div className="p-4 text-gray-400">Сектор не найден</div>
   }
 
+  const filteredRoutes = routes?.filter(r => matchesGradeFilter(r.gradeSort, gradeFilter)) ?? []
   const activeTopo = topos?.[0]
 
   return (
@@ -109,15 +125,34 @@ export function SectorPage() {
 
       {/* Routes list */}
       <div className="p-4 pt-2">
-        <h2 className="text-lg font-semibold mb-3">
+        <h2 className="text-lg font-semibold mb-2">
           Маршруты {routes ? `(${routes.length})` : ''}
         </h2>
 
-        {!routes || routes.length === 0 ? (
-          <p className="text-gray-400 text-sm">Маршруты не загружены</p>
+        {/* Grade filter chips */}
+        <div className="flex gap-1.5 overflow-x-auto pb-3 -mx-1 px-1">
+          {GRADE_FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setGradeFilter(f)}
+              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                gradeFilter === f
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+
+        {filteredRoutes.length === 0 ? (
+          <p className="text-gray-400 text-sm">
+            {routes?.length ? 'Нет маршрутов в этом диапазоне' : 'Маршруты не загружены'}
+          </p>
         ) : (
           <div className="space-y-1">
-            {routes.map((route) => {
+            {filteredRoutes.map((route) => {
               const tr = topoRoutes?.find((t) => t.routeId === route.id)
               const isSelected = route.id === selectedRouteId
               return (
@@ -140,13 +175,13 @@ export function SectorPage() {
                       {tr.routeNumber}
                     </span>
                   )}
-                  <span className="w-12 text-center text-sm font-mono font-bold text-blue-700 bg-blue-50 rounded px-2 py-1">
+                  <span className={`w-12 text-center text-sm font-mono font-bold rounded px-2 py-1 ${gradeColor(route.grade)}`}>
                     {route.grade}
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{route.name}</div>
                     <div className="text-xs text-gray-400">
-                      {route.routeType}
+                      {routeTypeLabel(route.routeType)}
                       {route.lengthM && ` · ${route.lengthM}м`}
                       {route.pitches > 1 && ` · ${route.pitches} верёвок`}
                     </div>
