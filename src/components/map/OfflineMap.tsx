@@ -21,6 +21,7 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
   const markersRef = useRef<maplibregl.Marker[]>([])
   const navigate = useNavigate()
   const { position } = useGps()
+  const [mapReady, setMapReady] = useState(false)
   const [nearestSector, setNearestSector] = useState<{ name: string; distance: string } | null>(null)
 
   // Initialize map
@@ -55,18 +56,24 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
     })
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
+
+    map.on('load', () => {
+      setMapReady(true)
+    })
+
     mapRef.current = map
 
     return () => {
       map.remove()
       mapRef.current = null
+      setMapReady(false)
     }
   }, [])
 
-  // Update sector markers when sectors change
+  // Update sector markers when sectors change AND map is ready
   useEffect(() => {
     const map = mapRef.current
-    if (!map) return
+    if (!map || !mapReady) return
 
     // Remove old markers
     markersRef.current.forEach((m) => m.remove())
@@ -98,11 +105,11 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
 
       markersRef.current.push(marker)
     })
-  }, [sectors, navigate])
+  }, [sectors, navigate, mapReady])
 
   // Update GPS position on map
   useEffect(() => {
-    if (!mapRef.current || !position) return
+    if (!mapRef.current || !mapReady || !position) return
 
     const { latitude, longitude } = position
 
@@ -138,7 +145,7 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
         distance: formatDistance(minDist),
       })
     }
-  }, [position, sectors])
+  }, [position, sectors, mapReady])
 
   // Center map on GPS position
   const centerOnGps = () => {
@@ -152,7 +159,7 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
   }
 
   return (
-    <div className="relative w-full" style={{ height: 'calc(100dvh - 60px)' }}>
+    <div className="relative w-full flex-1" style={{ minHeight: 300 }}>
       <div ref={mapContainer} className="absolute inset-0" />
 
       {/* GPS center button */}

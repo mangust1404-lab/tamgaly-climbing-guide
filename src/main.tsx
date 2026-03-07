@@ -4,11 +4,13 @@ import './index.css'
 import App from './App'
 import { seedDemoData } from './lib/db/seed'
 
-// Seed demo data on first load
-seedDemoData().catch(console.error)
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// Seed data FIRST, then render app
+seedDemoData()
+  .catch(console.error)
+  .finally(() => {
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+  })

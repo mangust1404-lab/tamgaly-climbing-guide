@@ -60,7 +60,7 @@ function numberRoutes(routes: Route[]) {
   return routes
 }
 
-const SEED_VERSION = 2 // bump to force re-seed
+const SEED_VERSION = 3 // bump to force re-seed
 
 export async function seedDemoData() {
   // Check seed version — if old data exists, wipe and re-seed

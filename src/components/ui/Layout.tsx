@@ -14,7 +14,7 @@ export function Layout() {
   const { pendingCount, syncing, sync } = useSync()
 
   return (
-    <div className="flex flex-col min-h-[100dvh]">
+    <div className="flex flex-col h-[100dvh]">
       {/* Offline / sync status bar */}
       {(!isOnline || pendingCount > 0) && (
         <div className={`flex items-center justify-between px-3 py-1.5 text-xs ${
@@ -36,11 +36,11 @@ export function Layout() {
         </div>
       )}
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto flex flex-col min-h-0">
         <Outlet />
       </main>
 
-      <nav className="sticky bottom-0 bg-white border-t border-gray-200 px-2 py-1 flex justify-around">
+      <nav className="flex-shrink-0 bg-white border-t border-gray-200 px-2 py-1 flex justify-around">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

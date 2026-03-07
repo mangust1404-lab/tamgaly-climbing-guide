@@ -5,9 +5,5 @@ import { OfflineMap } from '../components/map/OfflineMap'
 export function MapPage() {
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
 
-  return (
-    <div className="flex-1 flex flex-col">
-      <OfflineMap sectors={sectors ?? []} />
-    </div>
-  )
+  return <OfflineMap sectors={sectors ?? []} />
 }
