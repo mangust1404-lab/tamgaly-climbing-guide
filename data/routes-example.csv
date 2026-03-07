@@ -1,0 +1,11 @@
+sector;name;grade;type;length_m;pitches;first_ascent;tags
+Гавань;Разминка;5b;sport;15;1;;slab
+Гавань;Первые шаги;5c;sport;18;1;;face
+Гавань;Классика;6a;sport;20;1;;slab,crimps
+Гавань;Гранитный угол;6b+;sport;22;1;;corner,crimps
+Гавань;Щель капитана;6c;trad;25;1;;crack
+Ривёрсайд;Речной бриз;7a;sport;28;1;;overhang,endurance
+Ривёрсайд;Проект Или;7b+;sport;30;1;;overhang,power
+Ривёрсайд;Мультипитч Ривёрсайд;6a;multi-pitch;60;3;;multi-pitch,slab
+Пригород;Новосёл;6b;sport;20;1;;face
+Утренний;Доброе утро;5a;sport;12;1;;slab,beginner
