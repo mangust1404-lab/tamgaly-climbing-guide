@@ -1,5 +1,6 @@
 import { lazy, Suspense, Component, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { I18nProvider } from './lib/i18n'
 import { Layout } from './components/ui/Layout'
 import { HomePage } from './pages/HomePage'
 import { SectorPage } from './pages/SectorPage'
@@ -47,6 +48,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 function App() {
   return (
     <ErrorBoundary>
+      <I18nProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
@@ -61,6 +63,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </I18nProvider>
     </ErrorBoundary>
   )
 }

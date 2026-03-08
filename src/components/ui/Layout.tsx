@@ -1,17 +1,19 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useOfflineStatus } from '../../hooks/useOfflineStatus'
 import { useSync } from '../../hooks/useSync'
-
-const navItems = [
-  { to: '/', label: 'Главная', icon: '🏔' },
-  { to: '/map', label: 'Карта', icon: '🗺' },
-  { to: '/leaderboard', label: 'Рейтинг', icon: '🏆' },
-  { to: '/profile', label: 'Профиль', icon: '👤' },
-]
+import { useI18n } from '../../lib/i18n'
 
 export function Layout() {
   const isOnline = useOfflineStatus()
   const { pendingCount, syncing, sync } = useSync()
+  const { t, lang, setLang } = useI18n()
+
+  const navItems = [
+    { to: '/', label: t('nav.home'), icon: '🏔' },
+    { to: '/map', label: t('nav.map'), icon: '🗺' },
+    { to: '/leaderboard', label: t('nav.leaderboard'), icon: '🏆' },
+    { to: '/profile', label: t('nav.profile'), icon: '👤' },
+  ]
 
   return (
     <div className="flex flex-col h-[100dvh]">
@@ -21,8 +23,8 @@ export function Layout() {
           isOnline ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600'
         }`}>
           <span>
-            {!isOnline && 'Офлайн'}
-            {isOnline && pendingCount > 0 && `${pendingCount} ожидает синхронизации`}
+            {!isOnline && t('status.offline')}
+            {isOnline && pendingCount > 0 && t('status.pending', { n: pendingCount })}
           </span>
           {isOnline && pendingCount > 0 && (
             <button
@@ -30,7 +32,7 @@ export function Layout() {
               disabled={syncing}
               className="font-medium underline"
             >
-              {syncing ? 'Синхронизация...' : 'Синхронизировать'}
+              {syncing ? t('status.syncing') : t('status.sync')}
             </button>
           )}
         </div>
@@ -40,7 +42,7 @@ export function Layout() {
         <Outlet />
       </main>
 
-      <nav className="flex-shrink-0 bg-white border-t border-gray-200 px-2 py-1 flex justify-around">
+      <nav className="flex-shrink-0 bg-white border-t border-gray-200 px-2 py-1 flex justify-around items-center">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -55,6 +57,13 @@ export function Layout() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+        <button
+          onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+          className="text-xs text-gray-400 px-1 py-1 uppercase font-mono"
+          title="Switch language"
+        >
+          {lang === 'ru' ? 'EN' : 'RU'}
+        </button>
       </nav>
     </div>
   )
