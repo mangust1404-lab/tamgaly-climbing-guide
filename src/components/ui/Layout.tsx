@@ -13,6 +13,7 @@ export function Layout() {
     { to: '/map', label: t('nav.map'), icon: '🗺' },
     { to: '/leaderboard', label: t('nav.leaderboard'), icon: '🏆' },
     { to: '/profile', label: t('nav.profile'), icon: '👤' },
+    { to: '/admin/photos', label: 'Admin', icon: '🏷' },
   ]
 
   return (

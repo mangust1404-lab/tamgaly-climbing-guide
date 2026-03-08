@@ -26,9 +26,24 @@ const translations = {
 
   // Home
   'home.title': { ru: 'Тамгалы-Тас', en: 'Tamgaly-Tas' },
-  'home.subtitle': { ru: 'Скалолазный гайд', en: 'Climbing Guide' },
+  'home.subtitle': { ru: 'Скалолазный район, 120 км от Алматы', en: 'Climbing area, 120 km from Almaty' },
   'home.sectors': { ru: 'Секторы', en: 'Sectors' },
   'home.routes': { ru: 'маршрутов', en: 'routes' },
+  'home.routesCount': { ru: 'маршрутов', en: 'routes' },
+  'home.sectorsCount': { ru: 'секторов', en: 'sectors' },
+  'home.ascentsCount': { ru: 'пролазов', en: 'ascents' },
+  'home.openMap': { ru: 'Открыть карту', en: 'Open map' },
+  'home.downloadOffline': { ru: 'Скачать офлайн', en: 'Download offline' },
+  'home.downloading': { ru: 'Загрузка...', en: 'Downloading...' },
+  'home.updateData': { ru: 'Обновить данные', en: 'Update data' },
+  'home.searchPlaceholder': { ru: 'Поиск маршрута...', en: 'Search route...' },
+  'home.searchResults': { ru: 'Результаты поиска', en: 'Search results' },
+  'home.routesShort': { ru: 'маршр.', en: 'routes' },
+  'home.noData': { ru: 'Данные ещё не загружены. Подождите пару секунд или нажмите «Скачать офлайн».', en: 'Data not loaded yet. Wait a few seconds or tap "Download offline".' },
+  'home.approachMin': { ru: 'мин подход', en: 'min approach' },
+  'home.gradeAll': { ru: 'Все', en: 'All' },
+  'home.gradeFilterResults': { ru: 'Маршруты', en: 'Routes' },
+  'home.noRoutesInRange': { ru: 'Нет маршрутов в этом диапазоне', en: 'No routes in this range' },
 
   // Sector
   'sector.routes': { ru: 'Маршруты', en: 'Routes' },

@@ -4,18 +4,40 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { downloadArea, type DownloadProgress } from '../lib/offline/downloadManager'
 import { gradeColor } from '../lib/utils'
+import { useI18n } from '../lib/i18n'
 
 const AREA_ID = 'tamgaly-tas'
 
+const GRADE_SORT: Record<string, number> = {
+  '4': 30, '4a': 40, '4b': 50, '4c': 60,
+  '5a': 70, '5a+': 75, '5b': 85, '5b+': 90, '5c': 100, '5c+': 105,
+  '6a': 120, '6a+': 135, '6b': 150, '6b+': 170, '6c': 190, '6c+': 210,
+  '7a': 240, '7a+': 270, '7b': 300, '7b+': 340, '7c': 380, '7c+': 420,
+  '8a': 470, '8a+': 520,
+}
+
+const GRADE_CHIPS = ['4', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c+', '8a']
+
 export function HomePage() {
+  const { t } = useI18n()
   const area = useLiveQuery(() => db.areas.get(AREA_ID))
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
   const routes = useLiveQuery(() => db.routes.toArray())
   const ascents = useLiveQuery(() => db.ascents.toArray())
   const [dl, setDl] = useState<DownloadProgress | null>(null)
   const [search, setSearch] = useState('')
+  const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
 
-  // Search results
+  const toggleGrade = (g: string) => {
+    setSelectedGrades(prev => {
+      const next = new Set(prev)
+      if (next.has(g)) next.delete(g)
+      else next.add(g)
+      return next
+    })
+  }
+
+  // Search results (text search)
   const searchResults = useMemo(() => {
     if (!search.trim() || !routes || !sectors) return []
     const q = search.toLowerCase()
@@ -25,6 +47,22 @@ export function HomePage() {
       .slice(0, 15)
       .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId) ?? '' }))
   }, [search, routes, sectors])
+
+  // Grade filter results (when grade chips are selected)
+  const gradeResults = useMemo(() => {
+    if (selectedGrades.size === 0 || !routes || !sectors) return []
+    const sectorMap = new Map(sectors.map(s => [s.id, s.name]))
+    // Build a set of matching gradeSort values from selected grades
+    const matchSorts = new Set<number>()
+    for (const g of selectedGrades) {
+      const sort = GRADE_SORT[g]
+      if (sort) matchSorts.add(sort)
+    }
+    return routes
+      .filter(r => matchSorts.has(r.gradeSort))
+      .sort((a, b) => a.gradeSort - b.gradeSort)
+      .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId) ?? '' }))
+  }, [selectedGrades, routes, sectors])
 
   // Count routes per sector
   const routeCounts = new Map<string, number>()
@@ -62,11 +100,14 @@ export function HomePage() {
   const totalSectors = sectors?.length ?? 0
   const myAscents = ascents?.length ?? 0
 
+  const showGradeResults = selectedGrades.size > 0 && !search.trim()
+  const resultsToShow = search.trim() ? searchResults : gradeResults
+
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-1">Тамгалы-Тас</h1>
+      <h1 className="text-2xl font-bold mb-1">{t('home.title')}</h1>
       <p className="text-gray-500 text-sm mb-4">
-        {area?.description || 'Скалолазный район, 120 км от Алматы'}
+        {area?.description || t('home.subtitle')}
       </p>
 
       {/* Stats row */}
@@ -74,25 +115,25 @@ export function HomePage() {
         <div className="grid grid-cols-3 gap-2 mb-4">
           <div className="bg-blue-50 rounded-lg p-3 text-center">
             <div className="text-xl font-bold text-blue-700">{totalRoutes}</div>
-            <div className="text-xs text-blue-600">маршрутов</div>
+            <div className="text-xs text-blue-600">{t('home.routesCount')}</div>
           </div>
           <div className="bg-green-50 rounded-lg p-3 text-center">
             <div className="text-xl font-bold text-green-700">{totalSectors}</div>
-            <div className="text-xs text-green-600">секторов</div>
+            <div className="text-xs text-green-600">{t('home.sectorsCount')}</div>
           </div>
           <div className="bg-purple-50 rounded-lg p-3 text-center">
             <div className="text-xl font-bold text-purple-700">{myAscents}</div>
-            <div className="text-xs text-purple-600">пролазов</div>
+            <div className="text-xs text-purple-600">{t('home.ascentsCount')}</div>
           </div>
         </div>
       )}
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-4">
         <Link
           to="/map"
           className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-3 text-center text-sm font-medium"
         >
-          Открыть карту
+          {t('home.openMap')}
         </Link>
         <button
           onClick={handleDownload}
@@ -100,10 +141,10 @@ export function HomePage() {
           className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50"
         >
           {dl?.stage === 'fetching' || dl?.stage === 'saving'
-            ? 'Загрузка...'
+            ? t('home.downloading')
             : dl?.stage === 'done'
-              ? 'Обновить данные'
-              : 'Скачать офлайн'}
+              ? t('home.updateData')
+              : t('home.downloadOffline')}
         </button>
       </div>
 
@@ -126,32 +167,51 @@ export function HomePage() {
       )}
 
       {/* Search */}
-      <div className="mb-4">
+      <div className="mb-2">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск маршрута..."
+          placeholder={t('home.searchPlaceholder')}
           className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:bg-white focus:border-blue-300 focus:outline-none transition-colors"
         />
       </div>
 
-      {/* Search results */}
-      {searchResults.length > 0 && (
+      {/* Grade filter chips */}
+      <div className="flex gap-1 overflow-x-auto pb-3 -mx-1 px-1">
+        {GRADE_CHIPS.map((g) => (
+          <button
+            key={g}
+            onClick={() => toggleGrade(g)}
+            className={`px-2.5 py-1 rounded-full text-xs font-mono font-medium whitespace-nowrap transition-colors ${
+              selectedGrades.has(g)
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+
+      {/* Search / grade filter results */}
+      {resultsToShow.length > 0 && (search.trim() || showGradeResults) && (
         <div className="mb-4">
-          <h2 className="text-sm font-semibold text-gray-500 mb-2">Результаты поиска</h2>
+          <h2 className="text-sm font-semibold text-gray-500 mb-2">
+            {search.trim() ? t('home.searchResults') : `${t('home.gradeFilterResults')} (${resultsToShow.length})`}
+          </h2>
           <div className="space-y-1">
-            {searchResults.map((r) => (
+            {resultsToShow.map((r) => (
               <Link
                 key={r.id}
                 to={`/route/${r.id}`}
-                className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors"
+                className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-2.5 hover:border-blue-300 transition-colors"
               >
-                <span className={`w-12 text-center text-sm font-mono font-bold rounded px-2 py-1 ${gradeColor(r.grade)}`}>
+                <span className={`w-11 text-center text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(r.grade)}`}>
                   {r.grade}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{r.name}</div>
+                  <div className="text-sm font-medium truncate">{r.name}</div>
                   <div className="text-xs text-gray-400">{r.sectorName}</div>
                 </div>
               </Link>
@@ -160,41 +220,52 @@ export function HomePage() {
         </div>
       )}
 
-      <h2 className="text-lg font-semibold mb-3">Секторы</h2>
+      {showGradeResults && resultsToShow.length === 0 && (
+        <p className="text-gray-400 text-sm mb-4">{t('home.noRoutesInRange')}</p>
+      )}
+
+      <h2 className="text-lg font-semibold mb-3">{t('home.sectors')}</h2>
 
       {!sectors || sectors.length === 0 ? (
-        <p className="text-gray-400 text-sm">
-          Данные ещё не загружены. Подождите пару секунд или нажмите «Скачать офлайн».
-        </p>
+        <p className="text-gray-400 text-sm">{t('home.noData')}</p>
       ) : (
         <div className="space-y-2">
           {sectors.map((sector) => (
             <Link
               key={sector.id}
               to={`/sector/${sector.id}`}
-              className="block bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
+              className="flex gap-3 bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors"
             >
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{sector.name}</span>
-                <div className="flex items-center gap-2">
-                  {gradeRanges.get(sector.id) && (
-                    <span className="text-xs font-mono text-blue-600 bg-blue-50 rounded px-1.5 py-0.5">
-                      {gradeRanges.get(sector.id)}
-                    </span>
-                  )}
-                  {routeCounts.get(sector.id) && (
-                    <span className="text-xs text-gray-400">
-                      {routeCounts.get(sector.id)} маршр.
-                    </span>
-                  )}
-                </div>
-              </div>
-              {sector.orientation && (
-                <div className="text-xs text-gray-400 mt-1">
-                  {sector.orientation}
-                  {sector.approachTimeMin && ` · ${sector.approachTimeMin} мин подход`}
-                </div>
+              {sector.coverImageUrl && (
+                <img
+                  src={sector.coverImageUrl}
+                  alt={sector.name}
+                  className="w-16 h-16 rounded object-cover flex-shrink-0"
+                />
               )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium truncate">{sector.name}</span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {gradeRanges.get(sector.id) && (
+                      <span className="text-xs font-mono text-blue-600 bg-blue-50 rounded px-1.5 py-0.5">
+                        {gradeRanges.get(sector.id)}
+                      </span>
+                    )}
+                    {routeCounts.get(sector.id) && (
+                      <span className="text-xs text-gray-400">
+                        {routeCounts.get(sector.id)} {t('home.routesShort')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {sector.orientation && (
+                  <div className="text-xs text-gray-400 mt-0.5">
+                    {sector.orientation}
+                    {sector.approachTimeMin && ` · ${sector.approachTimeMin} ${t('home.approachMin')}`}
+                  </div>
+                )}
+              </div>
             </Link>
           ))}
         </div>

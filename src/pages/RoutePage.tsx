@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { AscentForm } from '../components/route/AscentForm'
 import { ReviewForm } from '../components/route/ReviewForm'
 import { routeTypeLabel, gradeColor } from '../lib/utils'
+import type { Topo } from '../lib/db/schema'
 
 const STYLE_LABELS: Record<string, string> = {
   onsight: 'Онсайт',
@@ -44,6 +45,25 @@ export function RoutePage() {
         : [],
     [routeId],
   )
+
+  // Route photos: topos with id matching `topo-route-{routeId}-*`
+  const routeTopos = useLiveQuery(
+    async (): Promise<Topo[]> => {
+      if (!routeId) return []
+      // Get all topos for this sector, then filter by caption/id containing route info
+      const all = route?.sectorId
+        ? await db.topos.where('sectorId').equals(route.sectorId).toArray()
+        : []
+      return all.filter(t => t.id.startsWith(`topo-route-${routeId}`))
+    },
+    [routeId, route?.sectorId],
+  )
+
+  const [routePhotoIdx, setRoutePhotoIdx] = useState(0)
+  const [routeZoom, setRouteZoom] = useState(1)
+  const zoomIn = useCallback(() => setRouteZoom(z => Math.min(4, z + 0.5)), [])
+  const zoomOut = useCallback(() => setRouteZoom(z => Math.max(1, z - 0.5)), [])
+  const resetZoom = useCallback(() => setRouteZoom(1), [])
 
   if (!route) {
     return <div className="p-4 text-gray-400">Маршрут не найден</div>
@@ -120,6 +140,53 @@ export function RoutePage() {
               {tag}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Route photos */}
+      {routeTopos && routeTopos.length > 0 && (
+        <div className="mb-4 -mx-4">
+          <div
+            className="relative overflow-auto bg-gray-100"
+            style={{ maxHeight: routeZoom > 1 ? '60vh' : undefined }}
+          >
+            <img
+              src={routeTopos[routePhotoIdx].imageUrl}
+              alt={routeTopos[routePhotoIdx].caption || route.name}
+              className="block transition-transform duration-200 ease-out"
+              style={{
+                width: routeZoom > 1 ? `${routeZoom * 100}%` : '100%',
+                maxWidth: routeZoom > 1 ? 'none' : '100%',
+                cursor: routeZoom > 1 ? 'grab' : 'zoom-in',
+              }}
+              onClick={() => { if (routeZoom === 1) zoomIn() }}
+              draggable={false}
+            />
+            <div className="absolute top-2 right-2 flex flex-col gap-1" style={{ zIndex: 10 }}>
+              <button onClick={zoomIn} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">+</button>
+              {routeZoom > 1 && (
+                <>
+                  <button onClick={resetZoom} className="w-8 h-8 bg-black/60 text-white rounded-full text-[10px] leading-none">{Math.round(routeZoom * 100)}%</button>
+                  <button onClick={zoomOut} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">-</button>
+                </>
+              )}
+            </div>
+          </div>
+          {routeTopos.length > 1 && (
+            <div className="flex gap-1 px-2 py-1 overflow-x-auto">
+              {routeTopos.map((t, i) => (
+                <img
+                  key={t.id}
+                  src={t.imageUrl}
+                  alt={t.caption || ''}
+                  onClick={() => { setRoutePhotoIdx(i); resetZoom() }}
+                  className={`h-12 w-16 object-cover rounded flex-shrink-0 cursor-pointer border-2 ${
+                    i === routePhotoIdx ? 'border-blue-500' : 'border-transparent'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

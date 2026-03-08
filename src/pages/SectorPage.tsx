@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
@@ -63,7 +63,11 @@ export function SectorPage() {
     [topos, routes],
   )
 
-  // GPS approach info (must be before any conditional return — hooks rules)
+  const [activeTopoIdx, setActiveTopoIdx] = useState(0)
+  const [zoom, setZoom] = useState(1)
+  const imgRef = useRef<HTMLDivElement>(null)
+
+  // GPS approach info
   const approachInfo = useMemo(() => {
     if (!position || !sector) return null
     const dist = distanceMeters(position.latitude, position.longitude, sector.latitude, sector.longitude)
@@ -73,52 +77,41 @@ export function SectorPage() {
     return { distance: formatDistance(dist), direction: dir, raw: dist }
   }, [position, sector])
 
+  const zoomIn = useCallback(() => setZoom(z => Math.min(4, z + 0.5)), [])
+  const zoomOut = useCallback(() => setZoom(z => Math.max(1, z - 0.5)), [])
+  const resetZoom = useCallback(() => setZoom(1), [])
+
   if (!sector) {
     return <div className="p-4 text-gray-400">Сектор не найден</div>
   }
 
   const filteredRoutes = routes?.filter(r => matchesGradeFilter(r.gradeSort, gradeFilter)) ?? []
-  const activeTopo = topos?.[0]
+  const activeTopo = topos?.[activeTopoIdx]
 
   return (
     <div>
-      {/* Header */}
-      <div className="p-4 pb-2">
-        <Link to="/" className="text-blue-600 text-sm mb-2 inline-block">
-          &larr; Назад
-        </Link>
-        <h1 className="text-2xl font-bold mb-1">{sector.name}</h1>
-        <div className="flex flex-wrap gap-x-3 text-xs text-gray-500 mb-2">
+      {/* Compact header */}
+      <div className="px-4 pt-3 pb-1">
+        <div className="flex items-center justify-between mb-1">
+          <Link to="/" className="text-blue-600 text-xs">&larr; Назад</Link>
+          {approachInfo && (
+            <span className={`text-xs px-2 py-0.5 rounded-full ${
+              approachInfo.raw < 100 ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'
+            }`}>
+              {approachInfo.distance} {approachInfo.direction}
+            </span>
+          )}
+        </div>
+        <h1 className="text-xl font-bold">{sector.name}</h1>
+        <div className="flex flex-wrap gap-x-2 text-xs text-gray-400">
           {sector.orientation && <span>{sector.orientation}</span>}
           {sector.sunExposure && <span>{sector.sunExposure}</span>}
-          {sector.approachTimeMin && <span>{sector.approachTimeMin} мин подход</span>}
+          {sector.approachTimeMin && <span>{sector.approachTimeMin} мин</span>}
+          {sector.description && <span>· {sector.description}</span>}
         </div>
-        {sector.description && (
-          <p className="text-sm text-gray-600 mb-2">{sector.description}</p>
-        )}
-        {sector.approachDescription && (
-          <p className="text-xs text-gray-400 mb-2">Подход: {sector.approachDescription}</p>
-        )}
-
-        {/* GPS distance to sector */}
-        {approachInfo && (
-          <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm mb-2 ${
-            approachInfo.raw < 100
-              ? 'bg-green-50 text-green-700'
-              : 'bg-blue-50 text-blue-700'
-          }`}>
-            <span className="text-lg">📍</span>
-            <span>
-              <span className="font-medium">{approachInfo.distance}</span>
-              {' '}на {approachInfo.direction}
-              {approachInfo.raw < 100 && ' — вы рядом!'}
-            </span>
-          </div>
-        )}
-
       </div>
 
-      {/* Topo viewer */}
+      {/* Topo viewer with route overlays (OpenSeadragon) */}
       {activeTopo && topoRoutes && topoRoutes.length > 0 && (
         <div className="mb-2">
           <TopoViewer
@@ -139,28 +132,67 @@ export function SectorPage() {
         </div>
       )}
 
-      {/* Topo image without route overlays */}
-      {activeTopo && (!topoRoutes || topoRoutes.length === 0) && (
-        <div className="mb-2">
-          <img
-            src={activeTopo.imageUrl}
-            alt={sector.name}
-            className="w-full"
-          />
-          <p className="text-xs text-gray-400 text-center py-1">
-            Маршруты ещё не размечены на фото
-          </p>
+      {/* Photo gallery with smooth zoom (no route overlays yet) */}
+      {topos && topos.length > 0 && (!topoRoutes || topoRoutes.length === 0) && (
+        <div className="mb-1">
+          <div
+            ref={imgRef}
+            className="relative overflow-auto bg-gray-100"
+            style={{ maxHeight: zoom > 1 ? '60vh' : undefined }}
+          >
+            <img
+              src={activeTopo!.imageUrl}
+              alt={activeTopo!.caption || sector.name}
+              className="block transition-transform duration-200 ease-out"
+              style={{
+                width: zoom > 1 ? `${zoom * 100}%` : '100%',
+                maxWidth: zoom > 1 ? 'none' : '100%',
+                cursor: zoom > 1 ? 'grab' : 'zoom-in',
+              }}
+              onClick={() => { if (zoom === 1) zoomIn() }}
+              draggable={false}
+            />
+            {/* Zoom controls */}
+            <div className="absolute top-2 right-2 flex flex-col gap-1" style={{ zIndex: 10 }}>
+              <button onClick={zoomIn} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">+</button>
+              {zoom > 1 && (
+                <>
+                  <button onClick={resetZoom} className="w-8 h-8 bg-black/60 text-white rounded-full text-[10px] leading-none">{Math.round(zoom * 100)}%</button>
+                  <button onClick={zoomOut} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">-</button>
+                </>
+              )}
+            </div>
+          </div>
+          {/* Thumbnails strip */}
+          {topos.length > 1 && (
+            <div className="flex gap-1 px-2 py-1 overflow-x-auto">
+              {topos.map((t, i) => (
+                <img
+                  key={t.id}
+                  src={t.imageUrl}
+                  alt={t.caption || ''}
+                  onClick={() => { setActiveTopoIdx(i); setZoom(1) }}
+                  className={`h-10 w-14 object-cover rounded flex-shrink-0 cursor-pointer border-2 ${
+                    i === activeTopoIdx ? 'border-blue-500' : 'border-transparent'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Routes list */}
-      <div className="p-4 pt-2">
-        <h2 className="text-lg font-semibold mb-2">
-          Маршруты {routes ? `(${routes.length})` : ''}
-        </h2>
+      <div className="px-4 pt-1 pb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">
+            Маршруты {routes ? `(${routes.length})` : ''}
+          </h2>
+          <Link to={`/admin/topo`} className="text-xs text-blue-600">Разметить</Link>
+        </div>
 
         {/* Grade filter chips */}
-        <div className="flex gap-1.5 overflow-x-auto pb-3 -mx-1 px-1">
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
           {GRADE_FILTERS.map((f) => (
             <button
               key={f}
@@ -189,7 +221,7 @@ export function SectorPage() {
                 <Link
                   key={route.id}
                   to={`/route/${route.id}`}
-                  className={`flex items-center gap-3 border rounded-lg p-3 transition-colors ${
+                  className={`flex items-center gap-2 border rounded-lg p-2.5 transition-colors ${
                     isSelected
                       ? 'bg-blue-50 border-blue-300'
                       : 'bg-white border-gray-200 hover:border-blue-300'
@@ -199,18 +231,18 @@ export function SectorPage() {
                 >
                   {tr && (
                     <span
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
                       style={{ backgroundColor: tr.color }}
                     >
                       {tr.routeNumber}
                     </span>
                   )}
-                  <span className={`w-12 text-center text-sm font-mono font-bold rounded px-2 py-1 ${gradeColor(route.grade)}`}>
+                  <span className={`w-11 text-center text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(route.grade)}`}>
                     {route.grade}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{route.name}</div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-sm font-medium truncate">{route.name}</div>
+                    <div className="text-[10px] text-gray-400">
                       {routeTypeLabel(route.routeType)}
                       {route.lengthM && ` · ${route.lengthM}м`}
                       {route.pitches > 1 && ` · ${route.pitches} верёвок`}

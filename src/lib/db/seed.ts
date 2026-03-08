@@ -60,20 +60,24 @@ function numberRoutes(routes: Route[]) {
   return routes
 }
 
-const SEED_VERSION = 4 // bump to force re-seed
+const SEED_VERSION = 5 // bump to force re-seed (GPS from field KMZ)
 
 export async function seedDemoData() {
   // Check seed version — if old data exists, wipe and re-seed
   const meta = await db.syncMeta.get('seedVersion')
   if (meta?.value === String(SEED_VERSION)) return
 
-  // Clear old data
-  await db.transaction('rw', [db.areas, db.sectors, db.routes, db.topos, db.topoRoutes, db.syncMeta], async () => {
+  // Preserve admin-created sectors and routes (those with timestamp suffix IDs)
+  const existingSectors = await db.sectors.toArray()
+  const existingRoutes = await db.routes.toArray()
+  const adminSectors = existingSectors.filter(s => /\-\d{10,}$/.test(s.id))
+  const adminRoutes = existingRoutes.filter(r => /\-\d{10,}$/.test(r.id))
+
+  // Clear seed data but preserve admin-created content
+  await db.transaction('rw', [db.areas, db.sectors, db.routes, db.syncMeta], async () => {
     await db.areas.clear()
     await db.sectors.clear()
     await db.routes.clear()
-    await db.topos.clear()
-    await db.topoRoutes.clear()
   })
 
   routeCounter = 0
@@ -83,10 +87,10 @@ export async function seedDemoData() {
     name: 'Тамгалы-Тас',
     slug: 'tamgaly-tas',
     description: 'Скалолазный район на берегу реки Или, 120 км от Алматы. Туф (вулканическая порода), ~200 маршрутов от 4 до 8a+. Сезон: март—май, сентябрь—ноябрь.',
-    latitude: 44.0639,
-    longitude: 76.9959,
+    latitude: 44.0640918,
+    longitude: 76.9961879,
     bboxNorth: 44.072, bboxSouth: 44.058, bboxEast: 77.000, bboxWest: 76.990,
-    approachInfo: 'От Алматы ~1.5—2 часа на машине на север через Капчагай.',
+    approachInfo: 'От Алматы ~1.5—2 часа на машине на север через Капчагай. Вход в урочище: 44.0641, 76.9962.',
     accessNotes: 'Летом слишком жарко. Лучший сезон — весна и осень.',
     rockType: 'tuff',
     createdAt: new Date().toISOString(),
@@ -157,33 +161,39 @@ export async function seedDemoData() {
     // Бастион — над рисунком Будды (OSM: 44.0613, 76.9964).
     { id: 'sector-prigorod', areaId: 'tamgaly-tas', name: 'Пригород', slug: 'prigorod',
       description: 'Начало Ривёрсайд. Микс трада и спорта.',
-      latitude: 44.0630, longitude: 76.9960,
+      latitude: 44.0633409, longitude: 76.9964891,
       approachDescription: 'От парковки направо вдоль реки.', approachTimeMin: 15,
       orientation: 'Запад', sunExposure: 'После обеда, жарко', sortOrder: 10,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
     { id: 'sector-gorod', areaId: 'tamgaly-tas', name: 'Город', slug: 'gorod',
       description: 'Мультипитчи и трад. Верёвка 60м.',
-      latitude: 44.0625, longitude: 76.9962,
+      latitude: 44.0624891, longitude: 76.9964802,
       approachDescription: 'Правее Пригорода.', approachTimeMin: 17,
       orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 11,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-    { id: 'sector-serpy', areaId: 'tamgaly-tas', name: 'Серпы', slug: 'serpy',
-      description: 'Длинные сложные вертикали и нависания.',
-      latitude: 44.0620, longitude: 76.9964,
+    { id: 'sector-enbek', areaId: 'tamgaly-tas', name: 'Енбек', slug: 'enbek',
+      description: 'Сектор между Городом и Серпами.',
+      latitude: 44.0618180, longitude: 76.9966855,
       approachDescription: 'Правее Города.', approachTimeMin: 18,
       orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 12,
+      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+    { id: 'sector-serpy', areaId: 'tamgaly-tas', name: 'Серпы', slug: 'serpy',
+      description: 'Длинные сложные вертикали и нависания.',
+      latitude: 44.0616365, longitude: 76.9967875,
+      approachDescription: 'Правее Енбека.', approachTimeMin: 19,
+      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 13,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
     { id: 'sector-bastion', areaId: 'tamgaly-tas', name: 'Бастион', slug: 'bastion',
       description: 'Над рисунком Будды. Верхний и нижний уровни. 14 маршрутов.',
       latitude: 44.0614, longitude: 76.9965,
       approachDescription: 'Правее Серпов.', approachTimeMin: 20,
-      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 13,
+      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 14,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
     { id: 'sector-karnizy', areaId: 'tamgaly-tas', name: 'Карнизы', slug: 'karnizy',
       description: 'Правее Бастиона. Мультипитчи до 8a.',
       latitude: 44.0608, longitude: 76.9966,
       approachDescription: 'Правее Бастиона.', approachTimeMin: 22,
-      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 14,
+      orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 15,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
   ]
 
@@ -336,8 +346,182 @@ export async function seedDemoData() {
     await db.areas.add(area)
     await db.sectors.bulkAdd(sectors)
     await db.routes.bulkAdd(allRoutes)
+    // Restore admin-created sectors and routes
+    if (adminSectors.length > 0) await db.sectors.bulkPut(adminSectors)
+    if (adminRoutes.length > 0) await db.routes.bulkPut(adminRoutes)
     await db.syncMeta.put({ key: 'seedVersion', value: String(SEED_VERSION) })
   })
 
-  console.log(`Seeded: 1 area, ${sectors.length} sectors, ${allRoutes.length} routes`)
+  console.log(`Seeded: 1 area, ${sectors.length} sectors, ${allRoutes.length} routes` +
+    (adminSectors.length ? `, restored ${adminSectors.length} admin sectors, ${adminRoutes.length} admin routes` : ''))
+}
+
+/**
+ * Restore topos from localStorage photo tags if DB topos are empty.
+ * This recovers from a re-seed that accidentally wiped topos.
+ */
+export async function restoreToposFromTags() {
+  const raw = localStorage.getItem('photo-tags')
+  if (!raw) return
+
+  let tags: Record<string, { type: string; sectorId?: string; sectorIds?: string[]; routeIds?: string[]; routeId?: string }>
+  try { tags = JSON.parse(raw) } catch { return }
+
+  const sectors = await db.sectors.toArray()
+  const sectorIds = new Set(sectors.map(s => s.id))
+  const routes = await db.routes.toArray()
+  const routeMap = new Map(routes.map(r => [r.id, r]))
+
+  // Remap orphaned sector IDs
+  const remapSectorId = (id: string): string => {
+    if (sectorIds.has(id)) return id
+    const base = id.replace(/-\d{10,}$/, '')
+    const match = sectors.find(s => base.startsWith(s.id))
+    return match ? match.id : id
+  }
+
+  const PHOTO_DIR = '/topos/'
+  const sectorPhotos = new Map<string, string[]>()
+  const routePhotos = new Map<string, string[]>()
+
+  for (const [file, tag] of Object.entries(tags)) {
+    if (tag.type === 'skip' || tag.type === 'approach') continue
+    const sid = tag.sectorId ? remapSectorId(tag.sectorId) : undefined
+    if (!sid || !sectorIds.has(sid)) continue
+
+    if (tag.type === 'sector') {
+      const list = sectorPhotos.get(sid) || []
+      list.push(file)
+      sectorPhotos.set(sid, list)
+    }
+    if (tag.type === 'route') {
+      const sList = sectorPhotos.get(sid) || []
+      sList.push(file)
+      sectorPhotos.set(sid, sList)
+      const ids = tag.routeIds || (tag.routeId ? [tag.routeId] : [])
+      for (const rid of ids) {
+        if (routeMap.has(rid)) {
+          const rList = routePhotos.get(rid) || []
+          rList.push(file)
+          routePhotos.set(rid, rList)
+        }
+      }
+    }
+  }
+
+  // Create topo records
+  const now = new Date().toISOString()
+  for (const [sectorId, files] of sectorPhotos) {
+    for (let i = 0; i < files.length; i++) {
+      await db.topos.put({
+        id: `topo-${sectorId}-${i}`,
+        sectorId,
+        imageUrl: PHOTO_DIR + files[i],
+        imageWidth: 1920,
+        imageHeight: 1080,
+        sortOrder: i + 1,
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+  }
+  for (const [routeId, files] of routePhotos) {
+    const route = routeMap.get(routeId)
+    if (!route) continue
+    for (let i = 0; i < files.length; i++) {
+      await db.topos.put({
+        id: `topo-route-${routeId}-${i}`,
+        sectorId: route.sectorId,
+        imageUrl: PHOTO_DIR + files[i],
+        imageWidth: 1920,
+        imageHeight: 1080,
+        caption: `${route.name} (${route.grade})`,
+        sortOrder: 10 + i,
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+  }
+
+  // Restore cover images from localStorage
+  try {
+    const coverRaw = localStorage.getItem('sector-covers')
+    if (coverRaw) {
+      const covers: Record<string, string> = JSON.parse(coverRaw)
+      for (const [sectorId, filename] of Object.entries(covers)) {
+        if (sectorIds.has(sectorId)) {
+          await db.sectors.update(sectorId, { coverImageUrl: PHOTO_DIR + filename })
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
+  // Auto-set cover from first sector photo if no explicit cover
+  for (const [sectorId, files] of sectorPhotos) {
+    const sector = await db.sectors.get(sectorId)
+    if (sector && !sector.coverImageUrl && files.length > 0) {
+      await db.sectors.update(sectorId, { coverImageUrl: PHOTO_DIR + files[0] })
+    }
+  }
+
+  const total = sectorPhotos.size + routePhotos.size
+  if (total > 0) {
+    console.log(`Restored topos from localStorage: ${sectorPhotos.size} sectors, ${routePhotos.size} routes`)
+  }
+}
+
+// GPS coordinates from field KMZ waypoints (2026-03-08)
+const SECTOR_GPS: Record<string, { latitude: number; longitude: number }> = {
+  'sector-prigorod': { latitude: 44.0633409, longitude: 76.9964891 },
+  'sector-gorod':    { latitude: 44.0624891, longitude: 76.9964802 },
+  'sector-serpy':    { latitude: 44.0616365, longitude: 76.9967875 },
+}
+
+// Route-level GPS from KMZ waypoints
+const ROUTE_GPS: Array<{ sectorId: string; name: string; latitude: number; longitude: number }> = [
+  { sectorId: 'sector-prigorod', name: 'Мескалито', latitude: 44.0629180, longitude: 76.9964802 },
+  { sectorId: 'sector-gorod', name: 'Отдельная реальность', latitude: 44.0624891, longitude: 76.9964802 },
+]
+
+export async function updateGpsCoordinates() {
+  // Update sector GPS
+  for (const [id, coords] of Object.entries(SECTOR_GPS)) {
+    const existing = await db.sectors.get(id)
+    if (existing) {
+      await db.sectors.update(id, coords)
+    }
+  }
+
+  // Update route GPS by name lookup
+  for (const rg of ROUTE_GPS) {
+    const routes = await db.routes.where('sectorId').equals(rg.sectorId).toArray()
+    const route = routes.find(r => r.name === rg.name)
+    if (route) {
+      await db.routes.update(route.id, { latitude: rg.latitude, longitude: rg.longitude })
+    }
+  }
+
+  // Add Enbek sector if missing
+  const enbek = await db.sectors.get('sector-enbek')
+  if (!enbek) {
+    const now = new Date().toISOString()
+    await db.sectors.add({
+      id: 'sector-enbek',
+      areaId: 'tamgaly-tas',
+      name: 'Енбек',
+      slug: 'enbek',
+      description: 'Сектор между Городом и Серпами.',
+      latitude: 44.0618180,
+      longitude: 76.9966855,
+      approachDescription: 'Правее Города.',
+      approachTimeMin: 18,
+      orientation: 'Запад',
+      sunExposure: 'После обеда',
+      sortOrder: 12,
+      createdAt: now,
+      updatedAt: now,
+    })
+    console.log('Added sector: Енбек')
+  }
+  console.log('GPS coordinates updated from KMZ waypoints')
 }

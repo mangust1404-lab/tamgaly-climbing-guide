@@ -4,21 +4,24 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useGps } from '../../hooks/useGps'
 import { distanceMeters, formatDistance } from '../../lib/map/geo'
-import type { Sector } from '../../lib/db/schema'
+import type { Area, Route, Sector } from '../../lib/db/schema'
 
 // Tamgaly-Tas center coordinates
-const DEFAULT_CENTER: [number, number] = [44.0639, 76.9950] // [lat, lng] for Leaflet
-const DEFAULT_ZOOM = 14
+const DEFAULT_CENTER: [number, number] = [44.0630, 76.9960] // [lat, lng] for Leaflet
+const DEFAULT_ZOOM = 16
 
 interface OfflineMapProps {
   sectors: Sector[]
+  area?: Area
+  routes?: Route[]
 }
 
-export function OfflineMap({ sectors }: OfflineMapProps) {
+export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const gpsMarkerRef = useRef<L.CircleMarker | null>(null)
   const markersRef = useRef<L.Marker[]>([])
+  const routeMarkersRef = useRef<L.Marker[]>([])
   const navigate = useNavigate()
   const { position } = useGps()
   const [nearestSector, setNearestSector] = useState<{ name: string; distance: string } | null>(null)
@@ -56,6 +59,27 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
     markersRef.current.forEach((m) => m.remove())
     markersRef.current = []
 
+    // Entrance marker
+    if (area) {
+      const entranceIcon = L.divIcon({
+        html: `<div style="
+          background: #dc2626;
+          color: white;
+          padding: 4px 10px;
+          border-radius: 16px;
+          font-size: 12px;
+          font-weight: 600;
+          white-space: nowrap;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          border: 2px solid white;
+        ">Вход</div>`,
+        className: '',
+        iconAnchor: [20, 12],
+      })
+      const entranceMarker = L.marker([area.latitude, area.longitude], { icon: entranceIcon }).addTo(map)
+      markersRef.current.push(entranceMarker)
+    }
+
     sectors.forEach((sector) => {
       const icon = L.divIcon({
         html: `<div style="
@@ -63,12 +87,13 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
           color: white;
           padding: 4px 10px;
           border-radius: 16px;
-          font-size: 12px;
-          font-weight: 600;
+          font-size: 13px;
+          font-weight: 700;
           white-space: nowrap;
           cursor: pointer;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.4);
           border: 2px solid white;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
         ">${sector.name}</div>`,
         className: '',
         iconAnchor: [0, 0],
@@ -82,7 +107,76 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
 
       markersRef.current.push(marker)
     })
-  }, [sectors, navigate])
+
+    // Fit map to show all markers
+    if (sectors.length > 0) {
+      const lats = sectors.map(s => s.latitude)
+      const lngs = sectors.map(s => s.longitude)
+      if (area) { lats.push(area.latitude); lngs.push(area.longitude) }
+      const bounds = L.latLngBounds(
+        [Math.min(...lats) - 0.001, Math.min(...lngs) - 0.001],
+        [Math.max(...lats) + 0.001, Math.max(...lngs) + 0.001],
+      )
+      map.fitBounds(bounds, { padding: [30, 30] })
+    }
+  }, [sectors, area, navigate])
+
+  // Route markers (shown at higher zoom levels)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    // Remove old route markers
+    routeMarkersRef.current.forEach((m) => m.remove())
+    routeMarkersRef.current = []
+
+    const updateRouteVisibility = () => {
+      const zoom = map.getZoom()
+      const show = zoom >= 17
+      routeMarkersRef.current.forEach(m => {
+        if (show) m.addTo(map)
+        else m.remove()
+      })
+    }
+
+    routes.forEach((route) => {
+      if (!route.latitude || !route.longitude) return
+      const icon = L.divIcon({
+        html: `<div style="
+          background: #15803d;
+          color: #fff;
+          padding: 3px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 700;
+          white-space: nowrap;
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+          border: 2px solid white;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        "><span style="font-family:monospace">${route.grade}</span> ${route.name}</div>`,
+        className: '',
+        iconAnchor: [0, 0],
+      })
+
+      const marker = L.marker([route.latitude, route.longitude], { icon })
+        .on('click', () => {
+          navigate(`/route/${route.id}`)
+        })
+
+      routeMarkersRef.current.push(marker)
+    })
+
+    // Show/hide based on zoom
+    updateRouteVisibility()
+    map.on('zoomend', updateRouteVisibility)
+
+    return () => {
+      map.off('zoomend', updateRouteVisibility)
+      routeMarkersRef.current.forEach((m) => m.remove())
+      routeMarkersRef.current = []
+    }
+  }, [routes, navigate])
 
   // Update GPS position on map
   useEffect(() => {
@@ -123,7 +217,7 @@ export function OfflineMap({ sectors }: OfflineMapProps) {
   // Center map on GPS position
   const centerOnGps = () => {
     if (mapRef.current && position) {
-      mapRef.current.flyTo([position.latitude, position.longitude], 16, { duration: 1 })
+      mapRef.current.flyTo([position.latitude, position.longitude], 17, { duration: 1 })
     }
   }
 

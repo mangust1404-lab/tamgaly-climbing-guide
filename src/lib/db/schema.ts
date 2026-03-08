@@ -34,6 +34,7 @@ export interface Sector {
   approachGpsTrack?: GeoJSON.LineString
   orientation?: string
   sunExposure?: string
+  coverImageUrl?: string
   sortOrder: number
   createdAt: string
   updatedAt: string
@@ -45,10 +46,12 @@ export interface Route {
   name: string
   slug: string
   grade: string
+  gradeAlt?: string // alternative grade (e.g. trad vs sport)
   gradeSystem: 'french' | 'yds' | 'hueco' | 'british'
   gradeSort: number
   lengthM?: number
   pitches: number
+  pitchGrades?: string[] // per-pitch grades for multi-pitch routes
   routeType: 'sport' | 'trad' | 'boulder' | 'multi-pitch'
   description?: string
   protection?: string
