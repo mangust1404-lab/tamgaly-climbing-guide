@@ -54,16 +54,26 @@ export function RoutePage() {
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : null
 
-  // Grade consensus
-  const gradeVotes = reviews?.filter(r => r.gradeOpinion) ?? []
-  const gradeConsensus = gradeVotes.length >= 2
-    ? (() => {
-        const counts: Record<string, number> = {}
-        gradeVotes.forEach(r => { counts[r.gradeOpinion!] = (counts[r.gradeOpinion!] || 0) + 1 })
-        const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
-        return top[0] === 'Fair' ? null : top[0] // Only show if not "Fair"
-      })()
-    : null
+  // Grade consensus from ascents
+  const gradeVotes = ascents?.filter(a => a.personalGrade) ?? []
+  const gradeSummary = (() => {
+    if (gradeVotes.length === 0) return null
+    let soft = 0, fair = 0, hard = 0
+    const exactGrades: Record<string, number> = {}
+    for (const a of gradeVotes) {
+      const pg = a.personalGrade!
+      if (pg.startsWith('soft:')) soft++
+      else if (pg.startsWith('hard:')) hard++
+      else {
+        // It's an exact grade like "6b+"
+        exactGrades[pg] = (exactGrades[pg] || 0) + 1
+      }
+    }
+    // Also count ascents that logged "fair" as no personalGrade
+    const totalWithOpinion = soft + hard + Object.values(exactGrades).reduce((s, c) => s + c, 0)
+    const topExact = Object.entries(exactGrades).sort((a, b) => b[1] - a[1])[0]
+    return { soft, hard, fair, total: totalWithOpinion, topExact: topExact ? topExact[0] : null, topExactCount: topExact ? topExact[1] : 0, exactGrades }
+  })()
 
   return (
     <div className="p-4">
@@ -89,11 +99,6 @@ export function RoutePage() {
             {avgRating && (
               <span className="text-yellow-500">★ {avgRating}</span>
             )}
-            {gradeConsensus && (
-              <span className={gradeConsensus === 'Soft' ? 'text-green-600' : 'text-red-600'}>
-                {gradeConsensus === 'Soft' ? 'Мягче' : 'Жёстче'}
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -115,6 +120,48 @@ export function RoutePage() {
               {tag}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Grade consensus */}
+      {gradeSummary && gradeSummary.total > 0 && (
+        <div className="bg-gray-50 rounded-lg p-3 mb-4">
+          <div className="text-sm font-medium text-gray-700 mb-2">
+            Мнение сообщества ({gradeSummary.total})
+          </div>
+          {/* Bar: soft / exact / hard */}
+          <div className="flex h-6 rounded-full overflow-hidden mb-2">
+            {gradeSummary.soft > 0 && (
+              <div
+                className="bg-green-400 flex items-center justify-center text-[10px] text-white font-bold"
+                style={{ width: `${(gradeSummary.soft / gradeSummary.total) * 100}%` }}
+              >
+                {gradeSummary.soft > 0 && 'Мягче'}
+              </div>
+            )}
+            {Object.entries(gradeSummary.exactGrades).map(([g, count]) => (
+              <div
+                key={g}
+                className="bg-blue-500 flex items-center justify-center text-[10px] text-white font-bold border-l border-white/30"
+                style={{ width: `${(count / gradeSummary.total) * 100}%` }}
+              >
+                {g}
+              </div>
+            ))}
+            {gradeSummary.hard > 0 && (
+              <div
+                className="bg-red-400 flex items-center justify-center text-[10px] text-white font-bold"
+                style={{ width: `${(gradeSummary.hard / gradeSummary.total) * 100}%` }}
+              >
+                {gradeSummary.hard > 0 && 'Жёстче'}
+              </div>
+            )}
+          </div>
+          {gradeSummary.topExact && (
+            <div className="text-xs text-gray-500">
+              Чаще всего ставят <span className="font-mono font-bold text-blue-700">{gradeSummary.topExact}</span> ({gradeSummary.topExactCount} чел.)
+            </div>
+          )}
         </div>
       )}
 

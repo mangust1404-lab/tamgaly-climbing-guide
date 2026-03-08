@@ -11,6 +11,14 @@ const STYLES = [
   { value: 'attempt', label: 'Попытка', emoji: '⬜' },
 ] as const
 
+const GRADES = [
+  '4', '4a', '4b', '4c',
+  '5a', '5a+', '5b', '5b+', '5c', '5c+',
+  '6a', '6a+', '6b', '6b+', '6c', '6c+',
+  '7a', '7a+', '7b', '7b+', '7c', '7c+',
+  '8a', '8a+',
+]
+
 interface AscentFormProps {
   route: Route
   onClose: () => void
@@ -22,6 +30,8 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [notes, setNotes] = useState('')
   const [rating, setRating] = useState(0)
+  const [gradeFeeling, setGradeFeeling] = useState<'soft' | 'fair' | 'hard' | null>(null)
+  const [personalGrade, setPersonalGrade] = useState('')
   const [saving, setSaving] = useState(false)
 
   const points = calculatePoints(route.grade, style)
@@ -43,6 +53,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
         date,
         style,
         rating: rating || undefined,
+        personalGrade: personalGrade || (gradeFeeling && gradeFeeling !== 'fair' ? `${gradeFeeling}:${route.grade}` : undefined),
         notes: notes || undefined,
         isPublic: true,
         points,
@@ -137,6 +148,60 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Grade opinion */}
+        <div className="mb-4">
+          <label className="text-sm font-medium text-gray-700 mb-2 block">
+            Категория {route.grade} — как тебе?
+          </label>
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            {([['soft', 'Мягче'], ['fair', 'В точку'], ['hard', 'Жёстче']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => { setGradeFeeling(gradeFeeling === val ? null : val); if (val === 'fair') setPersonalGrade('') }}
+                className={`py-2 rounded-lg text-sm font-medium transition-colors ${
+                  gradeFeeling === val
+                    ? val === 'soft' ? 'bg-green-100 text-green-700 ring-2 ring-green-500'
+                      : val === 'hard' ? 'bg-red-100 text-red-700 ring-2 ring-red-500'
+                      : 'bg-blue-100 text-blue-700 ring-2 ring-blue-500'
+                    : 'bg-gray-50 text-gray-600'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {(gradeFeeling === 'soft' || gradeFeeling === 'hard') && (
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">
+                Твоя оценка категории (необязательно):
+              </label>
+              <div className="flex flex-wrap gap-1">
+                {GRADES.filter(g => {
+                  const ri = GRADES.indexOf(route.grade)
+                  if (ri === -1) return true
+                  return gradeFeeling === 'soft'
+                    ? GRADES.indexOf(g) < ri && GRADES.indexOf(g) >= ri - 4
+                    : GRADES.indexOf(g) > ri && GRADES.indexOf(g) <= ri + 4
+                }).map(g => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setPersonalGrade(personalGrade === g ? '' : g)}
+                    className={`px-2.5 py-1 rounded text-xs font-mono font-bold transition-colors ${
+                      personalGrade === g
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Notes */}
