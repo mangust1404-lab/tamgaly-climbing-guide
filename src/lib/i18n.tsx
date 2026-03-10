@@ -90,6 +90,9 @@ const translations = {
   'style.redpoint': { ru: 'Редпоинт', en: 'Redpoint' },
   'style.toprope': { ru: 'Топроуп', en: 'Toprope' },
   'style.attempt': { ru: 'Попытка', en: 'Attempt' },
+  'style.onsight.desc': { ru: 'Первая попытка без предварительной информации о маршруте', en: 'First attempt with no prior knowledge of the route' },
+  'style.flash.desc': { ru: 'Первая попытка, но с предварительной информацией (бета)', en: 'First attempt success with pre-acquired knowledge (beta)' },
+  'style.redpoint.desc': { ru: 'Чистый пролаз лидером без срывов после предыдущих попыток', en: 'Clean lead without falls after one or more previous attempts' },
 
   // Route types
   'routeType.sport': { ru: 'Спорт', en: 'Sport' },
@@ -142,6 +145,7 @@ const translations = {
   'route.mostCommon': { ru: 'Чаще всего ставят', en: 'Most common' },
   'route.people': { ru: 'чел.', en: 'ppl' },
   'route.pendingSync': { ru: 'ожидает синхронизации', en: 'pending sync' },
+  'route.voteGrade': { ru: 'Оценить категорию', en: 'Rate grade' },
 
   // Profile page
   'profile.title': { ru: 'Профиль', en: 'Profile' },
@@ -155,6 +159,12 @@ const translations = {
   'profile.byStyle': { ru: 'По стилю', en: 'By style' },
   'profile.gradePyramid': { ru: 'Пирамида категорий', en: 'Grade pyramid' },
   'profile.adminTopo': { ru: 'Админ: редактор топо', en: 'Admin: topo editor' },
+  'profile.logAscent': { ru: 'Отметить пролаз', en: 'Log ascent' },
+  'profile.selectSector': { ru: 'Сектор', en: 'Sector' },
+  'profile.selectRoute': { ru: 'Маршрут', en: 'Route' },
+  'profile.comment': { ru: 'Комментарий', en: 'Comment' },
+  'profile.commentPlaceholder': { ru: 'Условия, бета, впечатления...', en: 'Conditions, beta, impressions...' },
+  'profile.saved': { ru: 'Пролаз сохранён!', en: 'Ascent saved!' },
 
   // Review form
   'review.title': { ru: 'Оставить отзыв', en: 'Leave a review' },

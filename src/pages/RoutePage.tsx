@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { TopoViewer } from '../components/topo/TopoViewer'
+import { GradeVoting } from '../components/route/GradeVoting'
 import { gradeColor, gradeToTopoColor } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 
@@ -85,6 +86,11 @@ export function RoutePage() {
             {route.pitches > 1 && <span>· {route.pitches} {t('route.pitchesCount')}</span>}
           </div>
         </div>
+      </div>
+
+      {/* Community grade voting */}
+      <div className="mb-3">
+        <GradeVoting route={route} />
       </div>
 
       {route.description && (

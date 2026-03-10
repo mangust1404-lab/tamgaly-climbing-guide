@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
-import { calculateTotalScore } from '../lib/scoring/points'
+import { calculatePoints, calculateTotalScore } from '../lib/scoring/points'
 import { useI18n } from '../lib/i18n'
+import { gradeColor } from '../lib/utils'
 
 const STYLE_COLORS: Record<string, string> = {
   onsight: 'bg-green-100 text-green-700',
@@ -13,13 +14,28 @@ const STYLE_COLORS: Record<string, string> = {
   attempt: 'bg-gray-100 text-gray-500',
 }
 
+const ASCENT_STYLES = [
+  { value: 'onsight', emoji: '👁️' },
+  { value: 'flash', emoji: '⚡' },
+  { value: 'redpoint', emoji: '🔴' },
+] as const
+
 export function ProfilePage() {
   const { t } = useI18n()
+  const [showForm, setShowForm] = useState(false)
+  const [selectedSectorId, setSelectedSectorId] = useState('')
+  const [selectedRouteId, setSelectedRouteId] = useState('')
+  const [style, setStyle] = useState<string>('redpoint')
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
 
   const ascents = useLiveQuery(() =>
     db.ascents.orderBy('date').reverse().toArray(),
   )
   const routes = useLiveQuery(() => db.routes.toArray())
+  const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
 
   const stats = useMemo(() => {
     if (!ascents || !routes) return null
@@ -75,10 +91,181 @@ export function ProfilePage() {
     }
   }, [ascents, routes])
 
+  const sectorRoutes = useMemo(() => {
+    if (!routes || !selectedSectorId) return []
+    return routes.filter(r => r.sectorId === selectedSectorId).sort((a, b) => a.gradeSort - b.gradeSort)
+  }, [routes, selectedSectorId])
+
+  const selectedRoute = routes?.find(r => r.id === selectedRouteId)
+
+  const handleSaveAscent = async () => {
+    if (!selectedRoute || saving) return
+    setSaving(true)
+    const localId = crypto.randomUUID()
+    const now = new Date().toISOString()
+    const points = calculatePoints(selectedRoute.grade, style as any)
+    try {
+      await db.ascents.add({
+        id: localId,
+        localId,
+        userId: 'local-user',
+        routeId: selectedRoute.id,
+        date,
+        style: style as any,
+        notes: notes || undefined,
+        isPublic: true,
+        points,
+        syncStatus: 'pending',
+        createdAt: now,
+      })
+      await db.syncQueue.add({
+        entity: 'ascent',
+        localId,
+        action: 'create',
+        payload: { routeId: selectedRoute.id, date, style, notes, points },
+        createdAt: Date.now(),
+        retryCount: 0,
+      })
+      // Reset form
+      setSelectedRouteId('')
+      setNotes('')
+      setJustSaved(true)
+      setTimeout(() => setJustSaved(false), 2000)
+    } catch (err) {
+      console.error('Failed to save ascent:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-1">{t('profile.title')}</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-bold">{t('profile.title')}</h1>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            showForm ? 'bg-gray-200 text-gray-600' : 'bg-green-600 text-white'
+          }`}
+        >
+          {showForm ? t('cancel') : `+ ${t('profile.logAscent')}`}
+        </button>
+      </div>
       <p className="text-gray-400 text-xs mb-4">{t('profile.subtitle')}</p>
+
+      {/* Ascent logging form */}
+      {showForm && (
+        <div className="bg-gray-50 rounded-xl p-3 mb-4 border border-gray-200">
+          {justSaved && (
+            <div className="bg-green-100 text-green-700 text-sm rounded-lg px-3 py-2 mb-3 text-center font-medium">
+              {t('profile.saved')}
+            </div>
+          )}
+
+          {/* Sector picker */}
+          <div className="mb-3">
+            <label className="text-sm font-medium text-gray-700 mb-1 block">{t('profile.selectSector')}</label>
+            <select
+              value={selectedSectorId}
+              onChange={(e) => { setSelectedSectorId(e.target.value); setSelectedRouteId('') }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="">{t('profile.selectSector')}...</option>
+              {sectors?.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Route picker */}
+          {selectedSectorId && (
+            <div className="mb-3">
+              <label className="text-sm font-medium text-gray-700 mb-1 block">{t('profile.selectRoute')}</label>
+              <select
+                value={selectedRouteId}
+                onChange={(e) => setSelectedRouteId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+              >
+                <option value="">{t('profile.selectRoute')}...</option>
+                {sectorRoutes.map(r => (
+                  <option key={r.id} value={r.id}>{r.grade} — {r.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Show rest of form only when route is selected */}
+          {selectedRoute && (
+            <>
+              {/* Selected route info */}
+              <div className="flex items-center gap-2 mb-3 bg-white rounded-lg px-3 py-2 border border-gray-200">
+                <span className={`text-sm font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(selectedRoute.grade)}`}>
+                  {selectedRoute.grade}
+                </span>
+                <span className="text-sm font-medium">{selectedRoute.name}</span>
+                <span className="text-xs text-gray-400 ml-auto">+{calculatePoints(selectedRoute.grade, style as any)} {t('route.points')}</span>
+              </div>
+
+              {/* Style */}
+              <div className="mb-3">
+                <label className="text-sm font-medium text-gray-700 mb-1.5 block">{t('ascent.style')}</label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {ASCENT_STYLES.map(s => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => setStyle(s.value)}
+                      className={`flex flex-col items-center py-2 rounded-lg text-xs transition-colors ${
+                        style === s.value
+                          ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-500'
+                          : 'bg-white text-gray-600 border border-gray-200'
+                      }`}
+                    >
+                      <span className="text-base">{s.emoji}</span>
+                      <span className="font-medium mt-0.5">{t(`style.${s.value}` as any)}</span>
+                      <span className="text-[10px] text-gray-400 mt-0.5 px-1 text-center leading-tight">
+                        {t(`style.${s.value}.desc` as any)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Date */}
+              <div className="mb-3">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t('ascent.date')}</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                />
+              </div>
+
+              {/* Comment */}
+              <div className="mb-3">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t('profile.comment')}</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder={t('profile.commentPlaceholder')}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none bg-white"
+                />
+              </div>
+
+              {/* Save */}
+              <button
+                onClick={handleSaveAscent}
+                disabled={saving}
+                className="w-full bg-green-600 text-white rounded-lg py-2.5 font-medium disabled:opacity-50"
+              >
+                {saving ? t('saving') : t('save')}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {!stats || stats.totalAscents === 0 ? (
         <div className="text-center py-12 text-gray-400">

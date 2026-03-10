@@ -47,6 +47,29 @@ export function SectorPage() {
     [sectorId],
   )
 
+  // Average ratings per route
+  const routeRatings = useLiveQuery(
+    async () => {
+      if (!routes || routes.length === 0) return new Map<string, number>()
+      const rIds = routes.map(r => r.id)
+      const ascents = await db.ascents.where('routeId').anyOf(rIds).toArray()
+      const map = new Map<string, number>()
+      const sums: Record<string, { total: number; count: number }> = {}
+      for (const a of ascents) {
+        if (a.rating && a.rating > 0) {
+          if (!sums[a.routeId]) sums[a.routeId] = { total: 0, count: 0 }
+          sums[a.routeId].total += a.rating
+          sums[a.routeId].count++
+        }
+      }
+      for (const [id, s] of Object.entries(sums)) {
+        map.set(id, Math.round(s.total / s.count * 10) / 10)
+      }
+      return map
+    },
+    [routes],
+  )
+
   const allTopos = useLiveQuery(
     () =>
       sectorId
@@ -243,32 +266,30 @@ export function SectorPage() {
             selectedRouteId={selectedRouteId}
             onRouteSelect={(id) => setSelectedRouteId(prev => prev === id ? null : id)}
           />
-          <div className="px-2 flex items-center justify-between">
-            <RouteList
-              topoRoutes={activeTopoRoutes}
-              selectedRouteId={selectedRouteId}
-              onSelect={setSelectedRouteId}
-            />
-            <div className="flex gap-2 flex-shrink-0 ml-2">
-              <button
-                onClick={() => handleDeletePhoto(activeTopo.id)}
-                className="text-xs text-red-400"
-              >
-                &times;
-              </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-xs text-gray-500"
-              >
-                + Фото
-              </button>
-              <button
-                onClick={() => setEditingTopoId(activeTopo.id)}
-                className="text-xs text-blue-600"
-              >
-                {t('sector.markRoutes')}
-              </button>
-            </div>
+          <RouteList
+            topoRoutes={activeTopoRoutes}
+            selectedRouteId={selectedRouteId}
+            onSelect={setSelectedRouteId}
+          />
+          <div className="px-2 flex gap-2 justify-end">
+            <button
+              onClick={() => handleDeletePhoto(activeTopo.id)}
+              className="text-xs text-red-400"
+            >
+              &times;
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="text-xs text-gray-500"
+            >
+              + Фото
+            </button>
+            <button
+              onClick={() => setEditingTopoId(activeTopo.id)}
+              className="text-xs text-blue-600"
+            >
+              {t('sector.markRoutes')}
+            </button>
           </div>
           {/* Topo thumbnails when multiple photos */}
           {wallTopos.length > 1 && (
@@ -406,6 +427,7 @@ export function SectorPage() {
             {filteredRoutes.map((route) => {
               const tr = topoRoutes?.find((tp) => tp.routeId === route.id)
               const isSelected = route.id === selectedRouteId
+              const avgRating = routeRatings?.get(route.id)
               return (
                 <Link
                   key={route.id}
@@ -415,8 +437,6 @@ export function SectorPage() {
                       ? 'bg-blue-50 border-blue-300'
                       : 'bg-white border-gray-200 hover:border-blue-300'
                   }`}
-                  onMouseEnter={() => route.id && setSelectedRouteId(route.id)}
-                  onMouseLeave={() => setSelectedRouteId(null)}
                 >
                   {tr && (
                     editingNumberId === tr.id ? (
@@ -450,7 +470,14 @@ export function SectorPage() {
                     {route.grade}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{route.name}</div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-medium truncate">{route.name}</span>
+                      {avgRating != null && avgRating >= 4 && (
+                        <span className="flex-shrink-0 text-[10px] text-yellow-500">
+                          ★{avgRating % 1 === 0 ? avgRating : avgRating.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[10px] text-gray-400">
                       {t(`routeType.${route.routeType}` as any)}
                       {route.lengthM && ` · ${route.lengthM}${t('route.meters')}`}
