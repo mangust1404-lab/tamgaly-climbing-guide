@@ -108,3 +108,50 @@ export async function isAreaDownloaded(areaId: string): Promise<boolean> {
   const meta = await db.syncMeta.get(`download:${areaId}`)
   return !!meta
 }
+
+/**
+ * Pre-cache all topo photos for offline use.
+ * Fetches each image URL so the service worker's CacheFirst strategy stores it.
+ */
+export async function cacheTopoPhotos(
+  onProgress: (p: DownloadProgress) => void,
+): Promise<void> {
+  try {
+    const topos = await db.topos.toArray()
+    const urls = topos
+      .map(t => t.imageUrl)
+      .filter(u => u.startsWith('/topos/'))
+
+    if (urls.length === 0) {
+      onProgress({ stage: 'done', message: 'Нет фото для кэширования', percent: 100 })
+      return
+    }
+
+    onProgress({ stage: 'fetching', message: `Кэширование ${urls.length} фото...`, percent: 5 })
+
+    let done = 0
+    // Fetch in batches of 4 for parallelism
+    for (let i = 0; i < urls.length; i += 4) {
+      const batch = urls.slice(i, i + 4)
+      await Promise.all(batch.map(url => fetch(url).catch(() => {})))
+      done += batch.length
+      const percent = Math.round((done / urls.length) * 90) + 5
+      onProgress({
+        stage: 'fetching',
+        message: `Кэширование фото: ${done}/${urls.length}`,
+        percent,
+      })
+    }
+
+    // Request persistent storage
+    if (navigator.storage?.persist) {
+      await navigator.storage.persist()
+    }
+
+    localStorage.setItem('photos-cached', 'true')
+    onProgress({ stage: 'done', message: 'Фото сохранены для офлайн-доступа!', percent: 100 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Ошибка кэширования'
+    onProgress({ stage: 'error', message, percent: 0 })
+  }
+}

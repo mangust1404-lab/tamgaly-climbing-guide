@@ -2,17 +2,12 @@ import { useState, useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { calculateTotalScore } from '../lib/scoring/points'
+import { useI18n } from '../lib/i18n'
 
 type Period = 'all' | 'month' | 'week'
 
-const STYLE_LABELS: Record<string, string> = {
-  onsight: 'OS',
-  flash: 'FL',
-  redpoint: 'RP',
-  toprope: 'TR',
-}
-
 export function LeaderboardPage() {
+  const { t } = useI18n()
   const [period, setPeriod] = useState<Period>('all')
 
   const ascents = useLiveQuery(() =>
@@ -53,7 +48,7 @@ export function LeaderboardPage() {
 
       return {
         userId,
-        displayName: user?.displayName || 'Скалолаз',
+        displayName: user?.displayName || t('leaderboard.climber'),
         totalScore,
         ascentCount: userAscents.length,
         bestGrade: bestRoute?.grade || '?',
@@ -62,36 +57,40 @@ export function LeaderboardPage() {
     })
 
     return entries.sort((a, b) => b.totalScore - a.totalScore)
-  }, [ascents, users, routes, period])
+  }, [ascents, users, routes, period, t])
+
+  const PERIOD_OPTIONS: [Period, string][] = [
+    ['all', t('leaderboard.allTime')],
+    ['month', t('leaderboard.month')],
+    ['week', t('leaderboard.week')],
+  ]
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Таблица лидеров</h1>
+      <h1 className="text-2xl font-bold mb-4">{t('leaderboard.title')}</h1>
 
       {/* Period filter */}
       <div className="flex gap-1 mb-4">
-        {([['all', 'Всё время'], ['month', 'Месяц'], ['week', 'Неделя']] as const).map(
-          ([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setPeriod(key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                period === key
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {label}
-            </button>
-          ),
-        )}
+        {PERIOD_OPTIONS.map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setPeriod(key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              period === key
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {leaderboard.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <p className="text-4xl mb-3">🏆</p>
-          <p className="text-sm">Пока нет пролазов</p>
-          <p className="text-xs mt-1">Залогируй свой первый маршрут!</p>
+          <p className="text-sm">{t('leaderboard.noAscents')}</p>
+          <p className="text-xs mt-1">{t('leaderboard.noAscentsHint')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -124,15 +123,15 @@ export function LeaderboardPage() {
                   {entry.displayName}
                 </div>
                 <div className="text-xs text-gray-400">
-                  {entry.ascentCount} пролаз{entry.ascentCount === 1 ? '' : entry.ascentCount < 5 ? 'а' : 'ов'}
-                  {' · '}макс {entry.bestGrade} {STYLE_LABELS[entry.bestStyle] || ''}
+                  {entry.ascentCount} {t('leaderboard.ascents')}
+                  {' · '}{t('leaderboard.best')} {entry.bestGrade}
                 </div>
               </div>
 
               {/* Score */}
               <div className="text-right">
                 <div className="font-bold text-blue-600">{entry.totalScore}</div>
-                <div className="text-[10px] text-gray-400">очков</div>
+                <div className="text-[10px] text-gray-400">{t('leaderboard.points')}</div>
               </div>
             </div>
           ))}

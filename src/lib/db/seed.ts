@@ -409,16 +409,26 @@ export async function restoreToposFromTags() {
     }
   }
 
+  // Helper: load image to get actual dimensions
+  const getImageDims = (url: string): Promise<{ w: number; h: number }> =>
+    new Promise(resolve => {
+      const img = new Image()
+      img.onload = () => resolve({ w: img.naturalWidth || 1920, h: img.naturalHeight || 1080 })
+      img.onerror = () => resolve({ w: 1920, h: 1080 })
+      img.src = url
+    })
+
   // Create topo records
   const now = new Date().toISOString()
   for (const [sectorId, files] of sectorPhotos) {
     for (let i = 0; i < files.length; i++) {
+      const dims = await getImageDims(PHOTO_DIR + files[i])
       await db.topos.put({
         id: `topo-${sectorId}-${i}`,
         sectorId,
         imageUrl: PHOTO_DIR + files[i],
-        imageWidth: 1920,
-        imageHeight: 1080,
+        imageWidth: dims.w,
+        imageHeight: dims.h,
         sortOrder: i + 1,
         createdAt: now,
         updatedAt: now,
@@ -429,12 +439,13 @@ export async function restoreToposFromTags() {
     const route = routeMap.get(routeId)
     if (!route) continue
     for (let i = 0; i < files.length; i++) {
+      const dims = await getImageDims(PHOTO_DIR + files[i])
       await db.topos.put({
         id: `topo-route-${routeId}-${i}`,
         sectorId: route.sectorId,
         imageUrl: PHOTO_DIR + files[i],
-        imageWidth: 1920,
-        imageHeight: 1080,
+        imageWidth: dims.w,
+        imageHeight: dims.h,
         caption: `${route.name} (${route.grade})`,
         sortOrder: 10 + i,
         createdAt: now,
@@ -470,11 +481,12 @@ export async function restoreToposFromTags() {
   }
 }
 
-// GPS coordinates from field KMZ waypoints (2026-03-08)
+// GPS coordinates from field KMZ waypoints (2026-03-08, 2026-03-09)
 const SECTOR_GPS: Record<string, { latitude: number; longitude: number }> = {
   'sector-prigorod': { latitude: 44.0633409, longitude: 76.9964891 },
   'sector-gorod':    { latitude: 44.0624891, longitude: 76.9964802 },
   'sector-serpy':    { latitude: 44.0616365, longitude: 76.9967875 },
+  'sector-zamanka':  { latitude: 44.0632248, longitude: 76.9982119 },
 }
 
 // Route-level GPS from KMZ waypoints

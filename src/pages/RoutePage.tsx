@@ -1,24 +1,16 @@
-import { useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
-import { AscentForm } from '../components/route/AscentForm'
-import { ReviewForm } from '../components/route/ReviewForm'
-import { routeTypeLabel, gradeColor } from '../lib/utils'
-import type { Topo } from '../lib/db/schema'
-
-const STYLE_LABELS: Record<string, string> = {
-  onsight: 'Онсайт',
-  flash: 'Флэш',
-  redpoint: 'Редпоинт',
-  toprope: 'Топроуп',
-  attempt: 'Попытка',
-}
+import { TopoViewer } from '../components/topo/TopoViewer'
+import { gradeColor, gradeToTopoColor } from '../lib/utils'
+import { useI18n } from '../lib/i18n'
 
 export function RoutePage() {
+  const { t } = useI18n()
   const { routeId } = useParams<{ routeId: string }>()
-  const [showAscentForm, setShowAscentForm] = useState(false)
-  const [showReviewForm, setShowReviewForm] = useState(false)
+  const navigate = useNavigate()
+  const [activePhotoIdx, setActivePhotoIdx] = useState(0)
 
   const route = useLiveQuery(
     () => (routeId ? db.routes.get(routeId) : undefined),
@@ -30,70 +22,45 @@ export function RoutePage() {
     [route?.sectorId],
   )
 
-  const ascents = useLiveQuery(
-    () =>
-      routeId
-        ? db.ascents.where('routeId').equals(routeId).reverse().sortBy('date')
-        : [],
-    [routeId],
+  // All routes in the same sector for navigation
+  const sectorRoutes = useLiveQuery(
+    () => route?.sectorId
+      ? db.routes.where('sectorId').equals(route.sectorId).sortBy('gradeSort')
+      : [],
+    [route?.sectorId],
   )
 
-  const reviews = useLiveQuery(
-    () =>
-      routeId
-        ? db.reviews.where('routeId').equals(routeId).reverse().sortBy('createdAt')
-        : [],
-    [routeId],
-  )
-
-  // Route photos: topos with id matching `topo-route-{routeId}-*`
-  const routeTopos = useLiveQuery(
-    async (): Promise<Topo[]> => {
+  // Find ALL topo photos that have this route marked on them
+  const toposWithRoute = useLiveQuery(
+    async () => {
       if (!routeId) return []
-      // Get all topos for this sector, then filter by caption/id containing route info
-      const all = route?.sectorId
-        ? await db.topos.where('sectorId').equals(route.sectorId).toArray()
-        : []
-      return all.filter(t => t.id.startsWith(`topo-route-${routeId}`))
-    },
-    [routeId, route?.sectorId],
-  )
+      const trs = await db.topoRoutes.where('routeId').equals(routeId).toArray()
+      if (trs.length === 0) return []
 
-  const [routePhotoIdx, setRoutePhotoIdx] = useState(0)
-  const [routeZoom, setRouteZoom] = useState(1)
-  const zoomIn = useCallback(() => setRouteZoom(z => Math.min(4, z + 0.5)), [])
-  const zoomOut = useCallback(() => setRouteZoom(z => Math.max(1, z - 0.5)), [])
-  const resetZoom = useCallback(() => setRouteZoom(1), [])
+      const results = []
+      for (const tr of trs) {
+        const topo = await db.topos.get(tr.topoId)
+        if (!topo) continue
+        // Load all route lines on this topo for context
+        const allTrs = await db.topoRoutes.where('topoId').equals(topo.id).toArray()
+        const rIds = allTrs.map(t => t.routeId)
+        const routesList = await db.routes.where('id').anyOf(rIds).toArray()
+        const routeMap = new Map(routesList.map(r => [r.id, r]))
+        results.push({
+          topo,
+          topoRoutes: allTrs.map(t => ({ ...t, route: routeMap.get(t.routeId) })),
+        })
+      }
+      return results
+    },
+    [routeId],
+  )
 
   if (!route) {
-    return <div className="p-4 text-gray-400">Маршрут не найден</div>
+    return <div className="p-4 text-gray-400">{t('route.notFound')}</div>
   }
 
-  // Average rating from reviews
-  const avgRating = reviews && reviews.length > 0
-    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
-    : null
-
-  // Grade consensus from ascents
-  const gradeVotes = ascents?.filter(a => a.personalGrade) ?? []
-  const gradeSummary = (() => {
-    if (gradeVotes.length === 0) return null
-    let soft = 0, fair = 0, hard = 0
-    const exactGrades: Record<string, number> = {}
-    for (const a of gradeVotes) {
-      const pg = a.personalGrade!
-      if (pg.startsWith('soft:')) soft++
-      else if (pg.startsWith('hard:')) hard++
-      else {
-        // It's an exact grade like "6b+"
-        exactGrades[pg] = (exactGrades[pg] || 0) + 1
-      }
-    }
-    // Also count ascents that logged "fair" as no personalGrade
-    const totalWithOpinion = soft + hard + Object.values(exactGrades).reduce((s, c) => s + c, 0)
-    const topExact = Object.entries(exactGrades).sort((a, b) => b[1] - a[1])[0]
-    return { soft, hard, fair, total: totalWithOpinion, topExact: topExact ? topExact[0] : null, topExactCount: topExact ? topExact[1] : 0, exactGrades }
-  })()
+  const activePhoto = toposWithRoute?.[activePhotoIdx] ?? toposWithRoute?.[0]
 
   return (
     <div className="p-4">
@@ -113,12 +80,9 @@ export function RoutePage() {
         <div>
           <h1 className="text-2xl font-bold">{route.name}</h1>
           <div className="flex items-center gap-2 text-gray-500 text-sm">
-            <span>{routeTypeLabel(route.routeType)}</span>
-            {route.lengthM && <span>· {route.lengthM}м</span>}
-            {route.pitches > 1 && <span>· {route.pitches} верёвок</span>}
-            {avgRating && (
-              <span className="text-yellow-500">★ {avgRating}</span>
-            )}
+            <span>{t(`routeType.${route.routeType}` as any)}</span>
+            {route.lengthM && <span>· {route.lengthM}{t('route.meters')}</span>}
+            {route.pitches > 1 && <span>· {route.pitches} {t('route.pitchesCount')}</span>}
           </div>
         </div>
       </div>
@@ -129,7 +93,7 @@ export function RoutePage() {
 
       {route.firstAscent && (
         <p className="text-xs text-gray-400 mb-4">
-          Первопроход: {route.firstAscent}
+          {t('route.firstAscent')}: {route.firstAscent}
         </p>
       )}
 
@@ -143,45 +107,27 @@ export function RoutePage() {
         </div>
       )}
 
-      {/* Route photos */}
-      {routeTopos && routeTopos.length > 0 && (
+      {/* Topo with this route highlighted */}
+      {activePhoto && (
         <div className="mb-4 -mx-4">
-          <div
-            className="relative overflow-auto bg-gray-100"
-            style={{ maxHeight: routeZoom > 1 ? '60vh' : undefined }}
-          >
-            <img
-              src={routeTopos[routePhotoIdx].imageUrl}
-              alt={routeTopos[routePhotoIdx].caption || route.name}
-              className="block transition-transform duration-200 ease-out"
-              style={{
-                width: routeZoom > 1 ? `${routeZoom * 100}%` : '100%',
-                maxWidth: routeZoom > 1 ? 'none' : '100%',
-                cursor: routeZoom > 1 ? 'grab' : 'zoom-in',
-              }}
-              onClick={() => { if (routeZoom === 1) zoomIn() }}
-              draggable={false}
-            />
-            <div className="absolute top-2 right-2 flex flex-col gap-1" style={{ zIndex: 10 }}>
-              <button onClick={zoomIn} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">+</button>
-              {routeZoom > 1 && (
-                <>
-                  <button onClick={resetZoom} className="w-8 h-8 bg-black/60 text-white rounded-full text-[10px] leading-none">{Math.round(routeZoom * 100)}%</button>
-                  <button onClick={zoomOut} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">-</button>
-                </>
-              )}
-            </div>
-          </div>
-          {routeTopos.length > 1 && (
-            <div className="flex gap-1 px-2 py-1 overflow-x-auto">
-              {routeTopos.map((t, i) => (
+          <TopoViewer
+            imageUrl={activePhoto.topo.imageUrl}
+            imageWidth={activePhoto.topo.imageWidth}
+            imageHeight={activePhoto.topo.imageHeight}
+            topoRoutes={activePhoto.topoRoutes}
+            selectedRouteId={routeId}
+          />
+          {/* Thumbnails when multiple photos */}
+          {toposWithRoute && toposWithRoute.length > 1 && (
+            <div className="flex gap-1 overflow-x-auto px-2 py-1">
+              {toposWithRoute.map((tw, i) => (
                 <img
-                  key={t.id}
-                  src={t.imageUrl}
-                  alt={t.caption || ''}
-                  onClick={() => { setRoutePhotoIdx(i); resetZoom() }}
-                  className={`h-12 w-16 object-cover rounded flex-shrink-0 cursor-pointer border-2 ${
-                    i === routePhotoIdx ? 'border-blue-500' : 'border-transparent'
+                  key={tw.topo.id}
+                  src={tw.topo.imageUrl}
+                  alt={tw.topo.caption || ''}
+                  onClick={() => setActivePhotoIdx(i)}
+                  className={`h-10 w-14 object-cover rounded flex-shrink-0 cursor-pointer border-2 ${
+                    i === activePhotoIdx ? 'border-blue-500' : 'border-transparent'
                   }`}
                 />
               ))}
@@ -190,156 +136,38 @@ export function RoutePage() {
         </div>
       )}
 
-      {/* Grade consensus */}
-      {gradeSummary && gradeSummary.total > 0 && (
-        <div className="bg-gray-50 rounded-lg p-3 mb-4">
-          <div className="text-sm font-medium text-gray-700 mb-2">
-            Мнение сообщества ({gradeSummary.total})
-          </div>
-          {/* Bar: soft / exact / hard */}
-          <div className="flex h-6 rounded-full overflow-hidden mb-2">
-            {gradeSummary.soft > 0 && (
-              <div
-                className="bg-green-400 flex items-center justify-center text-[10px] text-white font-bold"
-                style={{ width: `${(gradeSummary.soft / gradeSummary.total) * 100}%` }}
-              >
-                {gradeSummary.soft > 0 && 'Мягче'}
-              </div>
-            )}
-            {Object.entries(gradeSummary.exactGrades).map(([g, count]) => (
-              <div
-                key={g}
-                className="bg-blue-500 flex items-center justify-center text-[10px] text-white font-bold border-l border-white/30"
-                style={{ width: `${(count / gradeSummary.total) * 100}%` }}
-              >
-                {g}
-              </div>
-            ))}
-            {gradeSummary.hard > 0 && (
-              <div
-                className="bg-red-400 flex items-center justify-center text-[10px] text-white font-bold"
-                style={{ width: `${(gradeSummary.hard / gradeSummary.total) * 100}%` }}
-              >
-                {gradeSummary.hard > 0 && 'Жёстче'}
-              </div>
-            )}
-          </div>
-          {gradeSummary.topExact && (
-            <div className="text-xs text-gray-500">
-              Чаще всего ставят <span className="font-mono font-bold text-blue-700">{gradeSummary.topExact}</span> ({gradeSummary.topExactCount} чел.)
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setShowAscentForm(true)}
-          className="flex-1 bg-green-600 text-white rounded-lg px-4 py-3 font-medium"
-        >
-          Залогировать пролаз
-        </button>
-        <button
-          onClick={() => setShowReviewForm(true)}
-          className="bg-blue-100 text-blue-700 rounded-lg px-4 py-3 font-medium"
-        >
-          Отзыв
-        </button>
-      </div>
-
-      {/* Ascents */}
-      <h2 className="text-lg font-semibold mb-3">
-        Пролазы {ascents ? `(${ascents.length})` : ''}
-      </h2>
-
-      {!ascents || ascents.length === 0 ? (
-        <p className="text-gray-400 text-sm mb-6">Пока никто не пролез</p>
-      ) : (
-        <div className="space-y-2 mb-6">
-          {ascents.map((ascent) => (
-            <div
-              key={ascent.id}
-              className="bg-white border border-gray-200 rounded-lg p-3"
-            >
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">{STYLE_LABELS[ascent.style] ?? ascent.style}</span>
-                <span className="text-xs text-gray-400">{ascent.date}</span>
-              </div>
-              {ascent.rating && (
-                <div className="text-yellow-400 text-xs mt-0.5">
-                  {'★'.repeat(ascent.rating)}{'☆'.repeat(5 - ascent.rating)}
-                </div>
-              )}
-              {ascent.notes && (
-                <p className="text-xs text-gray-500 mt-1">{ascent.notes}</p>
-              )}
-              <div className="flex justify-between items-center mt-1">
-                <span className="text-xs text-blue-600 font-medium">+{ascent.points} очков</span>
-                {ascent.syncStatus === 'pending' && (
-                  <span className="text-xs text-orange-500">ожидает синхронизации</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Reviews */}
-      {reviews && reviews.length > 0 && (
-        <>
-          <h2 className="text-lg font-semibold mb-3">
-            Отзывы ({reviews.length})
-          </h2>
-          <div className="space-y-2">
-            {reviews.map((review) => (
-              <div
-                key={review.id}
-                className="bg-white border border-gray-200 rounded-lg p-3"
-              >
-                <div className="flex justify-between items-center">
-                  <div className="text-yellow-400 text-sm">
-                    {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
-                  </div>
-                  {review.gradeOpinion && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      review.gradeOpinion === 'Soft' ? 'bg-green-100 text-green-700'
-                        : review.gradeOpinion === 'Hard' ? 'bg-red-100 text-red-700'
-                        : 'bg-blue-100 text-blue-700'
-                    }`}>
-                      {review.gradeOpinion === 'Soft' ? 'Мягче' : review.gradeOpinion === 'Hard' ? 'Жёстче' : 'Норм'}
-                    </span>
-                  )}
-                </div>
-                {review.comment && (
-                  <p className="text-xs text-gray-600 mt-1">{review.comment}</p>
-                )}
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-[10px] text-gray-400">
-                    {new Date(review.createdAt).toLocaleDateString('ru')}
+      {/* Other routes in this sector */}
+      {sectorRoutes && sectorRoutes.length > 1 && (
+        <div className="mt-2">
+          <h2 className="text-sm font-semibold text-gray-500 mb-2">{t('sector.routes')}</h2>
+          <div className="space-y-1">
+            {sectorRoutes.map((r) => {
+              const isCurrent = r.id === routeId
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => !isCurrent && navigate(`/route/${r.id}`)}
+                  className={`w-full flex items-center gap-2 rounded-lg p-2 text-left transition-colors ${
+                    isCurrent
+                      ? 'bg-blue-50 border border-blue-300'
+                      : 'bg-white border border-gray-200'
+                  }`}
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: gradeToTopoColor(r.grade) }}
+                  />
+                  <span className={`text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(r.grade)}`}>
+                    {r.grade}
                   </span>
-                  {review.syncStatus === 'pending' && (
-                    <span className="text-xs text-orange-500">ожидает синхр.</span>
-                  )}
-                </div>
-              </div>
-            ))}
+                  <span className={`text-sm truncate ${isCurrent ? 'font-semibold' : ''}`}>
+                    {r.name}
+                  </span>
+                </button>
+              )
+            })}
           </div>
-        </>
-      )}
-
-      {showAscentForm && (
-        <AscentForm
-          route={route}
-          onClose={() => setShowAscentForm(false)}
-        />
-      )}
-
-      {showReviewForm && (
-        <ReviewForm
-          route={route}
-          onClose={() => setShowReviewForm(false)}
-        />
+        </div>
       )}
     </div>
   )

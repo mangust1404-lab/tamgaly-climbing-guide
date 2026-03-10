@@ -44,6 +44,17 @@ const translations = {
   'home.gradeAll': { ru: 'Все', en: 'All' },
   'home.gradeFilterResults': { ru: 'Маршруты', en: 'Routes' },
   'home.noRoutesInRange': { ru: 'Нет маршрутов в этом диапазоне', en: 'No routes in this range' },
+  'home.aboutArea': { ru: 'О районе', en: 'About the area' },
+
+  // About page
+  'about.location': { ru: 'Расположение', en: 'Location' },
+  'about.locationText': { ru: 'Скальный массив на берегу реки Или, 120 км к северу от Алматы. Координаты: 44.064°N, 76.996°E. Дорога от города — 1.5–2 часа через Капчагай.', en: 'Rock formation on the banks of the Ili River, 120 km north of Almaty. Coordinates: 44.064°N, 76.996°E. Drive from the city takes 1.5–2 hours via Kapchagay.' },
+  'about.rock': { ru: 'Порода', en: 'Rock type' },
+  'about.rockText': { ru: 'Вулканический туф. Твёрдая, шершавая порода с «дырами» и рельефом. Хорошее трение для ног, но агрессивна для кожи.', en: 'Volcanic tuff. Hard, rough rock with pockets and features. Good friction for feet, but aggressive on skin.' },
+  'about.season': { ru: 'Сезон', en: 'Season' },
+  'about.seasonText': { ru: 'Март—май, сентябрь—ноябрь. Летом (июнь–август) слишком жарко (40°C+). Зимой камень холодный, но лазить можно в солнечные дни.', en: 'March–May, September–November. Summer (June–August) is too hot (40°C+). Winter rock is cold, but climbable on sunny days.' },
+  'about.approach': { ru: 'Подход', en: 'Approach' },
+  'about.approachText': { ru: 'Два основных сектора: Гавань (ущелье от реки) и Ривёрсайд (скалы вдоль реки к северу). Подход 5–20 минут. Вода и тень есть у реки.', en: 'Two main areas: Gavan (canyon from the river) and Riverside (cliffs along the river to the north). Approach 5–20 minutes. Water and shade available by the river.' },
 
   // Sector
   'sector.routes': { ru: 'Маршруты', en: 'Routes' },
@@ -101,6 +112,63 @@ const translations = {
   'leaderboard.allTime': { ru: 'Всё время', en: 'All time' },
   'leaderboard.season': { ru: 'Сезон', en: 'Season' },
   'leaderboard.month': { ru: 'Месяц', en: 'Month' },
+  'leaderboard.week': { ru: 'Неделя', en: 'Week' },
+  'leaderboard.climber': { ru: 'Скалолаз', en: 'Climber' },
+  'leaderboard.noAscents': { ru: 'Пока нет пролазов', en: 'No ascents yet' },
+  'leaderboard.noAscentsHint': { ru: 'Залогируй свой первый маршрут!', en: 'Log your first route!' },
+  'leaderboard.ascents': { ru: 'пролаз.', en: 'ascents' },
+  'leaderboard.best': { ru: 'макс', en: 'best' },
+  'leaderboard.points': { ru: 'очков', en: 'points' },
+
+  // Sector page
+  'sector.notFound': { ru: 'Сектор не найден', en: 'Sector not found' },
+  'sector.min': { ru: 'мин', en: 'min' },
+  'sector.markRoutes': { ru: 'Разметить', en: 'Mark routes' },
+  'sector.done': { ru: 'Готово', en: 'Done' },
+  'sector.noRoutesInRange': { ru: 'Нет маршрутов в этом диапазоне', en: 'No routes in this range' },
+  'sector.routesNotLoaded': { ru: 'Маршруты не загружены', en: 'Routes not loaded' },
+  'sector.all': { ru: 'Все', en: 'All' },
+  'sector.deletePhotoConfirm': { ru: 'Удалить это фото и все размеченные на нём маршруты?', en: 'Delete this photo and all route lines on it?' },
+  'sector.noPhoto': { ru: 'Нет фото стены', en: 'No wall photo' },
+  'sector.uploadPhoto': { ru: 'Загрузить фото', en: 'Upload photo' },
+  'sector.editNumber': { ru: 'Нажмите чтобы изменить номер', en: 'Click to edit number' },
+  'compass.directions': { ru: 'С,СВ,В,ЮВ,Ю,ЮЗ,З,СЗ', en: 'N,NE,E,SE,S,SW,W,NW' },
+
+  // Route page
+  'route.notFound': { ru: 'Маршрут не найден', en: 'Route not found' },
+  'route.meters': { ru: 'м', en: 'm' },
+  'route.pitchesCount': { ru: 'верёвок', en: 'pitches' },
+  'route.communityCount': { ru: 'Мнение сообщества ({n})', en: 'Community opinion ({n})' },
+  'route.mostCommon': { ru: 'Чаще всего ставят', en: 'Most common' },
+  'route.people': { ru: 'чел.', en: 'ppl' },
+  'route.pendingSync': { ru: 'ожидает синхронизации', en: 'pending sync' },
+
+  // Profile page
+  'profile.title': { ru: 'Профиль', en: 'Profile' },
+  'profile.subtitle': { ru: 'Локальная статистика пролазов', en: 'Local ascent stats' },
+  'profile.noAscents': { ru: 'Пока нет пролазов', en: 'No ascents yet' },
+  'profile.noAscentsHint': { ru: 'Открой маршрут и залогируй пролаз', en: 'Open a route and log an ascent' },
+  'profile.points': { ru: 'Очков', en: 'Points' },
+  'profile.bestGrade': { ru: 'Макс. категория', en: 'Best grade' },
+  'profile.ascents': { ru: 'Пролазов', en: 'Ascents' },
+  'profile.pendingSync': { ru: 'Ожидает синхр.', en: 'Pending sync' },
+  'profile.byStyle': { ru: 'По стилю', en: 'By style' },
+  'profile.gradePyramid': { ru: 'Пирамида категорий', en: 'Grade pyramid' },
+  'profile.adminTopo': { ru: 'Админ: редактор топо', en: 'Admin: topo editor' },
+
+  // Review form
+  'review.title': { ru: 'Оставить отзыв', en: 'Leave a review' },
+  'review.routeQuality': { ru: 'Качество маршрута', en: 'Route quality' },
+  'review.grade': { ru: 'Категория', en: 'Grade' },
+  'review.comment': { ru: 'Комментарий', en: 'Comment' },
+  'review.commentPlaceholder': { ru: 'Качество скалы, рекомендации...', en: 'Rock quality, recommendations...' },
+  'review.submit': { ru: 'Отправить отзыв', en: 'Submit review' },
+
+  // Topo viewer
+  'topo.loading': { ru: 'Загрузка топо...', en: 'Loading topo...' },
+
+  // Map
+  'map.entrance': { ru: 'Вход', en: 'Entrance' },
 } as const
 
 type TranslationKey = keyof typeof translations

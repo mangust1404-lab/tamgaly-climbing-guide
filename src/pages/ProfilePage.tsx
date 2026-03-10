@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { calculateTotalScore } from '../lib/scoring/points'
+import { useI18n } from '../lib/i18n'
 
 const STYLE_COLORS: Record<string, string> = {
   onsight: 'bg-green-100 text-green-700',
@@ -12,15 +13,9 @@ const STYLE_COLORS: Record<string, string> = {
   attempt: 'bg-gray-100 text-gray-500',
 }
 
-const STYLE_LABELS: Record<string, string> = {
-  onsight: 'Онсайт',
-  flash: 'Флэш',
-  redpoint: 'Редпоинт',
-  toprope: 'Топроуп',
-  attempt: 'Попытка',
-}
-
 export function ProfilePage() {
+  const { t } = useI18n()
+
   const ascents = useLiveQuery(() =>
     db.ascents.orderBy('date').reverse().toArray(),
   )
@@ -82,14 +77,14 @@ export function ProfilePage() {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-1">Профиль</h1>
-      <p className="text-gray-400 text-xs mb-4">Локальная статистика пролазов</p>
+      <h1 className="text-2xl font-bold mb-1">{t('profile.title')}</h1>
+      <p className="text-gray-400 text-xs mb-4">{t('profile.subtitle')}</p>
 
       {!stats || stats.totalAscents === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <p className="text-4xl mb-3">👤</p>
-          <p className="text-sm">Пока нет пролазов</p>
-          <p className="text-xs mt-1">Открой маршрут и залогируй пролаз</p>
+          <p className="text-sm">{t('profile.noAscents')}</p>
+          <p className="text-xs mt-1">{t('profile.noAscentsHint')}</p>
         </div>
       ) : (
         <>
@@ -97,31 +92,31 @@ export function ProfilePage() {
           <div className="grid grid-cols-2 gap-2 mb-6">
             <div className="bg-blue-50 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-blue-600">{stats.totalScore}</div>
-              <div className="text-xs text-blue-500">Очков</div>
+              <div className="text-xs text-blue-500">{t('profile.points')}</div>
             </div>
             <div className="bg-green-50 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-green-600">{stats.bestGrade || '—'}</div>
-              <div className="text-xs text-green-500">Макс. категория</div>
+              <div className="text-xs text-green-500">{t('profile.bestGrade')}</div>
             </div>
             <div className="bg-purple-50 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-purple-600">{stats.completedAscents}</div>
-              <div className="text-xs text-purple-500">Пролазов</div>
+              <div className="text-xs text-purple-500">{t('profile.ascents')}</div>
             </div>
             <div className="bg-orange-50 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-orange-600">{stats.pending}</div>
-              <div className="text-xs text-orange-500">Ожидает синхр.</div>
+              <div className="text-xs text-orange-500">{t('profile.pendingSync')}</div>
             </div>
           </div>
 
           {/* Style breakdown */}
-          <h2 className="text-sm font-semibold mb-2">По стилю</h2>
+          <h2 className="text-sm font-semibold mb-2">{t('profile.byStyle')}</h2>
           <div className="flex flex-wrap gap-2 mb-6">
             {Object.entries(stats.byStyle).map(([style, count]) => (
               <span
                 key={style}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium ${STYLE_COLORS[style] || 'bg-gray-100'}`}
               >
-                {STYLE_LABELS[style] || style}: {count}
+                {t(`style.${style}` as any)}: {count}
               </span>
             ))}
           </div>
@@ -129,7 +124,7 @@ export function ProfilePage() {
           {/* Grade pyramid */}
           {stats.pyramid.length > 0 && (
             <>
-              <h2 className="text-sm font-semibold mb-2">Пирамида категорий</h2>
+              <h2 className="text-sm font-semibold mb-2">{t('profile.gradePyramid')}</h2>
               <div className="space-y-1">
                 {stats.pyramid.map(({ grade, count }) => {
                   const maxCount = Math.max(...stats.pyramid.map((p) => p.count))
@@ -162,7 +157,7 @@ export function ProfilePage() {
           to="/admin/topo"
           className="text-xs text-gray-400 underline"
         >
-          Админ: редактор топо
+          {t('profile.adminTopo')}
         </Link>
       </div>
     </div>

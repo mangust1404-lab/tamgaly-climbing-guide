@@ -1,8 +1,8 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
-import { downloadArea, type DownloadProgress } from '../lib/offline/downloadManager'
+import { cacheTopoPhotos, type DownloadProgress } from '../lib/offline/downloadManager'
 import { gradeColor } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 
@@ -23,7 +23,6 @@ export function HomePage() {
   const area = useLiveQuery(() => db.areas.get(AREA_ID))
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
   const routes = useLiveQuery(() => db.routes.toArray())
-  const ascents = useLiveQuery(() => db.ascents.toArray())
   const [dl, setDl] = useState<DownloadProgress | null>(null)
   const [search, setSearch] = useState('')
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
@@ -88,45 +87,32 @@ export function HomePage() {
     }
   }
 
-  const handleDownload = useCallback(async () => {
+  const handleCachePhotos = useCallback(async () => {
     try {
-      await downloadArea(AREA_ID, setDl)
+      await cacheTopoPhotos(setDl)
     } catch {
       // error already in dl state
     }
   }, [])
 
-  const totalRoutes = routes?.length ?? 0
-  const totalSectors = sectors?.length ?? 0
-  const myAscents = ascents?.length ?? 0
+  // Auto-cache photos on first launch when online
+  const topos = useLiveQuery(() => db.topos.count())
+  useEffect(() => {
+    if (topos && topos > 0 && !localStorage.getItem('photos-cached') && navigator.onLine) {
+      cacheTopoPhotos(setDl).catch(() => {})
+    }
+  }, [topos])
 
   const showGradeResults = selectedGrades.size > 0 && !search.trim()
   const resultsToShow = search.trim() ? searchResults : gradeResults
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-1">{t('home.title')}</h1>
-      <p className="text-gray-500 text-sm mb-4">
-        {area?.description || t('home.subtitle')}
-      </p>
-
-      {/* Stats row */}
-      {totalRoutes > 0 && (
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="bg-blue-50 rounded-lg p-3 text-center">
-            <div className="text-xl font-bold text-blue-700">{totalRoutes}</div>
-            <div className="text-xs text-blue-600">{t('home.routesCount')}</div>
-          </div>
-          <div className="bg-green-50 rounded-lg p-3 text-center">
-            <div className="text-xl font-bold text-green-700">{totalSectors}</div>
-            <div className="text-xs text-green-600">{t('home.sectorsCount')}</div>
-          </div>
-          <div className="bg-purple-50 rounded-lg p-3 text-center">
-            <div className="text-xl font-bold text-purple-700">{myAscents}</div>
-            <div className="text-xs text-purple-600">{t('home.ascentsCount')}</div>
-          </div>
-        </div>
-      )}
+      <div className="flex items-baseline justify-between mb-1">
+        <h1 className="text-2xl font-bold">{t('home.title')}</h1>
+        <Link to="/about" className="text-blue-600 text-xs">{t('home.aboutArea')}</Link>
+      </div>
+      <p className="text-gray-500 text-sm mb-4">{t('home.subtitle')}</p>
 
       <div className="flex gap-2 mb-4">
         <Link
@@ -136,7 +122,7 @@ export function HomePage() {
           {t('home.openMap')}
         </Link>
         <button
-          onClick={handleDownload}
+          onClick={handleCachePhotos}
           disabled={dl?.stage === 'fetching' || dl?.stage === 'saving'}
           className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50"
         >

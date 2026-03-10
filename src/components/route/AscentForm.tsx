@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { db } from '../../lib/db/schema'
 import { calculatePoints } from '../../lib/scoring/points'
+import { useI18n } from '../../lib/i18n'
 import type { Route } from '../../lib/db/schema'
 
-const STYLES = [
-  { value: 'onsight', label: 'Онсайт', emoji: '🔴' },
-  { value: 'flash', label: 'Флэш', emoji: '⚡' },
-  { value: 'redpoint', label: 'Редпоинт', emoji: '🟢' },
-  { value: 'toprope', label: 'Топроуп', emoji: '🔵' },
-  { value: 'attempt', label: 'Попытка', emoji: '⬜' },
+const STYLE_KEYS = [
+  { value: 'onsight', key: 'style.onsight', emoji: '🔴' },
+  { value: 'flash', key: 'style.flash', emoji: '⚡' },
+  { value: 'redpoint', key: 'style.redpoint', emoji: '🟢' },
+  { value: 'toprope', key: 'style.toprope', emoji: '🔵' },
+  { value: 'attempt', key: 'style.attempt', emoji: '⬜' },
 ] as const
 
 const GRADES = [
@@ -26,7 +27,8 @@ interface AscentFormProps {
 }
 
 export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
-  const [style, setStyle] = useState<typeof STYLES[number]['value']>('redpoint')
+  const { t } = useI18n()
+  const [style, setStyle] = useState<string>('redpoint')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [notes, setNotes] = useState('')
   const [rating, setRating] = useState(0)
@@ -51,7 +53,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
         userId: 'local-user', // will be replaced after auth
         routeId: route.id,
         date,
-        style,
+        style: style as any,
         rating: rating || undefined,
         personalGrade: personalGrade || (gradeFeeling && gradeFeeling !== 'fair' ? `${gradeFeeling}:${route.grade}` : undefined),
         notes: notes || undefined,
@@ -87,7 +89,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
         className="bg-white w-full rounded-t-2xl p-4 pb-8 animate-slide-up"
       >
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">Залогировать пролаз</h3>
+          <h3 className="text-lg font-bold">{t('ascent.title')}</h3>
           <button type="button" onClick={onClose} className="text-gray-400 text-2xl leading-none">
             &times;
           </button>
@@ -100,9 +102,9 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
 
         {/* Style selection */}
         <div className="mb-4">
-          <label className="text-sm font-medium text-gray-700 mb-2 block">Стиль</label>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">{t('ascent.style')}</label>
           <div className="grid grid-cols-5 gap-1">
-            {STYLES.map((s) => (
+            {STYLE_KEYS.map((s) => (
               <button
                 key={s.value}
                 type="button"
@@ -114,7 +116,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
                 }`}
               >
                 <span className="text-lg">{s.emoji}</span>
-                <span className="mt-0.5">{s.label}</span>
+                <span className="mt-0.5">{t(s.key as any)}</span>
               </button>
             ))}
           </div>
@@ -122,7 +124,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
 
         {/* Date */}
         <div className="mb-4">
-          <label className="text-sm font-medium text-gray-700 mb-1 block">Дата</label>
+          <label className="text-sm font-medium text-gray-700 mb-1 block">{t('ascent.date')}</label>
           <input
             type="date"
             value={date}
@@ -134,7 +136,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
         {/* Rating */}
         <div className="mb-4">
           <label className="text-sm font-medium text-gray-700 mb-1 block">
-            Оценка маршрута
+            {t('ascent.rating')}
           </label>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
@@ -153,10 +155,10 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
         {/* Grade opinion */}
         <div className="mb-4">
           <label className="text-sm font-medium text-gray-700 mb-2 block">
-            Категория {route.grade} — как тебе?
+            {route.grade} — {t('ascent.gradeOpinion')}
           </label>
           <div className="grid grid-cols-3 gap-2 mb-2">
-            {([['soft', 'Мягче'], ['fair', 'В точку'], ['hard', 'Жёстче']] as const).map(([val, label]) => (
+            {([['soft', t('route.softer')], ['fair', t('route.fair')], ['hard', t('route.harder')]] as const).map(([val, label]) => (
               <button
                 key={val}
                 type="button"
@@ -176,7 +178,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
           {(gradeFeeling === 'soft' || gradeFeeling === 'hard') && (
             <div>
               <label className="text-xs text-gray-500 mb-1 block">
-                Твоя оценка категории (необязательно):
+                {t('ascent.yourGrade')}
               </label>
               <div className="flex flex-wrap gap-1">
                 {GRADES.filter(g => {
@@ -206,12 +208,12 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
 
         {/* Notes */}
         <div className="mb-4">
-          <label className="text-sm font-medium text-gray-700 mb-1 block">Заметки</label>
+          <label className="text-sm font-medium text-gray-700 mb-1 block">{t('ascent.notes')}</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            placeholder="Комментарий, условия, бета..."
+            placeholder={t('ascent.notesPlaceholder')}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
           />
         </div>
@@ -219,7 +221,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
         {/* Points preview */}
         {points > 0 && (
           <div className="text-center text-sm text-blue-600 font-medium mb-4">
-            +{points} очков
+            +{points} {t('route.points')}
           </div>
         )}
 
@@ -228,7 +230,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
           disabled={saving}
           className="w-full bg-green-600 text-white rounded-lg py-3 font-medium disabled:opacity-50"
         >
-          {saving ? 'Сохранение...' : 'Сохранить'}
+          {saving ? t('saving') : t('save')}
         </button>
       </form>
     </div>

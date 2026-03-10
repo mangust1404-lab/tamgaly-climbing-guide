@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { db } from '../../lib/db/schema'
+import { useI18n } from '../../lib/i18n'
 import type { Route } from '../../lib/db/schema'
 
 const GRADE_OPINIONS = ['Soft', 'Fair', 'Hard'] as const
@@ -10,6 +11,7 @@ interface ReviewFormProps {
 }
 
 export function ReviewForm({ route, onClose }: ReviewFormProps) {
+  const { t } = useI18n()
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
   const [gradeOpinion, setGradeOpinion] = useState<string>('')
@@ -60,7 +62,7 @@ export function ReviewForm({ route, onClose }: ReviewFormProps) {
         className="bg-white w-full rounded-t-2xl p-4 pb-8 animate-slide-up"
       >
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">Оставить отзыв</h3>
+          <h3 className="text-lg font-bold">{t('review.title')}</h3>
           <button type="button" onClick={onClose} className="text-gray-400 text-2xl leading-none">
             &times;
           </button>
@@ -73,7 +75,7 @@ export function ReviewForm({ route, onClose }: ReviewFormProps) {
 
         {/* Star rating */}
         <div className="mb-4">
-          <label className="text-sm font-medium text-gray-700 mb-1 block">Качество маршрута</label>
+          <label className="text-sm font-medium text-gray-700 mb-1 block">{t('review.routeQuality')}</label>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
               <button
@@ -91,7 +93,7 @@ export function ReviewForm({ route, onClose }: ReviewFormProps) {
         {/* Grade opinion */}
         <div className="mb-4">
           <label className="text-sm font-medium text-gray-700 mb-2 block">
-            Категория {route.grade}
+            {t('review.grade')} {route.grade}
           </label>
           <div className="flex gap-2">
             {GRADE_OPINIONS.map((op) => (
@@ -107,7 +109,7 @@ export function ReviewForm({ route, onClose }: ReviewFormProps) {
                     : 'bg-gray-50 text-gray-600'
                 }`}
               >
-                {op === 'Soft' ? 'Мягче' : op === 'Hard' ? 'Жёстче' : 'Норм'}
+                {t(`review.gradeOpinion.${op}` as any)}
               </button>
             ))}
           </div>
@@ -115,12 +117,12 @@ export function ReviewForm({ route, onClose }: ReviewFormProps) {
 
         {/* Comment */}
         <div className="mb-4">
-          <label className="text-sm font-medium text-gray-700 mb-1 block">Комментарий</label>
+          <label className="text-sm font-medium text-gray-700 mb-1 block">{t('review.comment')}</label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={2}
-            placeholder="Качество скалы, рекомендации..."
+            placeholder={t('review.commentPlaceholder')}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
           />
         </div>
@@ -130,7 +132,7 @@ export function ReviewForm({ route, onClose }: ReviewFormProps) {
           disabled={saving || rating === 0}
           className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-50"
         >
-          {saving ? 'Сохранение...' : 'Отправить отзыв'}
+          {saving ? t('saving') : t('review.submit')}
         </button>
       </form>
     </div>

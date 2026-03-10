@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { I18nProvider } from './lib/i18n'
 import { Layout } from './components/ui/Layout'
 import { HomePage } from './pages/HomePage'
+import { AboutPage } from './pages/AboutPage'
 import { SectorPage } from './pages/SectorPage'
 import { RoutePage } from './pages/RoutePage'
 
@@ -53,6 +54,7 @@ function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<AboutPage />} />
             <Route path="/sector/:sectorId" element={<SectorPage />} />
             <Route path="/route/:routeId" element={<RoutePage />} />
             <Route path="/map" element={<Suspense fallback={<Loading />}><MapPage /></Suspense>} />

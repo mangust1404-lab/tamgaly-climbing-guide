@@ -76,6 +76,7 @@ export interface Topo {
   imageHeight: number
   caption?: string
   photographer?: string
+  type?: 'topo' | 'approach'
   sortOrder: number
   createdAt: string
   updatedAt: string

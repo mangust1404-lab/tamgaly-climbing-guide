@@ -4,6 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useGps } from '../../hooks/useGps'
 import { distanceMeters, formatDistance } from '../../lib/map/geo'
+import { useI18n } from '../../lib/i18n'
 import type { Area, Route, Sector } from '../../lib/db/schema'
 
 // Tamgaly-Tas center coordinates
@@ -17,6 +18,7 @@ interface OfflineMapProps {
 }
 
 export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
+  const { t } = useI18n()
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const gpsMarkerRef = useRef<L.CircleMarker | null>(null)
@@ -62,19 +64,27 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
     // Entrance marker
     if (area) {
       const entranceIcon = L.divIcon({
-        html: `<div style="
-          background: #dc2626;
-          color: white;
-          padding: 4px 10px;
-          border-radius: 16px;
-          font-size: 12px;
-          font-weight: 600;
-          white-space: nowrap;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-          border: 2px solid white;
-        ">Вход</div>`,
+        html: `<div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="
+            background: #dc2626;
+            color: white;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+          ">${t('map.entrance')}</div>
+          <div style="
+            width: 0; height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid #dc2626;
+          "></div>
+        </div>`,
         className: '',
-        iconAnchor: [20, 12],
+        iconSize: [0, 0],
+        iconAnchor: [0, 22],
       })
       const entranceMarker = L.marker([area.latitude, area.longitude], { icon: entranceIcon }).addTo(map)
       markersRef.current.push(entranceMarker)
@@ -82,24 +92,31 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
 
     sectors.forEach((sector) => {
       const icon = L.divIcon({
-        html: `<div style="
-          background: #1e3a5f;
-          color: white;
-          padding: 4px 10px;
-          border-radius: 16px;
-          font-size: 13px;
-          font-weight: 700;
-          white-space: nowrap;
-          cursor: pointer;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-          border: 2px solid white;
-          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-        ">${sector.name}</div>`,
+        html: `<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+          <div style="
+            background: #2563eb;
+            color: white;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+            line-height: 1.3;
+          ">${sector.name}</div>
+          <div style="
+            width: 0; height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid #2563eb;
+          "></div>
+        </div>`,
         className: '',
-        iconAnchor: [0, 0],
+        iconSize: [0, 0],
+        iconAnchor: [0, 22],
       })
 
-      const marker = L.marker([sector.latitude, sector.longitude], { icon })
+      const marker = L.marker([sector.latitude, sector.longitude], { icon, zIndexOffset: 1000 })
         .addTo(map)
         .on('click', () => {
           navigate(`/sector/${sector.id}`)
@@ -119,7 +136,7 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
       )
       map.fitBounds(bounds, { padding: [30, 30] })
     }
-  }, [sectors, area, navigate])
+  }, [sectors, area, navigate, t])
 
   // Route markers (shown at higher zoom levels)
   useEffect(() => {
@@ -132,7 +149,7 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
 
     const updateRouteVisibility = () => {
       const zoom = map.getZoom()
-      const show = zoom >= 17
+      const show = zoom >= 18
       routeMarkersRef.current.forEach(m => {
         if (show) m.addTo(map)
         else m.remove()
@@ -141,25 +158,45 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
 
     routes.forEach((route) => {
       if (!route.latitude || !route.longitude) return
+      // Grade-based color for route dot
+      const g = route.grade.toLowerCase()
+      let dotColor = '#6B7280'
+      if (g.startsWith('4')) dotColor = '#3B82F6'
+      else if (g.startsWith('5')) dotColor = '#F59E0B'
+      else if (g.startsWith('6')) dotColor = '#22C55E'
+      else if (g.startsWith('7')) dotColor = '#EF4444'
+      else if (g.startsWith('8')) dotColor = '#1F2937'
+
       const icon = L.divIcon({
-        html: `<div style="
-          background: #15803d;
-          color: #fff;
-          padding: 3px 8px;
-          border-radius: 12px;
-          font-size: 11px;
-          font-weight: 700;
-          white-space: nowrap;
-          cursor: pointer;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-          border: 2px solid white;
-          text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-        "><span style="font-family:monospace">${route.grade}</span> ${route.name}</div>`,
+        html: `<div style="display:flex;align-items:center;gap:3px;cursor:pointer;">
+          <div style="
+            width: 10px; height: 10px;
+            background: ${dotColor};
+            border-radius: 50%;
+            border: 1.5px solid white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+          "></div>
+          <div style="
+            background: white;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: 700;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            line-height: 1.2;
+            font-family: monospace;
+            color: #374151;
+          ">${route.grade}</div>
+        </div>`,
         className: '',
-        iconAnchor: [0, 0],
+        iconSize: [0, 0],
+        iconAnchor: [5, 5],
       })
 
       const marker = L.marker([route.latitude, route.longitude], { icon })
+        .bindTooltip(route.name, { direction: 'right', offset: [10, 0], className: 'route-tooltip' })
         .on('click', () => {
           navigate(`/route/${route.id}`)
         })
@@ -230,7 +267,7 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
         onClick={centerOnGps}
         className="absolute bottom-4 right-3 bg-white rounded-full w-10 h-10 shadow-lg flex items-center justify-center text-lg"
         style={{ zIndex: 1000 }}
-        title="Моя позиция"
+        title={t('map.myPosition')}
       >
         📍
       </button>
@@ -241,7 +278,7 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
           className="absolute top-3 left-3 bg-white/90 backdrop-blur rounded-lg px-3 py-2 shadow text-sm"
           style={{ zIndex: 1000 }}
         >
-          <span className="text-gray-500">Ближайший:</span>{' '}
+          <span className="text-gray-500">{t('map.nearest')}</span>{' '}
           <span className="font-semibold">{nearestSector.name}</span>{' '}
           <span className="text-blue-600">{nearestSector.distance}</span>
         </div>
@@ -253,7 +290,7 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
           className="absolute top-3 right-3 bg-yellow-100 text-yellow-800 rounded-lg px-3 py-1 text-xs shadow"
           style={{ zIndex: 1000 }}
         >
-          GPS: ±{Math.round(position.accuracy)}м
+          GPS: ±{Math.round(position.accuracy)}{t('route.meters')}
         </div>
       )}
     </div>

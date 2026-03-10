@@ -1,12 +1,12 @@
-/** Route type → Russian label */
-export function routeTypeLabel(type: string): string {
-  switch (type) {
-    case 'sport': return 'спорт'
-    case 'trad': return 'трад'
-    case 'boulder': return 'боулдер'
-    case 'multi-pitch': return 'мультипитч'
-    default: return type
-  }
+/** Grade → topo line color (traffic light by difficulty) */
+export function gradeToTopoColor(grade: string): string {
+  const g = grade.toLowerCase()
+  if (g.startsWith('4')) return '#3B82F6'       // blue - 4s
+  if (g.startsWith('5')) return '#F59E0B'        // amber/yellow - 5s
+  if (g.startsWith('6')) return '#22C55E'        // green - 6s
+  if (g.startsWith('7')) return '#EF4444'        // red - 7s
+  if (g.startsWith('8')) return '#1F2937'        // black - 8s
+  return '#6B7280'                               // gray - unknown
 }
 
 /** Grade → color class for the badge */
