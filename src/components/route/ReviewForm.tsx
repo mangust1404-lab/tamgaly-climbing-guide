@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { db } from '../../lib/db/schema'
 import { useI18n } from '../../lib/i18n'
+import { useUser } from '../../lib/userContext'
 import type { Route } from '../../lib/db/schema'
 
 const GRADE_OPINIONS = ['Soft', 'Fair', 'Hard'] as const
@@ -12,6 +13,7 @@ interface ReviewFormProps {
 
 export function ReviewForm({ route, onClose }: ReviewFormProps) {
   const { t } = useI18n()
+  const { user } = useUser()
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
   const [gradeOpinion, setGradeOpinion] = useState<string>('')
@@ -29,7 +31,7 @@ export function ReviewForm({ route, onClose }: ReviewFormProps) {
       await db.reviews.add({
         id: localId,
         localId,
-        userId: 'local-user',
+        userId: user?.id ?? 'anon',
         routeId: route.id,
         rating,
         comment: comment || undefined,

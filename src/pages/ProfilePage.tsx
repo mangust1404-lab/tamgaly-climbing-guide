@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { calculatePoints, calculateTotalScore } from '../lib/scoring/points'
 import { useI18n } from '../lib/i18n'
+import { useUser } from '../lib/userContext'
 import { gradeColor } from '../lib/utils'
 
 const STYLE_COLORS: Record<string, string> = {
@@ -22,6 +22,9 @@ const ASCENT_STYLES = [
 
 export function ProfilePage() {
   const { t } = useI18n()
+  const { user, register, updateName } = useUser()
+  const [nameInput, setNameInput] = useState('')
+  const [editingName, setEditingName] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [selectedSectorId, setSelectedSectorId] = useState('')
   const [selectedRouteId, setSelectedRouteId] = useState('')
@@ -108,7 +111,7 @@ export function ProfilePage() {
       await db.ascents.add({
         id: localId,
         localId,
-        userId: 'local-user',
+        userId: user?.id ?? 'anon',
         routeId: selectedRoute.id,
         date,
         style: style as any,
@@ -138,10 +141,69 @@ export function ProfilePage() {
     }
   }
 
+  // Onboarding: ask for name
+  if (!user) {
+    return (
+      <div className="p-4 flex flex-col items-center justify-center min-h-[60vh]">
+        <span className="text-5xl mb-4">🧗</span>
+        <h1 className="text-xl font-bold mb-2">{t('profile.welcome')}</h1>
+        <p className="text-sm text-gray-500 mb-6 text-center">{t('profile.enterName')}</p>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (nameInput.trim()) register(nameInput)
+          }}
+          className="w-full max-w-xs"
+        >
+          <input
+            autoFocus
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            placeholder={t('profile.namePlaceholder')}
+            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-3"
+          />
+          <button
+            type="submit"
+            disabled={!nameInput.trim()}
+            className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-40"
+          >
+            {t('profile.start')}
+          </button>
+        </form>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-bold">{t('profile.title')}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">{user.displayName}</h1>
+          {editingName ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (nameInput.trim()) { updateName(nameInput); setEditingName(false) }
+              }}
+              className="flex gap-1"
+            >
+              <input
+                autoFocus
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                className="border border-gray-300 rounded px-2 py-0.5 text-sm w-32"
+              />
+              <button type="submit" className="text-xs text-blue-600">OK</button>
+            </form>
+          ) : (
+            <button
+              onClick={() => { setNameInput(user.displayName); setEditingName(true) }}
+              className="text-gray-400 text-xs"
+            >
+              ✎
+            </button>
+          )}
+        </div>
         <button
           onClick={() => setShowForm(!showForm)}
           className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
@@ -338,15 +400,6 @@ export function ProfilePage() {
         </>
       )}
 
-      {/* Admin link */}
-      <div className="mt-8 pt-4 border-t border-gray-100">
-        <Link
-          to="/admin/topo"
-          className="text-xs text-gray-400 underline"
-        >
-          {t('profile.adminTopo')}
-        </Link>
-      </div>
     </div>
   )
 }

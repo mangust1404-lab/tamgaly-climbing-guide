@@ -158,6 +158,10 @@ const translations = {
   'profile.pendingSync': { ru: 'Ожидает синхр.', en: 'Pending sync' },
   'profile.byStyle': { ru: 'По стилю', en: 'By style' },
   'profile.gradePyramid': { ru: 'Пирамида категорий', en: 'Grade pyramid' },
+  'profile.welcome': { ru: 'Добро пожаловать!', en: 'Welcome!' },
+  'profile.enterName': { ru: 'Как тебя зовут? Это имя увидят другие участники.', en: 'What\'s your name? Other climbers will see it.' },
+  'profile.namePlaceholder': { ru: 'Имя или ник', en: 'Name or nickname' },
+  'profile.start': { ru: 'Начать', en: 'Start' },
   'profile.adminTopo': { ru: 'Админ: редактор топо', en: 'Admin: topo editor' },
   'profile.logAscent': { ru: 'Отметить пролаз', en: 'Log ascent' },
   'profile.selectSector': { ru: 'Сектор', en: 'Sector' },
@@ -176,6 +180,26 @@ const translations = {
 
   // Topo viewer
   'topo.loading': { ru: 'Загрузка топо...', en: 'Loading topo...' },
+
+  // Suggestions
+  'suggest.title': { ru: 'Предложить дополнение', en: 'Suggest addition' },
+  'suggest.photo': { ru: 'Фото стены', en: 'Wall photo' },
+  'suggest.route': { ru: 'Новый маршрут', en: 'New route' },
+  'suggest.topoLine': { ru: 'Линия на фото', en: 'Route line on photo' },
+  'suggest.routeName': { ru: 'Название маршрута', en: 'Route name' },
+  'suggest.routeGrade': { ru: 'Категория', en: 'Grade' },
+  'suggest.comment': { ru: 'Комментарий (необязательно)', en: 'Comment (optional)' },
+  'suggest.send': { ru: 'Отправить на проверку', en: 'Submit for review' },
+  'suggest.sent': { ru: 'Отправлено! Администратор проверит.', en: 'Sent! Admin will review.' },
+  'suggest.pending': { ru: 'На проверке', en: 'Pending review' },
+  'suggest.loginFirst': { ru: 'Сначала укажи имя в Профиле', en: 'Set your name in Profile first' },
+  'suggest.drawHint': { ru: 'Нарисуй линию маршрута на фото', en: 'Draw route line on the photo' },
+
+  // Admin moderation
+  'admin.moderation': { ru: 'Модерация', en: 'Moderation' },
+  'admin.noPending': { ru: 'Нет предложений на проверке', en: 'No pending suggestions' },
+  'admin.approve': { ru: 'Принять', en: 'Approve' },
+  'admin.reject': { ru: 'Отклонить', en: 'Reject' },
 
   // Map
   'map.entrance': { ru: 'Вход', en: 'Entrance' },

@@ -1,6 +1,7 @@
 import { lazy, Suspense, Component, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { I18nProvider } from './lib/i18n'
+import { UserProvider } from './lib/userContext'
 import { Layout } from './components/ui/Layout'
 import { HomePage } from './pages/HomePage'
 import { AboutPage } from './pages/AboutPage'
@@ -13,6 +14,7 @@ const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage').then(m => (
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })))
 const AdminTopoPage = lazy(() => import('./pages/admin/AdminTopoPage').then(m => ({ default: m.AdminTopoPage })))
 const AdminPhotoTagger = lazy(() => import('./pages/admin/AdminPhotoTagger').then(m => ({ default: m.AdminPhotoTagger })))
+const ModerationPage = lazy(() => import('./pages/admin/ModerationPage').then(m => ({ default: m.ModerationPage })))
 
 function Loading() {
   return (
@@ -50,6 +52,7 @@ function App() {
   return (
     <ErrorBoundary>
       <I18nProvider>
+      <UserProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
@@ -62,9 +65,11 @@ function App() {
             <Route path="/profile" element={<Suspense fallback={<Loading />}><ProfilePage /></Suspense>} />
             <Route path="/admin/topo" element={<Suspense fallback={<Loading />}><AdminTopoPage /></Suspense>} />
             <Route path="/admin/photos" element={<Suspense fallback={<Loading />}><AdminPhotoTagger /></Suspense>} />
+            <Route path="/admin/moderation" element={<Suspense fallback={<Loading />}><ModerationPage /></Suspense>} />
           </Route>
         </Routes>
       </BrowserRouter>
+      </UserProvider>
       </I18nProvider>
     </ErrorBoundary>
   )

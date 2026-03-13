@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Route } from '../../lib/db/schema'
 import { gradeToTopoColor } from '../../lib/utils'
 import { useI18n } from '../../lib/i18n'
+import { useUser } from '../../lib/userContext'
 
 const GRADES_ORDERED = [
   '4', '4a', '4b', '4c',
@@ -28,6 +29,8 @@ interface GradeVotingProps {
 
 export function GradeVoting({ route, compact }: GradeVotingProps) {
   const { t } = useI18n()
+  const { user } = useUser()
+  const userId = user?.id ?? 'anon'
   const [saving, setSaving] = useState(false)
 
   const reviews = useLiveQuery(
@@ -35,7 +38,7 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
     [route.id],
   )
 
-  const myVote = reviews?.find(r => r.userId === 'local-user')?.gradeOpinion
+  const myVote = reviews?.find(r => r.userId === userId)?.gradeOpinion
   const votes = reviews?.filter(r => r.gradeOpinion) ?? []
 
   const gradeCounts: Record<string, number> = {}
@@ -56,7 +59,7 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
     if (saving) return
     setSaving(true)
     try {
-      const existing = reviews?.find(r => r.userId === 'local-user')
+      const existing = reviews?.find(r => r.userId === userId)
       if (existing) {
         const newGrade = existing.gradeOpinion === grade ? undefined : grade
         await db.reviews.update(existing.id, { gradeOpinion: newGrade })
@@ -65,7 +68,7 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
         await db.reviews.add({
           id: localId,
           localId,
-          userId: 'local-user',
+          userId: userId,
           routeId: route.id,
           rating: 0,
           gradeOpinion: grade,

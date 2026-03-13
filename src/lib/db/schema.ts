@@ -149,6 +149,21 @@ export interface Achievement {
   syncStatus: 'pending' | 'synced' | 'error'
 }
 
+export interface Suggestion {
+  id: string
+  userId: string
+  userName: string
+  sectorId: string
+  type: 'photo' | 'route' | 'topo-line'
+  status: 'pending' | 'approved' | 'rejected'
+  /** For 'photo': base64 data URL. For 'route': JSON with name/grade/type. For 'topo-line': JSON with topoId + svgPath etc. */
+  data: string
+  comment?: string
+  reviewedBy?: string
+  createdAt: string
+  reviewedAt?: string
+}
+
 export interface SyncQueueItem {
   id?: number
   entity: 'ascent' | 'review' | 'achievement'
@@ -177,6 +192,7 @@ export class ClimbingDB extends Dexie {
   ascents!: Table<Ascent>
   reviews!: Table<Review>
   achievements!: Table<Achievement>
+  suggestions!: Table<Suggestion>
   syncQueue!: Table<SyncQueueItem>
   syncMeta!: Table<SyncMeta>
 
@@ -195,6 +211,10 @@ export class ClimbingDB extends Dexie {
       achievements: 'id, userId, type, syncStatus',
       syncQueue: '++id, entity, localId, createdAt',
       syncMeta: 'key',
+    })
+
+    this.version(2).stores({
+      suggestions: 'id, sectorId, userId, status, type, createdAt',
     })
   }
 }

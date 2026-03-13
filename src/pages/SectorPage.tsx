@@ -9,6 +9,7 @@ import { gradeColor } from '../lib/utils'
 import { useGps } from '../hooks/useGps'
 import { distanceMeters, formatDistance, bearing } from '../lib/map/geo'
 import { useI18n } from '../lib/i18n'
+import { SuggestPanel } from '../components/suggest/SuggestPanel'
 
 const GRADE_FILTERS = ['all', '4-5a', '5b-5c', '6a-6b', '6b+-6c+', '7a+'] as const
 
@@ -489,6 +490,11 @@ export function SectorPage() {
             })}
           </div>
         )}
+      </div>
+
+      {/* User suggestions */}
+      <div className="px-4 pb-4">
+        <SuggestPanel sectorId={sector.id} topoId={activeTopo?.id} />
       </div>
 
     </div>

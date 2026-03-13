@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { db } from '../../lib/db/schema'
 import { calculatePoints } from '../../lib/scoring/points'
 import { useI18n } from '../../lib/i18n'
+import { useUser } from '../../lib/userContext'
 import type { Route } from '../../lib/db/schema'
 
 const STYLE_KEYS = [
@@ -20,6 +21,7 @@ interface AscentFormProps {
 
 export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
   const { t } = useI18n()
+  const { user } = useUser()
   const [style, setStyle] = useState<string>('redpoint')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [notes, setNotes] = useState('')
@@ -40,7 +42,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
       await db.ascents.add({
         id: localId,
         localId,
-        userId: 'local-user', // will be replaced after auth
+        userId: user?.id ?? 'anon',
         routeId: route.id,
         date,
         style: style as any,
