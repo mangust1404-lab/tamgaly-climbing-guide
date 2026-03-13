@@ -45,7 +45,7 @@ function pointsToSvgPath(points: Point[]): string {
   return d
 }
 
-export function TopoEditor({ topo, onDone }: Props) {
+export function TopoEditor({ topo }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [points, setPoints] = useState<Point[]>([])
   const [selectedRouteId, setSelectedRouteId] = useState<string>('')

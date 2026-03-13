@@ -53,7 +53,7 @@ export function TopoViewer({
         type: 'image',
         url: imageUrl,
         buildPyramid: false,
-      },
+      } as any,
       showNavigationControl: false,
       gestureSettingsTouch: {
         pinchToZoom: true,

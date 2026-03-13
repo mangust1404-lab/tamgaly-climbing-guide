@@ -5,7 +5,6 @@ import { useI18n } from '../../lib/i18n'
 
 interface SuggestPanelProps {
   sectorId: string
-  topoId?: string | null
 }
 
 const GRADES = [
@@ -16,7 +15,7 @@ const GRADES = [
   '8a', '8a+',
 ]
 
-export function SuggestPanel({ sectorId, topoId }: SuggestPanelProps) {
+export function SuggestPanel({ sectorId }: SuggestPanelProps) {
   const { t } = useI18n()
   const { user } = useUser()
   const [mode, setMode] = useState<'menu' | 'photo' | 'route' | null>(null)

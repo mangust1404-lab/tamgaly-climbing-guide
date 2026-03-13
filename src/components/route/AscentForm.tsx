@@ -22,7 +22,7 @@ interface AscentFormProps {
 export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
   const { t } = useI18n()
   const { user } = useUser()
-  const [style, setStyle] = useState<string>('redpoint')
+  const [style, setStyle] = useState<'onsight' | 'flash' | 'redpoint' | 'toprope' | 'attempt'>('redpoint')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [notes, setNotes] = useState('')
   const [rating, setRating] = useState(0)

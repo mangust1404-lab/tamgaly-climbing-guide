@@ -15,7 +15,7 @@ export function AdminTopoPage() {
   const topos = useLiveQuery(
     () => selectedSectorId
       ? db.topos.where('sectorId').equals(selectedSectorId).sortBy('sortOrder')
-      : Promise.resolve([]),
+      : Promise.resolve([] as Topo[]),
     [selectedSectorId],
   )
 
@@ -224,8 +224,8 @@ export function AdminTopoPage() {
                       {isEditingThis ? (
                         <div className="flex gap-1 mb-2">
                           <input
-                            value={editingCaption.text}
-                            onChange={(e) => setEditingCaption({ ...editingCaption, text: e.target.value })}
+                            value={editingCaption!.text}
+                            onChange={(e) => setEditingCaption({ id: editingCaption!.id, text: e.target.value })}
                             placeholder="Описание подхода..."
                             className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs"
                             autoFocus

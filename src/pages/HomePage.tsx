@@ -6,8 +6,6 @@ import { cacheTopoPhotos, type DownloadProgress } from '../lib/offline/downloadM
 import { gradeColor } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 
-const AREA_ID = 'tamgaly-tas'
-
 const GRADE_SORT: Record<string, number> = {
   '4': 30, '4a': 40, '4b': 50, '4c': 60,
   '5a': 70, '5a+': 75, '5b': 85, '5b+': 90, '5c': 100, '5c+': 105,
@@ -20,7 +18,6 @@ const GRADE_CHIPS = ['4', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+
 
 export function HomePage() {
   const { t } = useI18n()
-  const area = useLiveQuery(() => db.areas.get(AREA_ID))
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
   const routes = useLiveQuery(() => db.routes.toArray())
   const [dl, setDl] = useState<DownloadProgress | null>(null)

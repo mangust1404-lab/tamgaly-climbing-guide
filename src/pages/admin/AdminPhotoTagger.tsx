@@ -131,7 +131,7 @@ export function AdminPhotoTagger() {
       return match ? match.id : orphanId
     }
 
-    for (const [file, tag] of Object.entries(newTags)) {
+    for (const [_file, tag] of Object.entries(newTags)) {
       if (tag.sectorId && !sectorIds.has(tag.sectorId)) {
         const mapped = remapSectorId(tag.sectorId)
         if (mapped !== tag.sectorId) {
@@ -301,7 +301,6 @@ export function AdminPhotoTagger() {
       pitchGrades: newRoutePitches > 1 ? newRoutePitchGrades.slice(0, newRoutePitches) : undefined,
       routeType: newRoutePitches > 1 ? 'multi-pitch' : 'sport',
       status: 'draft',
-      sortOrder: (sectorRoutes?.length ?? 0) + 1,
       tags: [],
       createdAt: now,
       updatedAt: now,

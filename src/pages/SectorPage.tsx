@@ -494,7 +494,7 @@ export function SectorPage() {
 
       {/* User suggestions */}
       <div className="px-4 pb-4">
-        <SuggestPanel sectorId={sector.id} topoId={activeTopo?.id} />
+        <SuggestPanel sectorId={sector.id} />
       </div>
 
     </div>

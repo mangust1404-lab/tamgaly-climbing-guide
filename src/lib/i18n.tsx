@@ -228,7 +228,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const t = useCallback((key: TranslationKey, params?: Record<string, string | number>): string => {
     const entry = translations[key]
     if (!entry) return key
-    let text = entry[lang || 'ru'] || entry.ru
+    let text: string = entry[lang || 'ru'] || entry.ru
     if (params) {
       for (const [k, v] of Object.entries(params)) {
         text = text.replace(`{${k}}`, String(v))

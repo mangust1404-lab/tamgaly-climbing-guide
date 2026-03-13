@@ -42,3 +42,11 @@ public/topos/*/
 
 # Server SQLite database
 server/data/
+
+# KMZ GPS files
+*.kmz
+
+# Large topo photos (originals)
+public/topos/*.jpg
+public/topos/*.jpeg
+public/topos/*.png
