@@ -25,7 +25,7 @@ const ASCENT_STYLES = [
 const SCORED_STYLES = ['onsight', 'flash', 'redpoint']
 
 export function ProfilePage() {
-  const { t } = useI18n()
+  const { t, td } = useI18n()
   const { user, register, updateName } = useUser()
   const [nameInput, setNameInput] = useState('')
   const [editingName, setEditingName] = useState(false)
@@ -215,9 +215,23 @@ export function ProfilePage() {
 
   const handleDeleteAscent = async (ascentId: string) => {
     if (!confirm(t('profile.confirmDelete'))) return
+    // Find the ascent to get localId before deleting
+    const ascent = await db.ascents.get(ascentId)
+    const localId = ascent?.localId || ascentId
     await db.ascents.delete(ascentId)
-    // Remove from sync queue if pending
-    await db.syncQueue.where('localId').equals(ascentId).delete()
+    // Remove any pending create/update from sync queue
+    await db.syncQueue.where('localId').equals(localId).delete()
+    // Queue a delete action so server removes it too
+    if (ascent?.syncStatus === 'synced') {
+      await db.syncQueue.add({
+        entity: 'ascent',
+        localId,
+        action: 'delete',
+        payload: {},
+        createdAt: Date.now(),
+        retryCount: 0,
+      })
+    }
   }
 
   // Onboarding: ask for name
@@ -329,7 +343,7 @@ export function ProfilePage() {
               >
                 <option value="">{t('profile.selectRoute')}...</option>
                 {sectorRoutes.map(r => (
-                  <option key={r.id} value={r.id}>{r.grade} — {r.name}</option>
+                  <option key={r.id} value={r.id}>{r.grade} — {td(r.name)}</option>
                 ))}
               </select>
             </div>
@@ -343,7 +357,7 @@ export function ProfilePage() {
                 <span className={`text-sm font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(selectedRoute.grade)}`}>
                   {selectedRoute.grade}
                 </span>
-                <span className="text-sm font-medium">{selectedRoute.name}</span>
+                <span className="text-sm font-medium">{td(selectedRoute.name)}</span>
                 <span className="text-xs text-gray-400 ml-auto">+{calculatePoints(selectedRoute.grade, style as any)} {t('route.points')}</span>
               </div>
 
@@ -514,7 +528,7 @@ export function ProfilePage() {
                           {route.grade}
                         </span>
                       )}
-                      <span className="text-sm font-medium truncate">{route?.name || ascent.routeId}</span>
+                      <span className="text-sm font-medium truncate">{route ? td(route.name) : ascent.routeId}</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                       <span>{ascent.date}</span>

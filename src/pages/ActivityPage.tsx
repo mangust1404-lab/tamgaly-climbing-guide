@@ -30,7 +30,7 @@ function saveFollowed(ids: Set<string>) {
 }
 
 export function ActivityPage() {
-  const { t } = useI18n()
+  const { t, td } = useI18n()
 
   const ascents = useLiveQuery(() => db.ascents.toArray())
   const routes = useLiveQuery(() => db.routes.toArray())
@@ -227,7 +227,7 @@ export function ActivityPage() {
                           to={`/route/${route.id}`}
                           className="text-sm text-blue-600 hover:underline truncate"
                         >
-                          {route.name}
+                          {td(route.name)}
                         </Link>
                       ) : (
                         <span className="text-sm text-gray-400">{t('activity.unknownRoute')}</span>

@@ -10,6 +10,7 @@ export function useAutoSync() {
   const { user } = useUser()
   const [syncing, setSyncing] = useState(false)
   const [lastResult, setLastResult] = useState<{ pushed: number; pulled: number; failed: number } | null>(null)
+  const [lastError, setLastError] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined)
 
   const pendingCount = useLiveQuery(() => db.syncQueue.count(), []) ?? 0
@@ -19,13 +20,21 @@ export function useAutoSync() {
     if (syncing) { console.warn('Sync: already syncing'); return }
 
     setSyncing(true)
+    setLastError(null)
     try {
       console.log('Sync: starting...', { userId: user.id, displayName: user.displayName })
       const result = await fullSync(user)
       setLastResult(result)
+      if (result.failed > 0) {
+        // Read last error from syncQueue
+        const failedItem = await db.syncQueue.orderBy('retryCount').reverse().first()
+        setLastError(failedItem?.lastError || `${result.failed} failed`)
+      }
       console.log(`Sync done: pushed ${result.pushed}, pulled ${result.pulled}, failed ${result.failed}`)
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Sync error'
       console.error('Sync failed:', err)
+      setLastError(msg)
     } finally {
       setSyncing(false)
     }
@@ -52,5 +61,5 @@ export function useAutoSync() {
     }
   }, [user, doSync])
 
-  return { syncing, pendingCount, lastResult, doSync }
+  return { syncing, pendingCount, lastResult, lastError, doSync }
 }

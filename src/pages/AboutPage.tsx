@@ -4,7 +4,7 @@ import { db } from '../lib/db/schema'
 import { useI18n } from '../lib/i18n'
 
 export function AboutPage() {
-  const { t } = useI18n()
+  const { t, td } = useI18n()
   const area = useLiveQuery(() => db.areas.get('tamgaly-tas'))
   const routes = useLiveQuery(() => db.routes.count())
   const sectors = useLiveQuery(() => db.sectors.count())
@@ -16,7 +16,7 @@ export function AboutPage() {
       <h1 className="text-2xl font-bold mt-2 mb-3">{t('home.title')}</h1>
 
       <p className="text-sm text-gray-700 mb-4 leading-relaxed">
-        {area?.description || t('home.subtitle')}
+        {area?.description ? td(area.description) : t('home.subtitle')}
       </p>
 
       {/* Stats */}

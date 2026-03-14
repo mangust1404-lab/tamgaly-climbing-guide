@@ -12,7 +12,7 @@ interface ReviewFormProps {
 }
 
 export function ReviewForm({ route, onClose }: ReviewFormProps) {
-  const { t } = useI18n()
+  const { t, td } = useI18n()
   const { user } = useUser()
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState('')
@@ -72,7 +72,7 @@ export function ReviewForm({ route, onClose }: ReviewFormProps) {
 
         <div className="text-sm text-gray-500 mb-4">
           <span className="font-mono font-bold text-blue-700">{route.grade}</span>{' '}
-          {route.name}
+          {td(route.name)}
         </div>
 
         {/* Star rating */}

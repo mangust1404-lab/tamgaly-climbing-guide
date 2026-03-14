@@ -25,7 +25,7 @@ function matchesGradeFilter(gradeSort: number, filter: string): boolean {
 }
 
 export function SectorPage() {
-  const { t } = useI18n()
+  const { t, td } = useI18n()
   const { sectorId } = useParams<{ sectorId: string }>()
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [gradeFilter, setGradeFilter] = useState('all')
@@ -162,12 +162,12 @@ export function SectorPage() {
             </span>
           )}
         </div>
-        <h1 className="text-xl font-bold">{sector.name}</h1>
+        <h1 className="text-xl font-bold">{td(sector.name)}</h1>
         <div className="flex flex-wrap gap-x-2 text-xs text-gray-400">
-          {sector.orientation && <span>{sector.orientation}</span>}
-          {sector.sunExposure && <span>{sector.sunExposure}</span>}
+          {sector.orientation && <span>{td(sector.orientation)}</span>}
+          {sector.sunExposure && <span>{td(sector.sunExposure)}</span>}
           {sector.approachTimeMin && <span>{sector.approachTimeMin} {t('sector.min')}</span>}
-          {sector.description && <span>· {sector.description}</span>}
+          {sector.description && <span>· {td(sector.description)}</span>}
         </div>
       </div>
 
@@ -356,7 +356,7 @@ export function SectorPage() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1">
-                      <span className="text-sm font-medium truncate">{route.name}</span>
+                      <span className="text-sm font-medium truncate">{td(route.name)}</span>
                       {avgRating != null && avgRating >= 4 && (
                         <span className="flex-shrink-0 text-[10px] text-yellow-500">
                           ★{avgRating % 1 === 0 ? avgRating : avgRating.toFixed(1)}

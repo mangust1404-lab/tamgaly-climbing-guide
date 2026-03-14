@@ -40,6 +40,7 @@ export async function processSyncQueue(userId: string): Promise<{ synced: number
         }),
       })
 
+      console.log(`Sync ${item.entity} ${item.localId}: ${res.status} ${res.statusText}`)
       if (res.ok) {
         const data = await res.json()
         // Remove from sync queue
@@ -59,10 +60,13 @@ export async function processSyncQueue(userId: string): Promise<{ synced: number
         synced++
         console.log(`Synced ${item.entity} ${item.localId}: ${data.status}`)
       } else {
+        const errBody = await res.text().catch(() => '')
+        const errMsg = `HTTP ${res.status}: ${errBody.slice(0, 100)}`
+        console.error(`Sync failed for ${item.entity} ${item.localId}:`, errMsg)
         failed++
         await db.syncQueue.update(item.id!, {
           retryCount: item.retryCount + 1,
-          lastError: `HTTP ${res.status}`,
+          lastError: errMsg,
         })
       }
     } catch (err) {
@@ -78,15 +82,10 @@ export async function processSyncQueue(userId: string): Promise<{ synced: number
 }
 
 /** Pull recent ascents from the server and save to local DB for the activity feed */
-export async function pullAscents(): Promise<number> {
+export async function pullAscents(currentUserId?: string): Promise<number> {
   try {
-    // Get the last sync timestamp
-    const meta = await db.syncMeta.get('lastPullAscents')
-    const since = meta?.value || ''
-
-    const url = since
-      ? `${API_BASE}/sync/ascents?since=${encodeURIComponent(since)}`
-      : `${API_BASE}/sync/ascents?limit=200`
+    // Always do a full pull to detect deletions
+    const url = `${API_BASE}/sync/ascents?limit=10000`
 
     const res = await fetch(url)
     if (!res.ok) return 0
@@ -105,16 +104,16 @@ export async function pullAscents(): Promise<number> {
       user_name: string
     }>
 
-    if (ascents.length === 0) return 0
+    // Build set of server local_ids for cleanup
+    const serverLocalIds = new Set(ascents.map(a => a.local_id))
 
-    // Save ascents to local DB (skip own ascents that already exist)
+    // Save new ascents to local DB
+    let added = 0
     for (const a of ascents) {
       const existing = await db.ascents.get(a.id)
       if (existing) continue
-      // Also skip if we have it by localId
       const byLocal = await db.ascents.where('localId').equals(a.local_id).first()
       if (byLocal) {
-        // Update with server ID if needed
         if (byLocal.id !== a.id) {
           await db.ascents.update(byLocal.id, { syncStatus: 'synced' })
         }
@@ -136,20 +135,28 @@ export async function pullAscents(): Promise<number> {
         createdAt: a.created_at,
         syncedAt: a.created_at,
       })
+      added++
+    }
+
+    // Cleanup: remove locally pulled ascents from OTHER users that no longer exist on server
+    if (currentUserId) {
+      const localOtherAscents = await db.ascents
+        .where('syncStatus').equals('synced')
+        .and(a => a.userId !== currentUserId)
+        .toArray()
+
+      for (const local of localOtherAscents) {
+        if (!serverLocalIds.has(local.localId)) {
+          console.log(`Cleanup: removing stale ascent ${local.localId} from ${local.userId}`)
+          await db.ascents.delete(local.id)
+        }
+      }
     }
 
     // Save users we learned about
     await pullUsers()
 
-    // Update last sync timestamp
-    const newest = ascents.reduce((max, a) =>
-      a.created_at > max ? a.created_at : max, since || ''
-    )
-    if (newest) {
-      await db.syncMeta.put({ key: 'lastPullAscents', value: newest })
-    }
-
-    return ascents.length
+    return added
   } catch (err) {
     console.warn('Failed to pull ascents:', err)
     return 0
@@ -157,14 +164,9 @@ export async function pullAscents(): Promise<number> {
 }
 
 /** Pull reviews from server (grade votes, ratings, comments) */
-export async function pullReviews(): Promise<number> {
+export async function pullReviews(currentUserId?: string): Promise<number> {
   try {
-    const meta = await db.syncMeta.get('lastPullReviews')
-    const since = meta?.value || ''
-
-    const url = since
-      ? `${API_BASE}/sync/reviews?since=${encodeURIComponent(since)}`
-      : `${API_BASE}/sync/reviews?limit=500`
+    const url = `${API_BASE}/sync/reviews?limit=10000`
 
     const res = await fetch(url)
     if (!res.ok) return 0
@@ -181,8 +183,9 @@ export async function pullReviews(): Promise<number> {
       created_at: string
     }>
 
-    if (reviews.length === 0) return 0
+    const serverLocalIds = new Set(reviews.map(r => r.local_id))
 
+    let added = 0
     for (const r of reviews) {
       const existing = await db.reviews.get(r.id)
       if (existing) continue
@@ -207,16 +210,25 @@ export async function pullReviews(): Promise<number> {
         createdAt: r.created_at,
         syncedAt: r.created_at,
       })
+      added++
     }
 
-    const newest = reviews.reduce((max, r) =>
-      r.created_at > max ? r.created_at : max, since || ''
-    )
-    if (newest) {
-      await db.syncMeta.put({ key: 'lastPullReviews', value: newest })
+    // Cleanup: remove locally pulled reviews from OTHER users that no longer exist on server
+    if (currentUserId) {
+      const localOtherReviews = await db.reviews
+        .where('syncStatus').equals('synced')
+        .and(r => r.userId !== currentUserId)
+        .toArray()
+
+      for (const local of localOtherReviews) {
+        if (!serverLocalIds.has(local.localId)) {
+          console.log(`Cleanup: removing stale review ${local.localId} from ${local.userId}`)
+          await db.reviews.delete(local.id)
+        }
+      }
     }
 
-    return reviews.length
+    return added
   } catch (err) {
     console.warn('Failed to pull reviews:', err)
     return 0
@@ -249,10 +261,93 @@ async function pullUsers(): Promise<void> {
 }
 
 /**
+ * Reconcile: find local ascents/reviews marked "synced" that are missing on the server,
+ * and re-queue them for push. This handles server data loss (rebuild, etc).
+ */
+async function reconcileMissing(userId: string): Promise<number> {
+  let requeued = 0
+  try {
+    // Get all server ascent local_ids for this user
+    const res = await fetch(`${API_BASE}/sync/ascents?limit=10000`)
+    if (!res.ok) return 0
+    const serverAscents = await res.json() as Array<{ local_id: string; user_id: string }>
+    const serverLocalIds = new Set(serverAscents.map(a => a.local_id))
+
+    // Find local synced ascents that are missing on server
+    const localAscents = await db.ascents
+      .where('userId').equals(userId)
+      .and(a => a.syncStatus === 'synced')
+      .toArray()
+
+    for (const a of localAscents) {
+      if (!serverLocalIds.has(a.localId)) {
+        // Check not already in sync queue
+        const inQueue = await db.syncQueue.where('localId').equals(a.localId).first()
+        if (inQueue) continue
+
+        console.log(`Reconcile: re-queuing ascent ${a.localId} (missing on server)`)
+        await db.ascents.where('localId').equals(a.localId).modify({ syncStatus: 'pending' })
+        await db.syncQueue.add({
+          entity: 'ascent',
+          localId: a.localId,
+          action: 'create',
+          payload: {
+            routeId: a.routeId, date: a.date, style: a.style,
+            rating: a.rating, notes: a.notes, points: a.points,
+          },
+          createdAt: Date.now(),
+          retryCount: 0,
+        })
+        requeued++
+      }
+    }
+
+    // Same for reviews
+    const resR = await fetch(`${API_BASE}/sync/reviews?limit=10000`)
+    if (resR.ok) {
+      const serverReviews = await resR.json() as Array<{ local_id: string; user_id: string }>
+      const serverReviewIds = new Set(serverReviews.map(r => r.local_id))
+
+      const localReviews = await db.reviews
+        .where('userId').equals(userId)
+        .and(r => r.syncStatus === 'synced')
+        .toArray()
+
+      for (const r of localReviews) {
+        if (!serverReviewIds.has(r.localId)) {
+          const inQueue = await db.syncQueue.where('localId').equals(r.localId).first()
+          if (inQueue) continue
+
+          console.log(`Reconcile: re-queuing review ${r.localId} (missing on server)`)
+          await db.reviews.where('localId').equals(r.localId).modify({ syncStatus: 'pending' })
+          await db.syncQueue.add({
+            entity: 'review',
+            localId: r.localId,
+            action: 'create',
+            payload: {
+              routeId: r.routeId, rating: r.rating,
+              comment: r.comment, gradeOpinion: r.gradeOpinion,
+              conditionsNote: r.conditionsNote,
+            },
+            createdAt: Date.now(),
+            retryCount: 0,
+          })
+          requeued++
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Reconcile failed:', err)
+  }
+  return requeued
+}
+
+/**
  * Full sync cycle:
  * 1. Register/update user on server
- * 2. Push pending items from queue (ascents + reviews)
- * 3. Pull new ascents and reviews from server
+ * 2. Reconcile: re-queue locally synced items missing on server
+ * 3. Push pending items from queue (ascents + reviews)
+ * 4. Pull new ascents and reviews from server
  */
 export async function fullSync(user: { id: string; displayName: string }): Promise<{
   pushed: number
@@ -262,12 +357,18 @@ export async function fullSync(user: { id: string; displayName: string }): Promi
   // 1. Sync user profile
   await syncUser(user)
 
-  // 2. Push pending queue items
+  // 2. Reconcile missing items (handles server data loss)
+  const requeued = await reconcileMissing(user.id)
+  if (requeued > 0) {
+    console.log(`Reconciled ${requeued} items missing on server`)
+  }
+
+  // 3. Push pending queue items
   const { synced: pushed, failed } = await processSyncQueue(user.id)
 
-  // 3. Pull new ascents and reviews
-  const pulledAscents = await pullAscents()
-  const pulledReviews = await pullReviews()
+  // 4. Pull new ascents and reviews from server (with cleanup of stale data)
+  const pulledAscents = await pullAscents(user.id)
+  const pulledReviews = await pullReviews(user.id)
 
   return { pushed, pulled: pulledAscents + pulledReviews, failed }
 }

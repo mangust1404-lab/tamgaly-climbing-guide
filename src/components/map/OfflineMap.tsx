@@ -18,7 +18,7 @@ interface OfflineMapProps {
 }
 
 export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
-  const { t } = useI18n()
+  const { t, td } = useI18n()
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const gpsMarkerRef = useRef<L.CircleMarker | null>(null)
@@ -103,7 +103,7 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
             white-space: nowrap;
             box-shadow: 0 1px 4px rgba(0,0,0,0.4);
             line-height: 1.3;
-          ">${sector.name}</div>
+          ">${td(sector.name)}</div>
           <div style="
             width: 0; height: 0;
             border-left: 4px solid transparent;
@@ -196,7 +196,7 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
       })
 
       const marker = L.marker([route.latitude, route.longitude], { icon })
-        .bindTooltip(route.name, { direction: 'right', offset: [10, 0], className: 'route-tooltip' })
+        .bindTooltip(td(route.name), { direction: 'right', offset: [10, 0], className: 'route-tooltip' })
         .on('click', () => {
           navigate(`/route/${route.id}`)
         })
@@ -245,7 +245,7 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
         }
       }
       setNearestSector({
-        name: nearest.name,
+        name: td(nearest.name),
         distance: formatDistance(minDist),
       })
     }

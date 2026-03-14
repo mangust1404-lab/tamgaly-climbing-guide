@@ -1,11 +1,11 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useOfflineStatus } from '../../hooks/useOfflineStatus'
 import { useAutoSync } from '../../hooks/useAutoSync'
-import { useI18n } from '../../lib/i18n'
+import { useI18n, LANG_FLAGS, LANG_CYCLE } from '../../lib/i18n'
 
 export function Layout() {
   const isOnline = useOfflineStatus()
-  const { syncing, pendingCount, lastResult, doSync } = useAutoSync()
+  const { syncing, pendingCount, lastResult, lastError, doSync } = useAutoSync()
   const { t, lang, setLang } = useI18n()
 
   const navItems = [
@@ -27,10 +27,19 @@ export function Layout() {
         <button
           onClick={doSync}
           disabled={syncing}
-          className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 active:bg-yellow-300 transition-colors cursor-pointer border-b border-yellow-200"
+          className={`flex flex-col items-center justify-center gap-0.5 px-3 py-2 text-xs font-medium transition-colors cursor-pointer border-b ${
+            lastError
+              ? 'bg-red-100 text-red-800 border-red-200'
+              : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 active:bg-yellow-300 border-yellow-200'
+          }`}
         >
-          <span>{syncing ? '⏳' : '🔄'}</span>
-          <span>{syncing ? t('status.syncing') : `${t('status.pending', { n: pendingCount })} — ${t('status.sync')}`}</span>
+          <div className="flex items-center gap-2">
+            <span>{syncing ? '⏳' : lastError ? '⚠️' : '🔄'}</span>
+            <span>{syncing ? t('status.syncing') : `${t('status.pending', { n: pendingCount })} — ${t('status.sync')}`}</span>
+          </div>
+          {lastError && !syncing && (
+            <span className="text-[10px] text-red-600 truncate max-w-[90vw]">{lastError}</span>
+          )}
         </button>
       ) : lastResult && lastResult.pushed + lastResult.pulled > 0 ? (
         <div className="flex items-center justify-center px-3 py-1 text-xs bg-green-50 text-green-600">
@@ -58,11 +67,14 @@ export function Layout() {
           </NavLink>
         ))}
         <button
-          onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
-          className="text-xs text-gray-400 px-1 py-1 uppercase font-mono"
+          onClick={() => {
+            const idx = LANG_CYCLE.indexOf(lang)
+            setLang(LANG_CYCLE[(idx + 1) % LANG_CYCLE.length])
+          }}
+          className="text-lg px-1 py-1"
           title="Switch language"
         >
-          {lang === 'ru' ? 'EN' : 'RU'}
+          {LANG_FLAGS[lang]}
         </button>
       </nav>
     </div>

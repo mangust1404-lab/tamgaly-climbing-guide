@@ -17,7 +17,7 @@ const GRADE_SORT: Record<string, number> = {
 const GRADE_CHIPS = ['4', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c+', '8a']
 
 export function HomePage() {
-  const { t } = useI18n()
+  const { t, td } = useI18n()
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
   const routes = useLiveQuery(() => db.routes.toArray())
   const [dl, setDl] = useState<DownloadProgress | null>(null)
@@ -216,7 +216,7 @@ export function HomePage() {
                   {r.grade}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{r.name}</div>
+                  <div className="text-sm font-medium truncate">{td(r.name)}</div>
                   <div className="text-xs text-gray-400">{r.sectorName}</div>
                 </div>
               </Link>
@@ -250,7 +250,7 @@ export function HomePage() {
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium truncate">{sector.name}</span>
+                  <span className="font-medium truncate">{td(sector.name)}</span>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {gradeRanges.get(sector.id) && (
                       <span className="text-xs font-mono text-blue-600 bg-blue-50 rounded px-1.5 py-0.5">
@@ -266,7 +266,7 @@ export function HomePage() {
                 </div>
                 {sector.orientation && (
                   <div className="text-xs text-gray-400 mt-0.5">
-                    {sector.orientation}
+                    {td(sector.orientation)}
                     {sector.approachTimeMin && ` · ${sector.approachTimeMin} ${t('home.approachMin')}`}
                   </div>
                 )}

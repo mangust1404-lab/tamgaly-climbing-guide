@@ -8,7 +8,7 @@ import { gradeColor, gradeToTopoColor } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 
 export function RoutePage() {
-  const { t } = useI18n()
+  const { t, td } = useI18n()
   const { routeId } = useParams<{ routeId: string }>()
   const navigate = useNavigate()
   const [activePhotoIdx, setActivePhotoIdx] = useState(0)
@@ -70,7 +70,7 @@ export function RoutePage() {
           to={`/sector/${sector.id}`}
           className="text-blue-600 text-sm mb-2 inline-block"
         >
-          &larr; {sector.name}
+          &larr; {td(sector.name)}
         </Link>
       )}
 
@@ -79,7 +79,7 @@ export function RoutePage() {
           {route.grade}
         </span>
         <div>
-          <h1 className="text-2xl font-bold">{route.name}</h1>
+          <h1 className="text-2xl font-bold">{td(route.name)}</h1>
           <div className="flex items-center gap-2 text-gray-500 text-sm">
             <span>{t(`routeType.${route.routeType}` as any)}</span>
             {route.lengthM && <span>· {route.lengthM}{t('route.meters')}</span>}
@@ -167,7 +167,7 @@ export function RoutePage() {
                     {r.grade}
                   </span>
                   <span className={`text-sm truncate ${isCurrent ? 'font-semibold' : ''}`}>
-                    {r.name}
+                    {td(r.name)}
                   </span>
                 </button>
               )

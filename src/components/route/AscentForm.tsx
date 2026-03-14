@@ -20,7 +20,7 @@ interface AscentFormProps {
 }
 
 export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
-  const { t } = useI18n()
+  const { t, td } = useI18n()
   const { user } = useUser()
   const [style, setStyle] = useState<'onsight' | 'flash' | 'redpoint' | 'toprope' | 'attempt'>('redpoint')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -88,7 +88,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
 
         <div className="text-sm text-gray-500 mb-4">
           <span className="font-mono font-bold text-blue-700">{route.grade}</span>{' '}
-          {route.name}
+          {td(route.name)}
         </div>
 
         {/* Style selection */}

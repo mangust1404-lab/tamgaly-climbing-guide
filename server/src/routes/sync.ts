@@ -79,7 +79,28 @@ syncRouter.post('/ascent', async (c) => {
   if (action === 'update') {
     const existing = db.prepare('SELECT id FROM ascent WHERE local_id = ?').get(localId) as { id: string } | undefined
     if (!existing) {
-      return c.json({ error: 'Ascent not found' }, 404)
+      // Upsert: record was lost (server rebuild), re-create it
+      const userId = payload.userId || 'anonymous'
+      const userExists = db.prepare('SELECT id FROM app_user WHERE id = ?').get(userId)
+      if (!userExists) {
+        db.prepare('INSERT OR IGNORE INTO app_user (id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)')
+          .run(userId, 'Unknown', new Date().toISOString(), new Date().toISOString())
+      }
+      const id = crypto.randomUUID()
+      db.prepare(`
+        INSERT INTO ascent (id, local_id, user_id, route_id, date, style, rating, personal_grade, notes, is_public, points, created_at, synced_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        id, localId, userId,
+        payload.routeId, payload.date, payload.style,
+        payload.rating != null ? Number(payload.rating) : null,
+        payload.personalGrade || null,
+        payload.notes || null,
+        (payload.isPublic ?? true) ? 1 : 0,
+        payload.points || 0,
+        new Date().toISOString(), new Date().toISOString(),
+      )
+      return c.json({ status: 'created', serverId: id })
     }
 
     db.prepare(`
@@ -95,6 +116,11 @@ syncRouter.post('/ascent', async (c) => {
     )
 
     return c.json({ status: 'updated', serverId: existing.id })
+  }
+
+  if (action === 'delete') {
+    db.prepare('DELETE FROM ascent WHERE local_id = ?').run(localId)
+    return c.json({ status: 'deleted' })
   }
 
   return c.json({ error: 'Unknown action' }, 400)
@@ -140,7 +166,26 @@ syncRouter.post('/review', async (c) => {
   if (action === 'update') {
     const existing = db.prepare('SELECT id FROM review WHERE local_id = ?').get(localId) as { id: string } | undefined
     if (!existing) {
-      return c.json({ error: 'Review not found' }, 404)
+      // Upsert: record was lost (server rebuild), re-create it
+      const userId = payload.userId || 'anonymous'
+      const userExists = db.prepare('SELECT id FROM app_user WHERE id = ?').get(userId)
+      if (!userExists) {
+        db.prepare('INSERT OR IGNORE INTO app_user (id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)')
+          .run(userId, 'Unknown', new Date().toISOString(), new Date().toISOString())
+      }
+      const id = crypto.randomUUID()
+      db.prepare(`
+        INSERT INTO review (id, local_id, user_id, route_id, rating, comment, grade_opinion, conditions_note, created_at, synced_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        id, localId, userId,
+        payload.routeId,
+        payload.rating != null ? Number(payload.rating) : null,
+        payload.comment || null, payload.gradeOpinion || null,
+        payload.conditionsNote || null,
+        new Date().toISOString(), new Date().toISOString(),
+      )
+      return c.json({ status: 'created', serverId: id })
     }
 
     db.prepare(`
@@ -155,6 +200,11 @@ syncRouter.post('/review', async (c) => {
     )
 
     return c.json({ status: 'updated', serverId: existing.id })
+  }
+
+  if (action === 'delete') {
+    db.prepare('DELETE FROM review WHERE local_id = ?').run(localId)
+    return c.json({ status: 'deleted' })
   }
 
   return c.json({ error: 'Unknown action' }, 400)
