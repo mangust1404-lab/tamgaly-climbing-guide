@@ -1,9 +1,11 @@
 import { Outlet, NavLink } from 'react-router-dom'
 import { useOfflineStatus } from '../../hooks/useOfflineStatus'
+import { useAutoSync } from '../../hooks/useAutoSync'
 import { useI18n } from '../../lib/i18n'
 
 export function Layout() {
   const isOnline = useOfflineStatus()
+  const { syncing, pendingCount, doSync } = useAutoSync()
   const { t, lang, setLang } = useI18n()
 
   const navItems = [
@@ -16,12 +18,20 @@ export function Layout() {
 
   return (
     <div className="flex flex-col h-[100dvh]">
-      {/* Offline indicator */}
-      {!isOnline && (
+      {/* Status bar: offline or pending sync */}
+      {!isOnline ? (
         <div className="flex items-center justify-center px-3 py-1.5 text-xs bg-gray-100 text-gray-600">
           {t('status.offline')}
         </div>
-      )}
+      ) : pendingCount > 0 ? (
+        <button
+          onClick={doSync}
+          disabled={syncing}
+          className="flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors"
+        >
+          {syncing ? t('status.syncing') : t('status.pending', { n: pendingCount })}
+        </button>
+      ) : null}
 
       <main className="flex-1 overflow-y-auto flex flex-col min-h-0">
         <Outlet />

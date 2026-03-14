@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { db } from './db/schema'
+import { syncUser } from './offline/syncService'
 
 const STORAGE_KEY = 'tamgaly_user'
 
@@ -36,6 +38,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser))
     setUser(newUser)
+    // Save to local DB so leaderboard can find the user
+    db.users.put({
+      id: newUser.id,
+      displayName: newUser.displayName,
+      createdAt: newUser.createdAt,
+      updatedAt: newUser.createdAt,
+    } as any).catch(() => {})
+    // Sync to server (fire-and-forget)
+    syncUser(newUser).catch(() => {})
     return newUser
   }, [])
 
@@ -44,6 +55,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (!prev) return prev
       const updated = { ...prev, displayName: name.trim() }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+      // Update local DB
+      db.users.update(updated.id, { displayName: updated.displayName, updatedAt: new Date().toISOString() }).catch(() => {})
+      // Sync to server
+      syncUser(updated).catch(() => {})
       return updated
     })
   }, [])
