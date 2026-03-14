@@ -205,6 +205,17 @@ const translations = {
 
   // Map
   'map.entrance': { ru: 'Вход', en: 'Entrance' },
+
+  // Activity feed
+  'nav.activity': { ru: 'Лента', en: 'Activity' },
+  'activity.title': { ru: 'Лента', en: 'Activity' },
+  'activity.noActivity': { ru: 'Пока нет пролазов', en: 'No activity yet' },
+  'activity.searchUser': { ru: 'Поиск по имени...', en: 'Search by name...' },
+  'activity.followedOnly': { ru: 'Избранные', en: 'Following' },
+  'activity.follow': { ru: 'Подписаться', en: 'Follow' },
+  'activity.unfollow': { ru: 'Отписаться', en: 'Unfollow' },
+  'activity.unknownUser': { ru: 'Неизвестный', en: 'Unknown' },
+  'activity.unknownRoute': { ru: 'Неизвестный маршрут', en: 'Unknown route' },
 } as const
 
 type TranslationKey = keyof typeof translations
