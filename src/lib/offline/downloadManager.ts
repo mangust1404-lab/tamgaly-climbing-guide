@@ -110,48 +110,56 @@ export async function isAreaDownloaded(areaId: string): Promise<boolean> {
 }
 
 /**
- * Pre-cache all topo photos for offline use.
- * Fetches each image URL so the service worker's CacheFirst strategy stores it.
+ * Force-reload topo data from topo-data.json, bypassing version check.
+ * This ensures the latest route overlays and photos are loaded.
  */
-export async function cacheTopoPhotos(
+export async function refreshTopoData(
   onProgress: (p: DownloadProgress) => void,
 ): Promise<void> {
   try {
-    const topos = await db.topos.toArray()
-    const urls = topos
-      .map(t => t.imageUrl)
-      .filter(u => u.startsWith('/topos/'))
+    onProgress({ stage: 'fetching', message: 'Загрузка данных...', percent: 10 })
 
-    if (urls.length === 0) {
-      onProgress({ stage: 'done', message: 'Данные обновлены', percent: 100 })
-      return
+    const base = import.meta.env.BASE_URL || '/'
+    const resp = await fetch(`${base}data/topo-data.json`, { cache: 'no-cache' })
+    if (!resp.ok) {
+      throw new Error(`Ошибка загрузки: ${resp.status}`)
     }
 
-    onProgress({ stage: 'fetching', message: `Кэширование ${urls.length} фото...`, percent: 5 })
-
-    let done = 0
-    // Fetch in batches of 4 for parallelism
-    for (let i = 0; i < urls.length; i += 4) {
-      const batch = urls.slice(i, i + 4)
-      await Promise.all(batch.map(url => fetch(url).catch(() => {})))
-      done += batch.length
-      const percent = Math.round((done / urls.length) * 90) + 5
-      onProgress({
-        stage: 'fetching',
-        message: `Кэширование фото: ${done}/${urls.length}`,
-        percent,
-      })
+    const data = await resp.json() as {
+      version?: number
+      topos?: Array<Record<string, unknown>>
+      topoRoutes?: Array<Record<string, unknown>>
+      sectorCovers?: Record<string, string>
     }
+
+    onProgress({ stage: 'saving', message: 'Сохранение...', percent: 50 })
+
+    if (data.topos && data.topos.length > 0) {
+      await db.topos.clear()
+      await db.topos.bulkPut(data.topos as any[])
+    }
+    if (data.topoRoutes && data.topoRoutes.length > 0) {
+      await db.topoRoutes.clear()
+      await db.topoRoutes.bulkPut(data.topoRoutes as any[])
+    }
+    if (data.sectorCovers) {
+      for (const [sectorId, coverUrl] of Object.entries(data.sectorCovers)) {
+        await db.sectors.update(sectorId, { coverImageUrl: coverUrl })
+      }
+    }
+
+    await db.syncMeta.put({ key: 'topoDataVersion', value: String(data.version || 0) })
 
     // Request persistent storage
     if (navigator.storage?.persist) {
       await navigator.storage.persist()
     }
 
-    localStorage.setItem('photos-cached', 'true')
-    onProgress({ stage: 'done', message: 'Фото сохранены для офлайн-доступа!', percent: 100 })
+    const topoCount = data.topos?.length || 0
+    const routeCount = data.topoRoutes?.length || 0
+    onProgress({ stage: 'done', message: `Обновлено: ${topoCount} фото, ${routeCount} маршрутов`, percent: 100 })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Ошибка кэширования'
+    const message = err instanceof Error ? err.message : 'Ошибка обновления'
     onProgress({ stage: 'error', message, percent: 0 })
   }
 }

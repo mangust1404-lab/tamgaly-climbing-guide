@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
-import { cacheTopoPhotos, type DownloadProgress } from '../lib/offline/downloadManager'
+import { refreshTopoData, type DownloadProgress } from '../lib/offline/downloadManager'
 import { gradeColor } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 
@@ -84,21 +84,13 @@ export function HomePage() {
     }
   }
 
-  const handleCachePhotos = useCallback(async () => {
+  const handleRefresh = useCallback(async () => {
     try {
-      await cacheTopoPhotos(setDl)
+      await refreshTopoData(setDl)
     } catch {
       // error already in dl state
     }
   }, [])
-
-  // Auto-cache photos on first launch when online
-  const topos = useLiveQuery(() => db.topos.count())
-  useEffect(() => {
-    if (topos && topos > 0 && !localStorage.getItem('photos-cached') && navigator.onLine) {
-      cacheTopoPhotos(setDl).catch(() => {})
-    }
-  }, [topos])
 
   // PWA install prompt
   const [installPrompt, setInstallPrompt] = useState<any>(null)
@@ -146,7 +138,7 @@ export function HomePage() {
           {t('home.openMap')}
         </Link>
         <button
-          onClick={handleCachePhotos}
+          onClick={handleRefresh}
           disabled={dl?.stage === 'fetching' || dl?.stage === 'saving'}
           className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50 relative"
         >
