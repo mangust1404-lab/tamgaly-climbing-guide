@@ -9,14 +9,14 @@ export function gradeToTopoColor(grade: string): string {
   return '#6B7280'                               // gray - unknown
 }
 
-/** Grade → color class for the badge */
+/** Grade → color class for the badge (matches topo line colors) */
 export function gradeColor(grade: string): string {
   const g = grade.toLowerCase()
-  if (g.startsWith('4') || g.startsWith('5a') || g.startsWith('5b')) return 'bg-green-100 text-green-800'
-  if (g.startsWith('5c') || g.startsWith('6a')) return 'bg-blue-100 text-blue-800'
-  if (g.startsWith('6b') || g.startsWith('6c')) return 'bg-yellow-100 text-yellow-800'
-  if (g.startsWith('7a') || g.startsWith('7b')) return 'bg-orange-100 text-orange-800'
-  if (g.startsWith('7c') || g.startsWith('8')) return 'bg-red-100 text-red-800'
+  if (g.startsWith('4')) return 'bg-blue-100 text-blue-800'
+  if (g.startsWith('5')) return 'bg-amber-100 text-amber-800'
+  if (g.startsWith('6')) return 'bg-green-100 text-green-800'
+  if (g.startsWith('7')) return 'bg-red-100 text-red-800'
+  if (g.startsWith('8')) return 'bg-gray-200 text-gray-900'
   return 'bg-gray-100 text-gray-800'
 }
 
