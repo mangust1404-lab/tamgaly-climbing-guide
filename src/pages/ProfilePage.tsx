@@ -52,7 +52,14 @@ export function ProfilePage() {
     const myAscents = ascents.filter(a => a.userId === user?.id)
     const routeMap = new Map(routes.map((r) => [r.id, r]))
     const completed = myAscents.filter((a) => a.style !== 'attempt')
-    const totalScore = calculateTotalScore(completed.map((a) => a.points))
+    // Recalculate points: only scored styles (onsight/flash/redpoint) get points
+    const scoredPoints = completed
+      .filter(a => SCORED_STYLES.includes(a.style))
+      .map(a => {
+        const route = routeMap.get(a.routeId)
+        return route ? calculatePoints(route.grade, a.style as any) : 0
+      })
+    const totalScore = calculateTotalScore(scoredPoints)
 
     // Best grade
     let bestGrade = ''
@@ -247,7 +254,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="p-4">
+    <div className="p-4 pb-8">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold">{user.displayName}</h1>
@@ -511,7 +518,9 @@ export function ProfilePage() {
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                       <span>{ascent.date}</span>
-                      {ascent.points > 0 && <span>+{ascent.points}</span>}
+                      {SCORED_STYLES.includes(ascent.style) && route && (
+                        <span>+{calculatePoints(route.grade, ascent.style as any)}</span>
+                      )}
                       {ascent.rating ? <span>{'★'.repeat(ascent.rating)}</span> : null}
                       {ascent.syncStatus === 'pending' && <span className="text-yellow-500">●</span>}
                     </div>
