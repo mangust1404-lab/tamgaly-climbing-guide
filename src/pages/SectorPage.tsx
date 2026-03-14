@@ -204,7 +204,7 @@ export function SectorPage() {
             onRouteSelect={handleRouteSelect}
           />
           <RouteList
-            topoRoutes={topoRoutes ?? []}
+            topoRoutes={activeTopoRoutes}
             selectedRouteId={selectedRouteId}
             onSelect={handleRouteSelect}
           />

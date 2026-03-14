@@ -58,7 +58,7 @@ export function AdminSectorsPage() {
   })
 
   const handleUpdate = async (sectorId: string, field: string, value: string | number | undefined) => {
-    await db.sectors.update(sectorId, { [field]: value, updatedAt: new Date().toISOString() })
+    await db.sectors.update(sectorId, { [field]: value, updatedAt: new Date().toISOString() } as any)
     saveTopoData()
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
