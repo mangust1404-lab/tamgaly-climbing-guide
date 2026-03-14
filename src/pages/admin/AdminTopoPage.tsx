@@ -95,19 +95,29 @@ export function AdminTopoPage() {
 
       await new Promise<void>((resolve) => { img.onload = () => resolve() })
 
+      // Resize to max 2000px on longest side
+      const MAX = 2000
+      let w = img.width
+      let h = img.height
+      if (w > MAX || h > MAX) {
+        const ratio = Math.min(MAX / w, MAX / h)
+        w = Math.round(w * ratio)
+        h = Math.round(h * ratio)
+      }
+
       const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
+      canvas.width = w
+      canvas.height = h
       const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0)
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+      ctx.drawImage(img, 0, 0, w, h)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.75)
 
       const topo: Topo = {
         id: `topo-${Date.now()}-${i}`,
         sectorId: selectedSectorId,
         imageUrl: dataUrl,
-        imageWidth: img.width,
-        imageHeight: img.height,
+        imageWidth: w,
+        imageHeight: h,
         type: uploadType,
         sortOrder: currentCount + i + 1,
         createdAt: new Date().toISOString(),
