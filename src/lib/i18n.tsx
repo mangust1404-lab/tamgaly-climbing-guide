@@ -43,6 +43,7 @@ const translations = {
   'home.approachMin': { ru: 'мин подход', en: 'min approach' },
   'home.gradeAll': { ru: 'Все', en: 'All' },
   'home.gradeFilterResults': { ru: 'Маршруты', en: 'Routes' },
+  'home.installApp': { ru: 'Установить приложение на телефон', en: 'Install app on phone' },
   'home.noRoutesInRange': { ru: 'Нет маршрутов в этом диапазоне', en: 'No routes in this range' },
   'home.aboutArea': { ru: 'О районе', en: 'About the area' },
 

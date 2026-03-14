@@ -100,6 +100,33 @@ export function HomePage() {
     }
   }, [topos])
 
+  // PWA install prompt
+  const [installPrompt, setInstallPrompt] = useState<any>(null)
+  const [isInstalled, setIsInstalled] = useState(false)
+
+  useEffect(() => {
+    // Check if already installed (standalone mode)
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true)
+      return
+    }
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    window.addEventListener('appinstalled', () => setIsInstalled(true))
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const handleInstall = async () => {
+    if (!installPrompt) return
+    installPrompt.prompt()
+    const result = await installPrompt.userChoice
+    if (result.outcome === 'accepted') setIsInstalled(true)
+    setInstallPrompt(null)
+  }
+
   const showGradeResults = selectedGrades.size > 0 && !search.trim()
   const resultsToShow = search.trim() ? searchResults : gradeResults
 
@@ -141,6 +168,16 @@ export function HomePage() {
           )}
         </button>
       </div>
+
+      {/* Install PWA button */}
+      {installPrompt && !isInstalled && (
+        <button
+          onClick={handleInstall}
+          className="w-full mb-4 bg-green-600 text-white rounded-lg px-4 py-3 text-sm font-medium flex items-center justify-center gap-2"
+        >
+          {t('home.installApp')}
+        </button>
+      )}
 
       {/* Search */}
       <div className="mb-2">
