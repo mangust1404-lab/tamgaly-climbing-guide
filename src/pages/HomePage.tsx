@@ -121,33 +121,26 @@ export function HomePage() {
         <button
           onClick={handleCachePhotos}
           disabled={dl?.stage === 'fetching' || dl?.stage === 'saving'}
-          className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50"
+          className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50 relative"
         >
           {dl?.stage === 'fetching' || dl?.stage === 'saving'
             ? t('home.downloading')
             : dl?.stage === 'done'
               ? t('home.updateData')
               : t('home.downloadOffline')}
-        </button>
-      </div>
-
-      {dl && (
-        <div className={`mb-4 rounded-lg px-3 py-2 text-sm ${
-          dl.stage === 'error' ? 'bg-red-50 text-red-700' :
-          dl.stage === 'done' ? 'bg-green-50 text-green-700' :
-          'bg-blue-50 text-blue-700'
-        }`}>
-          <p>{dl.message}</p>
-          {dl.stage !== 'error' && dl.stage !== 'done' && (
-            <div className="mt-1 h-1.5 bg-blue-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full transition-all duration-300"
+          {dl && dl.stage !== 'error' && dl.stage !== 'done' && (
+            <span className="absolute bottom-0 left-0 right-0 h-1 bg-blue-100 rounded-b-lg overflow-hidden">
+              <span
+                className="block h-full bg-blue-500 transition-all duration-300"
                 style={{ width: `${dl.percent}%` }}
               />
-            </div>
+            </span>
           )}
-        </div>
-      )}
+          {dl?.stage === 'done' && (
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+          )}
+        </button>
+      </div>
 
       {/* Search */}
       <div className="mb-2">

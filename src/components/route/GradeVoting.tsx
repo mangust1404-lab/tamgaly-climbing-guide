@@ -139,10 +139,14 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
                   isMyVote
                     ? 'text-white shadow-sm'
                     : isOfficial
-                      ? 'text-gray-800 border-2 border-gray-400'
-                      : 'bg-gray-100 text-gray-400'
+                      ? 'text-white border-2 border-gray-400'
+                      : 'text-gray-700'
                 }`}
-                style={isMyVote ? { backgroundColor: color } : undefined}
+                style={{
+                  backgroundColor: isMyVote
+                    ? color
+                    : `${color}50`, // 50 = ~30% opacity hex
+                }}
               >
                 {g}
               </div>
