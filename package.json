@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && cp dist/index.html dist/404.html",
+    "build": "tsc -b && vite build && cp dist/index.html dist/404.html && mkdir -p dist/data && cp data/topo-data.json dist/data/topo-data.json",
     "lint": "eslint .",
     "preview": "vite preview",
     "server:dev": "tsx server/src/index.ts",
@@ -43,6 +43,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "hono": "^4.12.5",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4.2.1",
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",

@@ -6,6 +6,7 @@ import { gradeToTopoColor } from '../../lib/utils'
 interface Props {
   topo: Topo
   onDone?: () => void
+  onSave?: () => void
 }
 
 type Point = { x: number; y: number }
@@ -45,7 +46,9 @@ function pointsToSvgPath(points: Point[]): string {
   return d
 }
 
-export function TopoEditor({ topo }: Props) {
+export function TopoEditor({ topo, onSave }: Props) {
+  const triggerSave = () => { if (onSave) onSave() }
+
   const containerRef = useRef<HTMLDivElement>(null)
   const [points, setPoints] = useState<Point[]>([])
   const [selectedRouteId, setSelectedRouteId] = useState<string>('')
@@ -59,6 +62,7 @@ export function TopoEditor({ topo }: Props) {
   const [newRouteType, setNewRouteType] = useState<Route['routeType']>('sport')
   const [newPitches, setNewPitches] = useState(1)
   const [newPitchGrades, setNewPitchGrades] = useState<string[]>(['6a'])
+  const [editingRoute, setEditingRoute] = useState<{ id: string; name: string; grade: string; routeType: Route['routeType']; numberInSector?: number } | null>(null)
 
   const imgW = actualDims?.w || topo.imageWidth || 1
   const imgH = actualDims?.h || topo.imageHeight || 1
@@ -146,10 +150,14 @@ export function TopoEditor({ topo }: Props) {
     const newDrawn = new Set([...drawnRouteIds, selectedRouteId])
     const next = routes?.find(r => !newDrawn.has(r.id))
     setSelectedRouteId(next?.id || '')
+
+    // Auto-save to disk
+    triggerSave()
   }
 
   const handleDeleteTopoRoute = async (trId: string) => {
     await db.topoRoutes.delete(trId)
+    triggerSave()
   }
 
   const handleAddRoute = async () => {
@@ -190,6 +198,22 @@ export function TopoEditor({ topo }: Props) {
     setSelectedRouteId(id)
   }
 
+  const handleSaveRouteEdit = async () => {
+    if (!editingRoute) return
+    const slug = editingRoute.name.toLowerCase().replace(/[^a-zа-яё0-9]+/gi, '-')
+    await db.routes.update(editingRoute.id, {
+      name: editingRoute.name.trim(),
+      slug,
+      grade: editingRoute.grade,
+      gradeSort: GRADE_SORT[editingRoute.grade] || 120,
+      routeType: editingRoute.routeType,
+      numberInSector: editingRoute.numberInSector || undefined,
+      updatedAt: new Date().toISOString(),
+    })
+    setEditingRoute(null)
+    triggerSave()
+  }
+
   const drawnRouteIds = new Set(existingTopoRoutes?.map((tr) => tr.routeId) || [])
 
   const handleSelectRoute = (routeId: string) => {
@@ -219,6 +243,18 @@ export function TopoEditor({ topo }: Props) {
               </option>
             ))}
           </select>
+          {selectedRouteId && (
+            <button
+              onClick={() => {
+                const r = routes?.find(rt => rt.id === selectedRouteId)
+                if (r) setEditingRoute({ id: r.id, name: r.name, grade: r.grade, routeType: r.routeType, numberInSector: r.numberInSector })
+              }}
+              className="px-3 py-2 text-xs bg-amber-500 text-white rounded-lg font-medium whitespace-nowrap hover:bg-amber-600 transition-colors"
+              title="Редактировать маршрут"
+            >
+              Ред.
+            </button>
+          )}
           <button
             onClick={() => setShowAddRoute(!showAddRoute)}
             className="px-3 py-2 text-xs bg-green-600 text-white rounded-lg font-medium whitespace-nowrap"
@@ -227,6 +263,73 @@ export function TopoEditor({ topo }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Inline edit route form */}
+      {editingRoute && (
+        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="text-xs font-semibold text-amber-700 mb-2">Редактирование маршрута</div>
+          <div className="flex gap-2 mb-2">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-gray-500">#</span>
+              <input
+                type="number"
+                min={1}
+                value={editingRoute.numberInSector || ''}
+                onChange={(e) => setEditingRoute({ ...editingRoute, numberInSector: parseInt(e.target.value) || undefined })}
+                placeholder="#"
+                className="w-12 border border-gray-300 rounded px-2 py-1.5 text-sm text-center"
+              />
+            </div>
+            <input
+              value={editingRoute.name}
+              onChange={(e) => setEditingRoute({ ...editingRoute, name: e.target.value })}
+              placeholder="Название"
+              className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
+              autoFocus
+            />
+            <select
+              value={editingRoute.grade}
+              onChange={(e) => setEditingRoute({ ...editingRoute, grade: e.target.value })}
+              className="border border-gray-300 rounded px-2 py-1.5 text-sm font-mono w-20"
+            >
+              {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <div className="mb-3">
+            <span className="text-[10px] text-gray-500 mb-1 block">Тип:</span>
+            <div className="flex gap-1.5">
+              {ROUTE_TYPES.map(rt => (
+                <button
+                  key={rt}
+                  onClick={() => setEditingRoute({ ...editingRoute, routeType: rt })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    editingRoute.routeType === rt
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-white text-gray-500 border border-gray-200 hover:border-amber-300'
+                  }`}
+                >
+                  {rt}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-3 items-center pt-2 border-t border-amber-200">
+            <button
+              onClick={handleSaveRouteEdit}
+              disabled={!editingRoute.name.trim()}
+              className="px-5 py-2 text-sm bg-amber-500 text-white rounded-lg font-medium disabled:opacity-30 hover:bg-amber-600 transition-colors"
+            >
+              Сохранить
+            </button>
+            <button
+              onClick={() => setEditingRoute(null)}
+              className="px-4 py-2 text-sm text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Inline add route form */}
       {showAddRoute && (
@@ -247,26 +350,29 @@ export function TopoEditor({ topo }: Props) {
               {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
-          <div className="flex gap-2 items-center">
-            <div className="flex gap-1">
+          {/* Route type selector */}
+          <div className="mb-3">
+            <span className="text-[10px] text-gray-500 mb-1 block">Тип:</span>
+            <div className="flex gap-1.5">
               {ROUTE_TYPES.map(rt => (
                 <button
                   key={rt}
                   onClick={() => setNewRouteType(rt)}
-                  className={`px-2 py-1 rounded text-[10px] font-medium ${
-                    newRouteType === rt ? 'bg-green-600 text-white' : 'bg-white text-gray-600 border border-gray-200'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    newRouteType === rt
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-500 border border-gray-200 hover:border-blue-300'
                   }`}
                 >
                   {rt}
                 </button>
               ))}
             </div>
-            <div className="flex-1" />
           </div>
 
           {/* Multi-pitch: pitches count + per-pitch grades */}
           {newRouteType === 'multi-pitch' && (
-            <div className="mt-2 mb-2">
+            <div className="mb-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs text-gray-600">Верёвок:</span>
                 <input
@@ -309,17 +415,18 @@ export function TopoEditor({ topo }: Props) {
             </div>
           )}
 
-          <div className="flex gap-2 items-center">
+          {/* Action buttons — visually separated */}
+          <div className="flex gap-3 items-center pt-2 border-t border-green-200">
             <button
               onClick={handleAddRoute}
               disabled={!newRouteName.trim()}
-              className="px-3 py-1.5 text-xs bg-green-600 text-white rounded font-medium disabled:opacity-30"
+              className="px-5 py-2 text-sm bg-green-600 text-white rounded-lg font-medium disabled:opacity-30 hover:bg-green-700 transition-colors"
             >
               Добавить
             </button>
             <button
               onClick={() => setShowAddRoute(false)}
-              className="text-xs text-gray-400"
+              className="px-4 py-2 text-sm text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
             >
               Отмена
             </button>
@@ -472,21 +579,21 @@ export function TopoEditor({ topo }: Props) {
             disabled={points.length === 0}
             className="px-3 py-1.5 text-xs bg-gray-100 rounded disabled:opacity-30"
           >
-            Отменить точку
+            ↩ Отменить точку
           </button>
           <button
             onClick={() => setPoints([])}
             disabled={points.length === 0}
             className="px-3 py-1.5 text-xs bg-gray-100 rounded disabled:opacity-30"
           >
-            Сбросить
+            ✕ Сбросить
           </button>
           <button
             onClick={handleSave}
             disabled={points.length < 2}
             className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded disabled:opacity-30"
           >
-            Сохранить маршрут
+            💾 Сохранить маршрут
           </button>
         </div>
       )}
@@ -516,7 +623,15 @@ export function TopoEditor({ topo }: Props) {
                       }}
                       className="w-10 border border-gray-200 rounded px-1 py-0.5 text-xs text-center"
                     />
-                    <span className="truncate">{route?.name || tr.routeId} ({route?.grade})</span>
+                    <span
+                      className="truncate cursor-pointer hover:text-amber-600"
+                      onClick={() => {
+                        if (route) setEditingRoute({ id: route.id, name: route.name, grade: route.grade, routeType: route.routeType, numberInSector: route.numberInSector })
+                      }}
+                      title="Нажми чтобы редактировать"
+                    >
+                      {route?.name || tr.routeId} ({route?.grade})
+                    </span>
                   </span>
                   <button
                     onClick={() => handleDeleteTopoRoute(tr.id)}

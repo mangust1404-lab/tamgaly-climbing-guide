@@ -2,6 +2,23 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Suggestion } from '../../lib/db/schema'
 import { useI18n } from '../../lib/i18n'
 
+async function saveTopoData() {
+  try {
+    const topos = await db.topos.toArray()
+    const topoRoutes = await db.topoRoutes.toArray()
+    const sectors = await db.sectors.toArray()
+    const sectorCovers: Record<string, string> = {}
+    for (const s of sectors) { if (s.coverImageUrl) sectorCovers[s.id] = s.coverImageUrl }
+    const meta = await db.syncMeta.get('topoDataVersion')
+    const version = (parseInt(meta?.value || '0') || 0) + 1
+    const data = { version, exportedAt: new Date().toISOString(), topos, topoRoutes, sectorCovers }
+    const resp = await fetch('/api/save-topo-data', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+    })
+    if (resp.ok) await db.syncMeta.put({ key: 'topoDataVersion', value: String(version) })
+  } catch { /* production — no save endpoint */ }
+}
+
 export function ModerationPage() {
   const { t } = useI18n()
 
@@ -47,6 +64,7 @@ export function ModerationPage() {
       status: 'approved',
       reviewedAt: new Date().toISOString(),
     })
+    if (s.type === 'photo') saveTopoData()
   }
 
   const handleReject = async (s: Suggestion) => {

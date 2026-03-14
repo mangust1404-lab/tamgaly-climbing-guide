@@ -495,6 +495,61 @@ const ROUTE_GPS: Array<{ sectorId: string; name: string; latitude: number; longi
   { sectorId: 'sector-gorod', name: 'Отдельная реальность', latitude: 44.0624891, longitude: 76.9964802 },
 ]
 
+/**
+ * Load topo data from data/topo-data.json (committed in git).
+ * This is the source of truth for topo photos and route overlays.
+ */
+export async function loadTopoDataFromFile() {
+  try {
+    const base = import.meta.env.BASE_URL || '/'
+    const resp = await fetch(`${base}data/topo-data.json`)
+    if (!resp.ok) {
+      console.warn('topo-data.json not found, skipping')
+      return
+    }
+    const data = await resp.json() as {
+      version?: number
+      topos?: Array<Record<string, unknown>>
+      topoRoutes?: Array<Record<string, unknown>>
+      sectorCovers?: Record<string, string>
+    }
+
+    if (!data.topos?.length && !data.topoRoutes?.length) return
+
+    // Check if we already loaded this version
+    const meta = await db.syncMeta.get('topoDataVersion')
+    if (meta?.value === String(data.version || 0)) {
+      // Already loaded — but check if DB has data (could have been cleared)
+      const topoCount = await db.topos.count()
+      if (topoCount > 0) return
+    }
+
+    // Load topos
+    if (data.topos && data.topos.length > 0) {
+      await db.topos.bulkPut(data.topos as any[])
+      console.log(`Loaded ${data.topos.length} topos from topo-data.json`)
+    }
+
+    // Load topoRoutes
+    if (data.topoRoutes && data.topoRoutes.length > 0) {
+      await db.topoRoutes.bulkPut(data.topoRoutes as any[])
+      console.log(`Loaded ${data.topoRoutes.length} topoRoutes from topo-data.json`)
+    }
+
+    // Apply sector covers
+    if (data.sectorCovers) {
+      for (const [sectorId, coverUrl] of Object.entries(data.sectorCovers)) {
+        await db.sectors.update(sectorId, { coverImageUrl: coverUrl })
+      }
+    }
+
+    await db.syncMeta.put({ key: 'topoDataVersion', value: String(data.version || 0) })
+    console.log(`Topo data loaded (version ${data.version || 0})`)
+  } catch (err) {
+    console.error('Failed to load topo-data.json:', err)
+  }
+}
+
 export async function updateGpsCoordinates() {
   // Update sector GPS
   for (const [id, coords] of Object.entries(SECTOR_GPS)) {

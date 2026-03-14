@@ -1,9 +1,8 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Topo } from '../lib/db/schema'
+import { db } from '../lib/db/schema'
 import { TopoViewer } from '../components/topo/TopoViewer'
-import { TopoEditor } from '../components/topo/TopoEditor'
 import { RouteList } from '../components/topo/RouteList'
 import { gradeColor } from '../lib/utils'
 import { useGps } from '../hooks/useGps'
@@ -30,10 +29,8 @@ export function SectorPage() {
   const { sectorId } = useParams<{ sectorId: string }>()
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [gradeFilter, setGradeFilter] = useState('all')
-  const [editingTopoId, setEditingTopoId] = useState<string | null>(null)
   const [editingNumberId, setEditingNumberId] = useState<string | null>(null)
   const { position } = useGps()
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const sector = useLiveQuery(
     () => (sectorId ? db.sectors.get(sectorId) : undefined),
@@ -78,55 +75,6 @@ export function SectorPage() {
         : [],
     [sectorId],
   )
-
-  const handleDeletePhoto = useCallback(async (topoId: string) => {
-    if (!confirm(t('sector.deletePhotoConfirm'))) return
-    // Delete associated route lines first
-    await db.topoRoutes.where('topoId').equals(topoId).delete()
-    // If this was the cover photo, clear it
-    if (sector?.coverImageUrl) {
-      const topo = allTopos?.find(tp => tp.id === topoId)
-      if (topo && sector.coverImageUrl === topo.imageUrl) {
-        await db.sectors.where('id').equals(sector.id).modify(s => { delete s.coverImageUrl })
-      }
-    }
-    await db.topos.delete(topoId)
-    setActiveTopoIdx(i => Math.max(0, i - 1))
-    if (editingTopoId === topoId) setEditingTopoId(null)
-  }, [sector, allTopos, editingTopoId, t])
-
-  const handleUploadPhoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !sectorId) return
-
-    const url = URL.createObjectURL(file)
-    const img = new Image()
-    img.src = url
-    await new Promise<void>((resolve) => { img.onload = () => resolve() })
-
-    const canvas = document.createElement('canvas')
-    canvas.width = img.width
-    canvas.height = img.height
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(img, 0, 0)
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
-
-    const topo: Topo = {
-      id: `topo-${Date.now()}`,
-      sectorId,
-      imageUrl: dataUrl,
-      imageWidth: img.width,
-      imageHeight: img.height,
-      type: 'topo',
-      sortOrder: (allTopos?.length || 0) + 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-
-    await db.topos.put(topo)
-    URL.revokeObjectURL(url)
-    e.target.value = ''
-  }, [sectorId, allTopos])
 
   // Split topos by type
   const wallTopos = useMemo(
@@ -183,7 +131,6 @@ export function SectorPage() {
   }
 
   const filteredRoutes = routes?.filter(r => matchesGradeFilter(r.gradeSort, gradeFilter)) ?? []
-  const editingTopo = editingTopoId ? allTopos?.find(tp => tp.id === editingTopoId) : null
 
   const gradeFilterLabel = (f: string) => f === 'all' ? t('sector.all') : f
 
@@ -231,33 +178,8 @@ export function SectorPage() {
         </div>
       )}
 
-      {/* Hidden file input for photo upload */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleUploadPhoto}
-        className="hidden"
-      />
-
-      {/* Inline TopoEditor */}
-      {editingTopo && (
-        <div className="px-4 py-2 bg-yellow-50 border-y border-yellow-200">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold">{t('sector.markRoutes')}</span>
-            <button
-              onClick={() => setEditingTopoId(null)}
-              className="text-xs text-gray-500"
-            >
-              {t('sector.done')}
-            </button>
-          </div>
-          <TopoEditor topo={editingTopo} onDone={() => setEditingTopoId(null)} />
-        </div>
-      )}
-
       {/* Topo viewer with route overlays (OpenSeadragon) */}
-      {!editingTopo && activeTopo && activeTopoRoutes.length > 0 && (
+      {activeTopo && activeTopoRoutes.length > 0 && (
         <div className="mb-2">
           <TopoViewer
             imageUrl={activeTopo.imageUrl}
@@ -272,26 +194,6 @@ export function SectorPage() {
             selectedRouteId={selectedRouteId}
             onSelect={setSelectedRouteId}
           />
-          <div className="px-2 flex gap-2 justify-end">
-            <button
-              onClick={() => handleDeletePhoto(activeTopo.id)}
-              className="text-xs text-red-400"
-            >
-              &times;
-            </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="text-xs text-gray-500"
-            >
-              + Фото
-            </button>
-            <button
-              onClick={() => setEditingTopoId(activeTopo.id)}
-              className="text-xs text-blue-600"
-            >
-              {t('sector.markRoutes')}
-            </button>
-          </div>
           {/* Topo thumbnails when multiple photos */}
           {wallTopos.length > 1 && (
             <div className="flex gap-1 overflow-x-auto px-2 py-1">
@@ -312,7 +214,7 @@ export function SectorPage() {
       )}
 
       {/* Photo gallery with smooth zoom (no route overlays yet) */}
-      {!editingTopo && activeTopo && activeTopoRoutes.length === 0 && (
+      {activeTopo && activeTopoRoutes.length === 0 && (
         <div className="mb-1">
           <div
             ref={imgRef}
@@ -359,65 +261,51 @@ export function SectorPage() {
                 ))}
               </div>
             ) : <div />}
-            <div className="flex gap-2 flex-shrink-0 ml-2">
-              <button
-                onClick={() => activeTopo && handleDeletePhoto(activeTopo.id)}
-                className="text-xs text-red-400"
-              >
-                &times;
-              </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="text-xs text-gray-500"
-              >
-                + Фото
-              </button>
-              <button
-                onClick={() => activeTopo && setEditingTopoId(activeTopo.id)}
-                className="text-xs text-blue-600"
-              >
-                {t('sector.markRoutes')}
-              </button>
-            </div>
           </div>
         </div>
       )}
 
-      {/* No photos yet — show upload button */}
-      {!editingTopo && wallTopos.length === 0 && (
+      {/* No photos placeholder */}
+      {wallTopos.length === 0 && (
         <div className="mx-4 my-2 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-          <p className="text-sm text-gray-400 mb-2">{t('sector.noPhoto')}</p>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg"
-          >
-            + {t('sector.uploadPhoto')}
-          </button>
+          <p className="text-sm text-gray-400">{t('sector.noPhoto')}</p>
         </div>
       )}
 
       {/* Routes list */}
       <div className="px-4 pt-1 pb-4">
-        <h2 className="text-lg font-semibold mb-2">
-          {t('sector.routes')} {routes ? `(${routes.length})` : ''}
-        </h2>
-
-        {/* Grade filter chips */}
-        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-          {GRADE_FILTERS.map((f) => (
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">
+            {t('sector.routes')} {routes ? `(${routes.length})` : ''}
+          </h2>
+          {selectedRouteId && (
             <button
-              key={f}
-              onClick={() => setGradeFilter(f)}
-              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                gradeFilter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              onClick={() => setSelectedRouteId(null)}
+              className="text-xs text-blue-600 hover:underline"
             >
-              {gradeFilterLabel(f)}
+              {t('sector.all')} ({routes?.length})
             </button>
-          ))}
+          )}
         </div>
+
+        {/* Grade filter chips — hide when a route is selected */}
+        {!selectedRouteId && (
+          <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+            {GRADE_FILTERS.map((f) => (
+              <button
+                key={f}
+                onClick={() => setGradeFilter(f)}
+                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                  gradeFilter === f
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {gradeFilterLabel(f)}
+              </button>
+            ))}
+          </div>
+        )}
 
         {filteredRoutes.length === 0 ? (
           <p className="text-gray-400 text-sm">
@@ -425,7 +313,7 @@ export function SectorPage() {
           </p>
         ) : (
           <div className="space-y-1">
-            {filteredRoutes.map((route) => {
+            {(selectedRouteId ? filteredRoutes.filter(r => r.id === selectedRouteId) : filteredRoutes).map((route) => {
               const tr = topoRoutes?.find((tp) => tp.routeId === route.id)
               const isSelected = route.id === selectedRouteId
               const avgRating = routeRatings?.get(route.id)

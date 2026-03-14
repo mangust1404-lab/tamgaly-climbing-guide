@@ -1,9 +1,62 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Topo } from '../../lib/db/schema'
 import { TopoEditor } from '../../components/topo/TopoEditor'
+import { CropModal } from '../../components/topo/CropModal'
 
 type UploadType = 'topo' | 'approach'
+
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+async function saveTopoData() {
+  // Debounce: wait 1s after last change before saving
+  if (saveTimer) clearTimeout(saveTimer)
+  saveTimer = setTimeout(async () => {
+    const topos = await db.topos.toArray()
+    const topoRoutes = await db.topoRoutes.toArray()
+    const sectors = await db.sectors.toArray()
+
+    const sectorCovers: Record<string, string> = {}
+    for (const s of sectors) {
+      if (s.coverImageUrl) sectorCovers[s.id] = s.coverImageUrl
+    }
+
+    const meta = await db.syncMeta.get('topoDataVersion')
+    const version = (parseInt(meta?.value || '0') || 0) + 1
+
+    const data = {
+      version,
+      exportedAt: new Date().toISOString(),
+      topos,
+      topoRoutes,
+      sectorCovers,
+    }
+
+    try {
+      const resp = await fetch('/api/save-topo-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (resp.ok) {
+        await db.syncMeta.put({ key: 'topoDataVersion', value: String(version) })
+        console.log(`Saved topo-data v${version}`)
+      } else {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = 'topo-data.json'; a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'topo-data.json'; a.click()
+      URL.revokeObjectURL(url)
+    }
+  }, 1000)
+}
 
 export function AdminTopoPage() {
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
@@ -11,6 +64,9 @@ export function AdminTopoPage() {
   const [editingTopo, setEditingTopo] = useState<Topo | null>(null)
   const [uploadType, setUploadType] = useState<UploadType>('topo')
   const [editingCaption, setEditingCaption] = useState<{ id: string; text: string } | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [croppingTopo, setCroppingTopo] = useState<Topo | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const topos = useLiveQuery(
     () => selectedSectorId
@@ -25,58 +81,77 @@ export function AdminTopoPage() {
   const approachPhotos = topos?.filter(t => t.type === 'approach') ?? []
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !selectedSectorId) return
+    const files = e.target.files
+    if (!files || files.length === 0 || !selectedSectorId) return
 
-    const url = URL.createObjectURL(file)
-    const img = new Image()
-    img.src = url
+    setUploading(true)
+    const currentCount = topos?.length || 0
 
-    await new Promise<void>((resolve) => {
-      img.onload = () => resolve()
-    })
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.src = url
 
-    const canvas = document.createElement('canvas')
-    canvas.width = img.width
-    canvas.height = img.height
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(img, 0, 0)
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+      await new Promise<void>((resolve) => { img.onload = () => resolve() })
 
-    const topoId = `topo-${Date.now()}`
-    const topo: Topo = {
-      id: topoId,
-      sectorId: selectedSectorId,
-      imageUrl: dataUrl,
-      imageWidth: img.width,
-      imageHeight: img.height,
-      type: uploadType,
-      sortOrder: (topos?.length || 0) + 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+
+      const topo: Topo = {
+        id: `topo-${Date.now()}-${i}`,
+        sectorId: selectedSectorId,
+        imageUrl: dataUrl,
+        imageWidth: img.width,
+        imageHeight: img.height,
+        type: uploadType,
+        sortOrder: currentCount + i + 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+
+      await db.topos.put(topo)
+      URL.revokeObjectURL(url)
     }
 
-    await db.topos.put(topo)
-    URL.revokeObjectURL(url)
     e.target.value = ''
+    setUploading(false)
+    saveTopoData()
   }
 
   const handleDeleteTopo = async (topoId: string) => {
     await db.topoRoutes.where('topoId').equals(topoId).delete()
     await db.topos.delete(topoId)
+    saveTopoData()
   }
 
   const handleToggleCover = async (imageUrl: string) => {
     if (!selectedSectorId) return
     const isCurrent = selectedSector?.coverImageUrl === imageUrl
     if (isCurrent) {
-      // Dexie ignores undefined in update — use modify to actually delete the field
       await db.sectors.where('id').equals(selectedSectorId).modify(s => {
         delete s.coverImageUrl
       })
     } else {
       await db.sectors.update(selectedSectorId, { coverImageUrl: imageUrl })
     }
+    saveTopoData()
+  }
+
+  const handleCrop = async (croppedDataUrl: string, width: number, height: number) => {
+    if (!croppingTopo) return
+    await db.topos.update(croppingTopo.id, {
+      imageUrl: croppedDataUrl,
+      imageWidth: width,
+      imageHeight: height,
+      updatedAt: new Date().toISOString(),
+    })
+    setCroppingTopo(null)
+    saveTopoData()
   }
 
   const handleSaveCaption = async () => {
@@ -85,206 +160,216 @@ export function AdminTopoPage() {
     setEditingCaption(null)
   }
 
-  return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Админ: Топо-редактор</h1>
+  const renderPhotoCard = (topo: Topo, borderColor: string) => {
+    const isCover = selectedSector?.coverImageUrl === topo.imageUrl
+    const isApproach = topo.type === 'approach'
+    const isEditingThis = editingCaption?.id === topo.id
 
-      {/* Sector selector */}
-      <select
-        value={selectedSectorId}
-        onChange={(e) => { setSelectedSectorId(e.target.value); setEditingTopo(null) }}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4"
-      >
-        <option value="">Выбери сектор...</option>
-        {sectors?.map((s) => (
-          <option key={s.id} value={s.id}>{s.name}</option>
-        ))}
-      </select>
+    return (
+      <div key={topo.id} className={`border ${borderColor} rounded-lg overflow-hidden`}>
+        {/* Photo — proper aspect ratio, no cropping */}
+        <div className="relative">
+          <img
+            src={topo.imageUrl}
+            alt={topo.caption || 'Topo'}
+            className="w-full max-h-[500px] object-contain bg-gray-100"
+          />
+          {isCover && (
+            <div className="absolute top-2 left-2 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded">
+              Обложка
+            </div>
+          )}
+          {isApproach && (
+            <div className="absolute top-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
+              Подход
+            </div>
+          )}
+        </div>
+
+        {/* Caption for approach */}
+        {isApproach && (
+          <div className="px-3 pt-2">
+            {isEditingThis ? (
+              <div className="flex gap-1">
+                <input
+                  value={editingCaption!.text}
+                  onChange={(e) => setEditingCaption({ id: editingCaption!.id, text: e.target.value })}
+                  placeholder="Описание подхода..."
+                  className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
+                  autoFocus
+                />
+                <button onClick={handleSaveCaption} className="text-sm bg-green-600 text-white px-3 py-1 rounded">OK</button>
+                <button onClick={() => setEditingCaption(null)} className="text-sm text-gray-400 px-2">x</button>
+              </div>
+            ) : (
+              <div
+                onClick={() => setEditingCaption({ id: topo.id, text: topo.caption || '' })}
+                className="text-sm text-gray-600 cursor-pointer hover:text-blue-600 min-h-[24px]"
+              >
+                {topo.caption || <span className="text-gray-400 italic">Добавить описание...</span>}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Actions bar */}
+        <div className="px-3 py-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-gray-400 mr-auto">
+              {topo.imageWidth}x{topo.imageHeight}
+            </span>
+            <button
+              onClick={() => handleToggleCover(topo.imageUrl)}
+              className={`text-lg px-1 ${isCover ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}
+              title="Обложка"
+            >
+              ★
+            </button>
+            <button
+              onClick={() => setCroppingTopo(topo)}
+              className="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-200"
+            >
+              ✂ Обрезать
+            </button>
+            <button
+              onClick={() => setEditingTopo(topo)}
+              className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded"
+            >
+              ✏ Разметить
+            </button>
+            <button
+              onClick={() => handleDeleteTopo(topo.id)}
+              className="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded hover:bg-red-100"
+            >
+              🗑 Удалить
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-4 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Топо-редактор</h1>
+          </div>
+          <button
+            onClick={saveTopoData}
+            className="ml-auto text-sm bg-gray-800 text-white px-5 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            💾 Сохранить
+          </button>
+        </div>
+
+        {/* Sector selector — card-style buttons */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {sectors?.map((s) => {
+            const isActive = s.id === selectedSectorId
+            const count = topos && isActive ? topos.length : 0
+            return (
+              <button
+                key={s.id}
+                onClick={() => { setSelectedSectorId(isActive ? '' : s.id); setEditingTopo(null) }}
+                className={`text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                {s.name}
+                {count > 0 && <span className="ml-1 opacity-70">({count})</span>}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       {selectedSectorId && !editingTopo && (
         <>
-          {/* Cover image */}
-          {selectedSector && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm font-medium mb-1">Обложка сектора</div>
-              {selectedSector.coverImageUrl ? (
-                <img src={selectedSector.coverImageUrl} alt="Cover" className="h-20 rounded object-cover" />
-              ) : (
-                <span className="text-xs text-gray-400">Не задана — нажми ★ на любом фото ниже</span>
-              )}
-            </div>
-          )}
-
-          {/* Upload type + file */}
-          <div className="mb-4">
-            <div className="flex gap-2 mb-2">
+          {/* Upload — multi-file */}
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <div className="flex gap-2 mb-3">
               <button
                 onClick={() => setUploadType('topo')}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                  uploadType === 'topo' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  uploadType === 'topo' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border'
                 }`}
               >
-                Фото стены (топо)
+                Фото стены
               </button>
               <button
                 onClick={() => setUploadType('approach')}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                  uploadType === 'approach' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  uploadType === 'approach' ? 'bg-green-600 text-white' : 'bg-white text-gray-600 border'
                 }`}
               >
                 Фото подхода
               </button>
             </div>
             <input
+              ref={fileRef}
               type="file"
               accept="image/*"
+              multiple
               onChange={handleUpload}
-              className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700"
+              className="hidden"
             />
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 disabled:opacity-50"
+            >
+              {uploading ? 'Загрузка...' : 'Выбрать фото (можно несколько)'}
+            </button>
           </div>
+
+          {/* Cover preview */}
+          {selectedSector?.coverImageUrl && (
+            <div className="mb-4 flex items-center gap-3 p-2 bg-yellow-50 rounded-lg">
+              <img src={selectedSector.coverImageUrl} alt="Cover" className="h-16 rounded object-cover" />
+              <span className="text-sm text-yellow-700">Обложка сектора</span>
+            </div>
+          )}
 
           {/* Topo photos */}
           {sectorTopos.length > 0 && (
-            <div className="space-y-3 mb-6">
-              <h2 className="text-sm font-semibold">Фото стен ({sectorTopos.length})</h2>
-              {sectorTopos.map((topo) => {
-                const isCover = selectedSector?.coverImageUrl === topo.imageUrl
-                return (
-                  <div key={topo.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="relative">
-                      <img
-                        src={topo.imageUrl}
-                        alt={topo.caption || 'Topo'}
-                        className="w-full h-40 object-cover"
-                      />
-                      {isCover && (
-                        <div className="absolute top-1 left-1 bg-yellow-400 text-black text-[10px] font-bold px-1.5 py-0.5 rounded">
-                          Обложка
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-2 flex items-center justify-between">
-                      <span className="text-xs text-gray-400">
-                        {topo.imageWidth}x{topo.imageHeight}
-                      </span>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleToggleCover(topo.imageUrl)}
-                          className={`text-sm px-2 py-1 rounded ${isCover ? 'text-yellow-500' : 'text-gray-400'}`}
-                          title="Обложка"
-                        >
-                          ★
-                        </button>
-                        <button
-                          onClick={() => setEditingTopo(topo)}
-                          className="text-xs bg-blue-600 text-white px-3 py-1 rounded"
-                        >
-                          Разметить
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTopo(topo.id)}
-                          className="text-xs bg-red-50 text-red-600 px-3 py-1 rounded"
-                        >
-                          Удалить
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="space-y-4 mb-6">
+              <h2 className="text-sm font-semibold text-gray-700">Фото стен ({sectorTopos.length})</h2>
+              {sectorTopos.map((topo) => renderPhotoCard(topo, 'border-gray-200'))}
             </div>
           )}
 
           {/* Approach photos */}
           {approachPhotos.length > 0 && (
-            <div className="space-y-3 mb-6">
-              <h2 className="text-sm font-semibold">Фото подходов ({approachPhotos.length})</h2>
-              {approachPhotos.map((topo) => {
-                const isCover = selectedSector?.coverImageUrl === topo.imageUrl
-                const isEditingThis = editingCaption?.id === topo.id
-                return (
-                  <div key={topo.id} className="border border-green-200 rounded-lg overflow-hidden">
-                    <div className="relative">
-                      <img
-                        src={topo.imageUrl}
-                        alt={topo.caption || 'Approach'}
-                        className="w-full h-40 object-cover"
-                      />
-                      <div className="absolute top-1 left-1 bg-green-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                        Подход
-                      </div>
-                      {isCover && (
-                        <div className="absolute top-1 right-1 bg-yellow-400 text-black text-[10px] font-bold px-1.5 py-0.5 rounded">
-                          Обложка
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-2">
-                      {/* Caption */}
-                      {isEditingThis ? (
-                        <div className="flex gap-1 mb-2">
-                          <input
-                            value={editingCaption!.text}
-                            onChange={(e) => setEditingCaption({ id: editingCaption!.id, text: e.target.value })}
-                            placeholder="Описание подхода..."
-                            className="flex-1 border border-gray-300 rounded px-2 py-1 text-xs"
-                            autoFocus
-                          />
-                          <button onClick={handleSaveCaption} className="text-xs bg-green-600 text-white px-2 py-1 rounded">OK</button>
-                          <button onClick={() => setEditingCaption(null)} className="text-xs text-gray-400 px-1">✕</button>
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => setEditingCaption({ id: topo.id, text: topo.caption || '' })}
-                          className="text-xs text-gray-600 mb-2 cursor-pointer hover:text-blue-600 min-h-[20px]"
-                        >
-                          {topo.caption || <span className="text-gray-400 italic">Нажми чтобы добавить описание...</span>}
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">
-                          {topo.imageWidth}x{topo.imageHeight}
-                        </span>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleToggleCover(topo.imageUrl)}
-                            className={`text-sm px-2 py-1 rounded ${isCover ? 'text-yellow-500' : 'text-gray-400'}`}
-                            title="Обложка"
-                          >
-                            ★
-                          </button>
-                          <button
-                            onClick={() => setEditingTopo(topo)}
-                            className="text-xs bg-green-600 text-white px-3 py-1 rounded"
-                          >
-                            Разметить
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTopo(topo.id)}
-                            className="text-xs bg-red-50 text-red-600 px-3 py-1 rounded"
-                          >
-                            Удалить
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="space-y-4 mb-6">
+              <h2 className="text-sm font-semibold text-green-700">Фото подходов ({approachPhotos.length})</h2>
+              {approachPhotos.map((topo) => renderPhotoCard(topo, 'border-green-200'))}
             </div>
           )}
         </>
       )}
 
+      {croppingTopo && (
+        <CropModal
+          imageUrl={croppingTopo.imageUrl}
+          onCrop={handleCrop}
+          onCancel={() => setCroppingTopo(null)}
+        />
+      )}
+
       {editingTopo && (
         <div>
           <button
-            onClick={() => setEditingTopo(null)}
-            className="text-sm text-blue-600 mb-3"
+            onClick={() => { setEditingTopo(null); saveTopoData() }}
+            className="text-sm text-blue-600 mb-3 hover:underline"
           >
-            &larr; Назад к списку
+            &larr; Назад к {selectedSector?.name || 'списку'}
           </button>
-          <TopoEditor topo={editingTopo} />
+          <TopoEditor topo={editingTopo} onSave={saveTopoData} />
         </div>
       )}
     </div>
