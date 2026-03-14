@@ -38,13 +38,12 @@ for (const topo of data.topos) {
   const out = await resized.jpeg({ quality: QUALITY }).toBuffer()
   totalAfter += out.length
 
-  const newMeta = await sharp(out).metadata()
   topo.imageUrl = `data:image/jpeg;base64,${out.toString('base64')}`
-  topo.imageWidth = newMeta.width
-  topo.imageHeight = newMeta.height
+  // Keep original imageWidth/imageHeight so SVG route overlays stay aligned
+  // (viewBox uses these values, browser scales the smaller image)
 
   const pct = ((1 - out.length / buf.length) * 100).toFixed(0)
-  console.log(`  ${topo.id}: ${(buf.length / 1024).toFixed(0)}KB → ${(out.length / 1024).toFixed(0)}KB (-${pct}%) ${w}x${h} → ${newMeta.width}x${newMeta.height}`)
+  console.log(`  ${topo.id}: ${(buf.length / 1024).toFixed(0)}KB → ${(out.length / 1024).toFixed(0)}KB (-${pct}%) ${w}x${h} (dims kept)`)
 }
 
 // Also compress sectorCovers
