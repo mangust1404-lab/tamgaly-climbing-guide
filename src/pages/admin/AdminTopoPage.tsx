@@ -15,6 +15,7 @@ async function saveTopoData() {
     const topos = await db.topos.toArray()
     const topoRoutes = await db.topoRoutes.toArray()
     const sectors = await db.sectors.toArray()
+    const routes = await db.routes.toArray()
 
     const sectorCovers: Record<string, string> = {}
     for (const s of sectors) {
@@ -29,6 +30,8 @@ async function saveTopoData() {
       exportedAt: new Date().toISOString(),
       topos,
       topoRoutes,
+      routes,
+      sectors,
       sectorCovers,
     }
 

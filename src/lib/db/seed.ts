@@ -511,6 +511,8 @@ export async function loadTopoDataFromFile() {
       version?: number
       topos?: Array<Record<string, unknown>>
       topoRoutes?: Array<Record<string, unknown>>
+      routes?: Array<Record<string, unknown>>
+      sectors?: Array<Record<string, unknown>>
       sectorCovers?: Record<string, string>
     }
 
@@ -522,6 +524,18 @@ export async function loadTopoDataFromFile() {
       // Already loaded — but check if DB has data (could have been cleared)
       const topoCount = await db.topos.count()
       if (topoCount > 0) return
+    }
+
+    // Load routes (with updated grades, names, new routes from admin)
+    if (data.routes && data.routes.length > 0) {
+      await db.routes.bulkPut(data.routes as any[])
+      console.log(`Loaded ${data.routes.length} routes from topo-data.json`)
+    }
+
+    // Load sectors (with updated descriptions etc)
+    if (data.sectors && data.sectors.length > 0) {
+      await db.sectors.bulkPut(data.sectors as any[])
+      console.log(`Loaded ${data.sectors.length} sectors from topo-data.json`)
     }
 
     // Load topos

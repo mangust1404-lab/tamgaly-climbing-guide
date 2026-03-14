@@ -129,11 +129,20 @@ export async function refreshTopoData(
       version?: number
       topos?: Array<Record<string, unknown>>
       topoRoutes?: Array<Record<string, unknown>>
+      routes?: Array<Record<string, unknown>>
+      sectors?: Array<Record<string, unknown>>
       sectorCovers?: Record<string, string>
     }
 
     onProgress({ stage: 'saving', message: 'Сохранение...', percent: 50 })
 
+    // Load routes and sectors first (grades, names, new routes)
+    if (data.routes && data.routes.length > 0) {
+      await db.routes.bulkPut(data.routes as any[])
+    }
+    if (data.sectors && data.sectors.length > 0) {
+      await db.sectors.bulkPut(data.sectors as any[])
+    }
     if (data.topos && data.topos.length > 0) {
       await db.topos.clear()
       await db.topos.bulkPut(data.topos as any[])
@@ -155,9 +164,9 @@ export async function refreshTopoData(
       await navigator.storage.persist()
     }
 
-    const topoCount = data.topos?.length || 0
-    const routeCount = data.topoRoutes?.length || 0
-    onProgress({ stage: 'done', message: `Обновлено: ${topoCount} фото, ${routeCount} маршрутов`, percent: 100 })
+    const routeCount = data.routes?.length || 0
+    const lineCount = data.topoRoutes?.length || 0
+    onProgress({ stage: 'done', message: `Обновлено: ${routeCount} маршрутов, ${lineCount} линий`, percent: 100 })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Ошибка обновления'
     onProgress({ stage: 'error', message, percent: 0 })
