@@ -123,7 +123,7 @@ export async function cacheTopoPhotos(
       .filter(u => u.startsWith('/topos/'))
 
     if (urls.length === 0) {
-      onProgress({ stage: 'done', message: 'Нет фото для кэширования', percent: 100 })
+      onProgress({ stage: 'done', message: 'Данные обновлены', percent: 100 })
       return
     }
 

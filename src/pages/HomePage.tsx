@@ -109,7 +109,7 @@ export function HomePage() {
         <h1 className="text-2xl font-bold">{t('home.title')}</h1>
         <Link to="/about" className="text-blue-600 text-xs">{t('home.aboutArea')}</Link>
       </div>
-      <p className="text-gray-500 text-sm mb-4">{t('home.subtitle')}</p>
+      {/* subtitle removed — info is on About page */}
 
       <div className="flex gap-2 mb-4">
         <Link
