@@ -91,10 +91,19 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,json,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         skipWaiting: true,
         clientsClaim: true,
+        navigateFallback: 'index.html',
         runtimeCaching: [
+          {
+            urlPattern: /\/data\/topo-data\.json$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'topo-data',
+              expiration: { maxEntries: 1, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
           {
             urlPattern: /\/api\//,
             handler: 'NetworkFirst',
