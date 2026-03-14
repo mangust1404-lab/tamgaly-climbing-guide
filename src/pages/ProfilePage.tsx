@@ -18,6 +18,8 @@ const ASCENT_STYLES = [
   { value: 'onsight', emoji: '👁️' },
   { value: 'flash', emoji: '⚡' },
   { value: 'redpoint', emoji: '🔴' },
+  { value: 'toprope', emoji: '🔵' },
+  { value: 'attempt', emoji: '⬜' },
 ] as const
 
 export function ProfilePage() {
@@ -31,6 +33,7 @@ export function ProfilePage() {
   const [style, setStyle] = useState<string>('redpoint')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [notes, setNotes] = useState('')
+  const [rating, setRating] = useState(0)
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
 
@@ -115,6 +118,7 @@ export function ProfilePage() {
         routeId: selectedRoute.id,
         date,
         style: style as any,
+        rating: rating || undefined,
         notes: notes || undefined,
         isPublic: true,
         points,
@@ -125,13 +129,14 @@ export function ProfilePage() {
         entity: 'ascent',
         localId,
         action: 'create',
-        payload: { routeId: selectedRoute.id, date, style, notes, points },
+        payload: { routeId: selectedRoute.id, date, style, rating, notes, points },
         createdAt: Date.now(),
         retryCount: 0,
       })
       // Reset form
       setSelectedRouteId('')
       setNotes('')
+      setRating(0)
       setJustSaved(true)
       setTimeout(() => setJustSaved(false), 2000)
     } catch (err) {
@@ -271,7 +276,7 @@ export function ProfilePage() {
               {/* Style */}
               <div className="mb-3">
                 <label className="text-sm font-medium text-gray-700 mb-1.5 block">{t('ascent.style')}</label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-5 gap-1">
                   {ASCENT_STYLES.map(s => (
                     <button
                       key={s.value}
@@ -283,11 +288,25 @@ export function ProfilePage() {
                           : 'bg-white text-gray-600 border border-gray-200'
                       }`}
                     >
-                      <span className="text-base">{s.emoji}</span>
-                      <span className="font-medium mt-0.5">{t(`style.${s.value}` as any)}</span>
-                      <span className="text-[10px] text-gray-400 mt-0.5 px-1 text-center leading-tight">
-                        {t(`style.${s.value}.desc` as any)}
-                      </span>
+                      <span className="text-lg">{s.emoji}</span>
+                      <span className="mt-0.5">{t(`style.${s.value}` as any)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rating */}
+              <div className="mb-3">
+                <label className="text-sm font-medium text-gray-700 mb-1 block">{t('ascent.rating')}</label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star === rating ? 0 : star)}
+                      className={`text-2xl ${star <= rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                    >
+                      ★
                     </button>
                   ))}
                 </div>

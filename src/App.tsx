@@ -15,6 +15,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ defaul
 const AdminTopoPage = lazy(() => import('./pages/admin/AdminTopoPage').then(m => ({ default: m.AdminTopoPage })))
 const AdminPhotoTagger = lazy(() => import('./pages/admin/AdminPhotoTagger').then(m => ({ default: m.AdminPhotoTagger })))
 const ModerationPage = lazy(() => import('./pages/admin/ModerationPage').then(m => ({ default: m.ModerationPage })))
+const AdminSectorsPage = lazy(() => import('./pages/admin/AdminSectorsPage').then(m => ({ default: m.AdminSectorsPage })))
 
 function Loading() {
   return (
@@ -66,6 +67,7 @@ function App() {
             <Route path="/admin/topo" element={<Suspense fallback={<Loading />}><AdminTopoPage /></Suspense>} />
             <Route path="/admin/photos" element={<Suspense fallback={<Loading />}><AdminPhotoTagger /></Suspense>} />
             <Route path="/admin/moderation" element={<Suspense fallback={<Loading />}><ModerationPage /></Suspense>} />
+            <Route path="/admin/sectors" element={<Suspense fallback={<Loading />}><AdminSectorsPage /></Suspense>} />
           </Route>
         </Routes>
       </BrowserRouter>
