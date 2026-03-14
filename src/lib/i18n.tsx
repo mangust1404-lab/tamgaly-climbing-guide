@@ -135,6 +135,7 @@ const translations = {
   'sector.noPhoto': { ru: 'Нет фото стены', en: 'No wall photo' },
   'sector.uploadPhoto': { ru: 'Загрузить фото', en: 'Upload photo' },
   'sector.editNumber': { ru: 'Нажмите чтобы изменить номер', en: 'Click to edit number' },
+  'sector.showOnTopo': { ru: 'Показать на фото', en: 'Show on topo' },
   'compass.directions': { ru: 'С,СВ,В,ЮВ,Ю,ЮЗ,З,СЗ', en: 'N,NE,E,SE,S,SW,W,NW' },
 
   // Route page

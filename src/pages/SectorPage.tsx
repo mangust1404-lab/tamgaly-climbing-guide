@@ -29,7 +29,7 @@ export function SectorPage() {
   const { sectorId } = useParams<{ sectorId: string }>()
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [gradeFilter, setGradeFilter] = useState('all')
-  const [editingNumberId, setEditingNumberId] = useState<string | null>(null)
+
   const { position } = useGps()
 
   const sector = useLiveQuery(
@@ -126,6 +126,20 @@ export function SectorPage() {
     [topoRoutes, activeTopo],
   )
 
+  // Handle route selection: auto-switch topo photo if route is on a different one
+  const handleRouteSelect = useCallback((routeId: string | null) => {
+    if (routeId && topoRoutes) {
+      const tr = topoRoutes.find(t => t.routeId === routeId)
+      if (tr) {
+        const topoIdx = wallTopos.findIndex(t => t.id === tr.topoId)
+        if (topoIdx !== -1 && topoIdx !== activeTopoIdx) {
+          setActiveTopoIdx(topoIdx)
+        }
+      }
+    }
+    setSelectedRouteId(prev => prev === routeId ? null : routeId)
+  }, [topoRoutes, wallTopos, activeTopoIdx])
+
   if (!sector) {
     return <div className="p-4 text-gray-400">{t('sector.notFound')}</div>
   }
@@ -187,12 +201,12 @@ export function SectorPage() {
             imageHeight={activeTopo.imageHeight}
             topoRoutes={activeTopoRoutes}
             selectedRouteId={selectedRouteId}
-            onRouteSelect={(id) => setSelectedRouteId(prev => prev === id ? null : id)}
+            onRouteSelect={handleRouteSelect}
           />
           <RouteList
-            topoRoutes={activeTopoRoutes}
+            topoRoutes={topoRoutes ?? []}
             selectedRouteId={selectedRouteId}
-            onSelect={setSelectedRouteId}
+            onSelect={handleRouteSelect}
           />
           {/* Topo thumbnails when multiple photos */}
           {wallTopos.length > 1 && (
@@ -328,32 +342,14 @@ export function SectorPage() {
                   }`}
                 >
                   {tr && (
-                    editingNumberId === tr.id ? (
-                      <input
-                        autoFocus
-                        type="number"
-                        defaultValue={tr.routeNumber ?? ''}
-                        className="w-7 h-6 text-center text-xs font-bold rounded-full border border-blue-400 outline-none"
-                        onClick={(e) => e.preventDefault()}
-                        onBlur={async (e) => {
-                          const val = parseInt(e.target.value)
-                          if (!isNaN(val)) await db.topoRoutes.update(tr.id, { routeNumber: val })
-                          setEditingNumberId(null)
-                        }}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                        }}
-                      />
-                    ) : (
-                      <span
-                        onClick={(e) => { e.preventDefault(); setEditingNumberId(tr.id) }}
-                        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 cursor-pointer"
-                        style={{ backgroundColor: tr.color }}
-                        title={t('sector.editNumber')}
-                      >
-                        {tr.routeNumber}
-                      </span>
-                    )
+                    <span
+                      onClick={(e) => { e.preventDefault(); handleRouteSelect(route.id) }}
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 cursor-pointer"
+                      style={{ backgroundColor: tr.color }}
+                      title={t('sector.showOnTopo')}
+                    >
+                      {tr.routeNumber}
+                    </span>
                   )}
                   <span className={`w-11 text-center text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(route.grade)}`}>
                     {route.grade}

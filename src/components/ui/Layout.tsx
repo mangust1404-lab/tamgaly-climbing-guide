@@ -9,6 +9,7 @@ export function Layout() {
   const navItems = [
     { to: '/', label: t('nav.home'), icon: '🏔' },
     { to: '/map', label: t('nav.map'), icon: '🗺' },
+    { to: '/leaderboard', label: t('nav.leaderboard'), icon: '🏆' },
     { to: '/profile', label: t('nav.profile'), icon: '👤' },
   ]
 
