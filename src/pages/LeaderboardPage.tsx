@@ -56,7 +56,19 @@ export function LeaderboardPage() {
       }
     })
 
-    return entries.sort((a, b) => b.totalScore - a.totalScore)
+    // Merge entries with the same displayName (same person, different devices)
+    const merged = new Map<string, typeof entries[number]>()
+    for (const e of entries) {
+      const existing = merged.get(e.displayName)
+      if (existing) {
+        existing.totalScore += e.totalScore
+        existing.ascentCount += e.ascentCount
+      } else {
+        merged.set(e.displayName, { ...e })
+      }
+    }
+
+    return [...merged.values()].sort((a, b) => b.totalScore - a.totalScore)
   }, [ascents, users, routes, period, t])
 
   const PERIOD_OPTIONS: [Period, string][] = [

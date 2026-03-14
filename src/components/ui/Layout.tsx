@@ -5,7 +5,7 @@ import { useI18n } from '../../lib/i18n'
 
 export function Layout() {
   const isOnline = useOfflineStatus()
-  const { syncing, pendingCount, doSync } = useAutoSync()
+  const { syncing, pendingCount, lastResult, doSync } = useAutoSync()
   const { t, lang, setLang } = useI18n()
 
   const navItems = [
@@ -27,17 +27,22 @@ export function Layout() {
         <button
           onClick={doSync}
           disabled={syncing}
-          className="flex items-center justify-center gap-2 px-3 py-1.5 text-xs bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors"
+          className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 active:bg-yellow-300 transition-colors cursor-pointer border-b border-yellow-200"
         >
-          {syncing ? t('status.syncing') : t('status.pending', { n: pendingCount })}
+          <span>{syncing ? '⏳' : '🔄'}</span>
+          <span>{syncing ? t('status.syncing') : `${t('status.pending', { n: pendingCount })} — ${t('status.sync')}`}</span>
         </button>
+      ) : lastResult && lastResult.pushed + lastResult.pulled > 0 ? (
+        <div className="flex items-center justify-center px-3 py-1 text-xs bg-green-50 text-green-600">
+          ✓ {lastResult.pushed > 0 ? `↑${lastResult.pushed}` : ''} {lastResult.pulled > 0 ? `↓${lastResult.pulled}` : ''}
+        </div>
       ) : null}
 
-      <main className="flex-1 overflow-y-auto flex flex-col min-h-0">
+      <main className="flex-1 overflow-y-auto flex flex-col min-h-0 pb-20">
         <Outlet />
       </main>
 
-      <nav className="flex-shrink-0 bg-white border-t border-gray-200 px-2 py-1 flex justify-around items-center">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-2 py-1 flex justify-around items-center safe-bottom">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

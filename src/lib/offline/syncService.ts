@@ -5,13 +5,16 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api'
 /** Sync the current user profile to the server */
 export async function syncUser(user: { id: string; displayName: string }): Promise<boolean> {
   try {
+    console.log('syncUser:', API_BASE, user.id)
     const res = await fetch(`${API_BASE}/sync/user`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: user.id, displayName: user.displayName }),
     })
+    console.log('syncUser response:', res.status)
     return res.ok
-  } catch {
+  } catch (err) {
+    console.error('syncUser error:', err)
     return false
   }
 }
@@ -153,6 +156,73 @@ export async function pullAscents(): Promise<number> {
   }
 }
 
+/** Pull reviews from server (grade votes, ratings, comments) */
+export async function pullReviews(): Promise<number> {
+  try {
+    const meta = await db.syncMeta.get('lastPullReviews')
+    const since = meta?.value || ''
+
+    const url = since
+      ? `${API_BASE}/sync/reviews?since=${encodeURIComponent(since)}`
+      : `${API_BASE}/sync/reviews?limit=500`
+
+    const res = await fetch(url)
+    if (!res.ok) return 0
+
+    const reviews = await res.json() as Array<{
+      id: string
+      local_id: string
+      user_id: string
+      route_id: string
+      rating: number | null
+      comment: string | null
+      grade_opinion: string | null
+      conditions_note: string | null
+      created_at: string
+    }>
+
+    if (reviews.length === 0) return 0
+
+    for (const r of reviews) {
+      const existing = await db.reviews.get(r.id)
+      if (existing) continue
+      const byLocal = await db.reviews.where('localId').equals(r.local_id).first()
+      if (byLocal) {
+        if (byLocal.id !== r.id) {
+          await db.reviews.update(byLocal.id, { syncStatus: 'synced' })
+        }
+        continue
+      }
+
+      await db.reviews.put({
+        id: r.id,
+        localId: r.local_id,
+        userId: r.user_id,
+        routeId: r.route_id,
+        rating: r.rating ?? undefined,
+        comment: r.comment ?? undefined,
+        gradeOpinion: (r.grade_opinion as any) ?? undefined,
+        conditionsNote: r.conditions_note ?? undefined,
+        syncStatus: 'synced',
+        createdAt: r.created_at,
+        syncedAt: r.created_at,
+      })
+    }
+
+    const newest = reviews.reduce((max, r) =>
+      r.created_at > max ? r.created_at : max, since || ''
+    )
+    if (newest) {
+      await db.syncMeta.put({ key: 'lastPullReviews', value: newest })
+    }
+
+    return reviews.length
+  } catch (err) {
+    console.warn('Failed to pull reviews:', err)
+    return 0
+  }
+}
+
 /** Pull user profiles from server so leaderboard and feed show names */
 async function pullUsers(): Promise<void> {
   try {
@@ -181,8 +251,8 @@ async function pullUsers(): Promise<void> {
 /**
  * Full sync cycle:
  * 1. Register/update user on server
- * 2. Push pending items from queue
- * 3. Pull new ascents from server
+ * 2. Push pending items from queue (ascents + reviews)
+ * 3. Pull new ascents and reviews from server
  */
 export async function fullSync(user: { id: string; displayName: string }): Promise<{
   pushed: number
@@ -195,8 +265,9 @@ export async function fullSync(user: { id: string; displayName: string }): Promi
   // 2. Push pending queue items
   const { synced: pushed, failed } = await processSyncQueue(user.id)
 
-  // 3. Pull new ascents
-  const pulled = await pullAscents()
+  // 3. Pull new ascents and reviews
+  const pulledAscents = await pullAscents()
+  const pulledReviews = await pullReviews()
 
-  return { pushed, pulled, failed }
+  return { pushed, pulled: pulledAscents + pulledReviews, failed }
 }

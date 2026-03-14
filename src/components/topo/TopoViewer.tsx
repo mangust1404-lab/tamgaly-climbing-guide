@@ -39,8 +39,13 @@ export function TopoViewer({
   const selectedRouteIdRef = useRef(selectedRouteId)
   selectedRouteIdRef.current = selectedRouteId
 
-  // UI scale factor: keeps circles/strokes/text visible regardless of image resolution
-  const ui = Math.max(1, (imageWidth || 1) / 500)
+  // UI scale factor: compensate for aspect ratio so lines look the same on portrait & landscape
+  // Container is 4:3 aspect. A portrait image in a landscape container is displayed narrower,
+  // so its SVG pixels are effectively smaller. Scale up proportionally.
+  const containerAspect = 4 / 3
+  const imageAspect = (imageWidth || 1) / (imageHeight || 1)
+  const aspectCorrection = imageAspect < containerAspect ? containerAspect / imageAspect : 1
+  const ui = Math.max(1, (imageWidth || 1) / 500 * aspectCorrection)
 
   // Initialize OpenSeadragon viewer
   useEffect(() => {

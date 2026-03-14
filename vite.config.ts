@@ -53,8 +53,10 @@ function topoSavePlugin(): Plugin {
   }
 }
 
+const base = process.env.VITE_BASE ?? '/tamgaly-climbing-guide/'
+
 export default defineConfig({
-  base: '/tamgaly-climbing-guide/',
+  base,
   plugins: [
     react(),
     tailwindcss(),
@@ -70,7 +72,7 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/tamgaly-climbing-guide/',
+        start_url: base,
         icons: [
           {
             src: 'icons/icon-192.png',

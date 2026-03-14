@@ -22,6 +22,8 @@ const ASCENT_STYLES = [
   { value: 'attempt', emoji: '⬜' },
 ] as const
 
+const SCORED_STYLES = ['onsight', 'flash', 'redpoint']
+
 export function ProfilePage() {
   const { t } = useI18n()
   const { user, register, updateName } = useUser()
@@ -36,6 +38,7 @@ export function ProfilePage() {
   const [rating, setRating] = useState(0)
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
+  const [editingAscent, setEditingAscent] = useState<string | null>(null)
 
   const ascents = useLiveQuery(() =>
     db.ascents.orderBy('date').reverse().toArray(),
@@ -46,8 +49,9 @@ export function ProfilePage() {
   const stats = useMemo(() => {
     if (!ascents || !routes) return null
 
+    const myAscents = ascents.filter(a => a.userId === user?.id)
     const routeMap = new Map(routes.map((r) => [r.id, r]))
-    const completed = ascents.filter((a) => a.style !== 'attempt')
+    const completed = myAscents.filter((a) => a.style !== 'attempt')
     const totalScore = calculateTotalScore(completed.map((a) => a.points))
 
     // Best grade
@@ -63,7 +67,7 @@ export function ProfilePage() {
 
     // Style breakdown
     const byStyle: Record<string, number> = {}
-    for (const a of ascents) {
+    for (const a of myAscents) {
       byStyle[a.style] = (byStyle[a.style] || 0) + 1
     }
 
@@ -87,15 +91,15 @@ export function ProfilePage() {
       .sort((a, b) => b.sort - a.sort)
 
     return {
-      totalAscents: ascents.length,
+      totalAscents: myAscents.length,
       completedAscents: completed.length,
       totalScore,
       bestGrade,
       byStyle,
       pyramid,
-      pending: ascents.filter((a) => a.syncStatus === 'pending').length,
+      pending: myAscents.filter((a) => a.syncStatus === 'pending').length,
     }
-  }, [ascents, routes])
+  }, [ascents, routes, user?.id])
 
   const sectorRoutes = useMemo(() => {
     if (!routes || !selectedSectorId) return []
@@ -104,35 +108,77 @@ export function ProfilePage() {
 
   const selectedRoute = routes?.find(r => r.id === selectedRouteId)
 
+  // Check if route already has a scored ascent (onsight/flash/redpoint)
+  const hasScoredAscent = useMemo(() => {
+    if (!ascents || !selectedRouteId) return false
+    return ascents.some(a =>
+      a.routeId === selectedRouteId &&
+      a.userId === user?.id &&
+      SCORED_STYLES.includes(a.style) &&
+      a.id !== editingAscent
+    )
+  }, [ascents, selectedRouteId, user?.id, editingAscent])
+
   const handleSaveAscent = async () => {
     if (!selectedRoute || saving) return
+
+    // Prevent duplicate scored ascents on same route
+    if (SCORED_STYLES.includes(style) && hasScoredAscent) {
+      alert(t('profile.duplicateScored'))
+      return
+    }
+
     setSaving(true)
-    const localId = crypto.randomUUID()
     const now = new Date().toISOString()
-    const points = calculatePoints(selectedRoute.grade, style as any)
+    const points = SCORED_STYLES.includes(style) ? calculatePoints(selectedRoute.grade, style as any) : 0
+
     try {
-      await db.ascents.add({
-        id: localId,
-        localId,
-        userId: user?.id ?? 'anon',
-        routeId: selectedRoute.id,
-        date,
-        style: style as any,
-        rating: rating || undefined,
-        notes: notes || undefined,
-        isPublic: true,
-        points,
-        syncStatus: 'pending',
-        createdAt: now,
-      })
-      await db.syncQueue.add({
-        entity: 'ascent',
-        localId,
-        action: 'create',
-        payload: { routeId: selectedRoute.id, date, style, rating, notes, points },
-        createdAt: Date.now(),
-        retryCount: 0,
-      })
+      if (editingAscent) {
+        // Update existing ascent
+        await db.ascents.update(editingAscent, {
+          routeId: selectedRoute.id,
+          date,
+          style: style as any,
+          rating: rating || undefined,
+          notes: notes || undefined,
+          points,
+          syncStatus: 'pending' as const,
+        })
+        await db.syncQueue.add({
+          entity: 'ascent',
+          localId: editingAscent,
+          action: 'update',
+          payload: { routeId: selectedRoute.id, date, style, rating, notes, points },
+          createdAt: Date.now(),
+          retryCount: 0,
+        })
+        setEditingAscent(null)
+      } else {
+        // Create new ascent
+        const localId = crypto.randomUUID()
+        await db.ascents.add({
+          id: localId,
+          localId,
+          userId: user?.id ?? 'anon',
+          routeId: selectedRoute.id,
+          date,
+          style: style as any,
+          rating: rating || undefined,
+          notes: notes || undefined,
+          isPublic: true,
+          points,
+          syncStatus: 'pending',
+          createdAt: now,
+        })
+        await db.syncQueue.add({
+          entity: 'ascent',
+          localId,
+          action: 'create',
+          payload: { routeId: selectedRoute.id, date, style, rating, notes, points },
+          createdAt: Date.now(),
+          retryCount: 0,
+        })
+      }
       // Reset form
       setSelectedRouteId('')
       setNotes('')
@@ -144,6 +190,27 @@ export function ProfilePage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleEditAscent = (ascent: NonNullable<typeof ascents>[number]) => {
+    const route = routes?.find(r => r.id === ascent.routeId)
+    if (route) {
+      setSelectedSectorId(route.sectorId)
+      setSelectedRouteId(route.id)
+    }
+    setStyle(ascent.style)
+    setDate(ascent.date)
+    setNotes(ascent.notes || '')
+    setRating(ascent.rating || 0)
+    setEditingAscent(ascent.id)
+    setShowForm(true)
+  }
+
+  const handleDeleteAscent = async (ascentId: string) => {
+    if (!confirm(t('profile.confirmDelete'))) return
+    await db.ascents.delete(ascentId)
+    // Remove from sync queue if pending
+    await db.syncQueue.where('localId').equals(ascentId).delete()
   }
 
   // Onboarding: ask for name
@@ -210,7 +277,7 @@ export function ProfilePage() {
           )}
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); if (showForm) { setEditingAscent(null); setSelectedRouteId('') } }}
           className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
             showForm ? 'bg-gray-200 text-gray-600' : 'bg-green-600 text-white'
           }`}
@@ -218,7 +285,7 @@ export function ProfilePage() {
           {showForm ? t('cancel') : `+ ${t('profile.logAscent')}`}
         </button>
       </div>
-      <p className="text-gray-400 text-xs mb-4">{t('profile.subtitle')}</p>
+      {/* removed subtitle */}
 
       {/* Ascent logging form */}
       {showForm && (
@@ -335,13 +402,20 @@ export function ProfilePage() {
                 />
               </div>
 
+              {/* Duplicate warning */}
+              {SCORED_STYLES.includes(style) && hasScoredAscent && (
+                <div className="bg-red-50 text-red-600 text-xs rounded-lg px-3 py-2 mb-3">
+                  {t('profile.duplicateScored')}
+                </div>
+              )}
+
               {/* Save */}
               <button
                 onClick={handleSaveAscent}
-                disabled={saving}
+                disabled={saving || (SCORED_STYLES.includes(style) && hasScoredAscent)}
                 className="w-full bg-green-600 text-white rounded-lg py-2.5 font-medium disabled:opacity-50"
               >
-                {saving ? t('saving') : t('save')}
+                {saving ? t('saving') : editingAscent ? t('profile.updateAscent') : t('save')}
               </button>
             </>
           )}
@@ -393,7 +467,7 @@ export function ProfilePage() {
           {stats.pyramid.length > 0 && (
             <>
               <h2 className="text-sm font-semibold mb-2">{t('profile.gradePyramid')}</h2>
-              <div className="space-y-1">
+              <div className="space-y-1 mb-6">
                 {stats.pyramid.map(({ grade, count }) => {
                   const maxCount = Math.max(...stats.pyramid.map((p) => p.count))
                   const width = Math.max(20, (count / maxCount) * 100)
@@ -416,6 +490,46 @@ export function ProfilePage() {
               </div>
             </>
           )}
+
+          {/* Ascent history */}
+          <h2 className="text-sm font-semibold mb-2">{t('profile.ascentHistory')}</h2>
+          <div className="space-y-2">
+            {ascents?.filter(a => a.userId === user?.id).map(ascent => {
+              const route = routes?.find(r => r.id === ascent.routeId)
+              const styleEmoji = ASCENT_STYLES.find(s => s.value === ascent.style)?.emoji || ''
+              return (
+                <div key={ascent.id} className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
+                  <span className="text-lg">{styleEmoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      {route && (
+                        <span className={`text-xs font-mono font-bold rounded px-1 py-0.5 ${gradeColor(route.grade)}`}>
+                          {route.grade}
+                        </span>
+                      )}
+                      <span className="text-sm font-medium truncate">{route?.name || ascent.routeId}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                      <span>{ascent.date}</span>
+                      {ascent.points > 0 && <span>+{ascent.points}</span>}
+                      {ascent.rating ? <span>{'★'.repeat(ascent.rating)}</span> : null}
+                      {ascent.syncStatus === 'pending' && <span className="text-yellow-500">●</span>}
+                    </div>
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => handleEditAscent(ascent)}
+                      className="text-gray-400 hover:text-blue-500 p-1 text-xs"
+                    >✎</button>
+                    <button
+                      onClick={() => handleDeleteAscent(ascent.id)}
+                      className="text-gray-400 hover:text-red-500 p-1 text-xs"
+                    >✕</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </>
       )}
 

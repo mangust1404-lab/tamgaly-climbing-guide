@@ -15,18 +15,17 @@ export function useAutoSync() {
   const pendingCount = useLiveQuery(() => db.syncQueue.count(), []) ?? 0
 
   const doSync = useCallback(async () => {
-    if (!user || syncing) return
-    if (!navigator.onLine) return
+    if (!user) { console.warn('Sync: no user'); return }
+    if (syncing) { console.warn('Sync: already syncing'); return }
 
     setSyncing(true)
     try {
+      console.log('Sync: starting...', { userId: user.id, displayName: user.displayName })
       const result = await fullSync(user)
       setLastResult(result)
-      if (result.pushed > 0 || result.pulled > 0) {
-        console.log(`Sync: pushed ${result.pushed}, pulled ${result.pulled}, failed ${result.failed}`)
-      }
+      console.log(`Sync done: pushed ${result.pushed}, pulled ${result.pulled}, failed ${result.failed}`)
     } catch (err) {
-      console.warn('Sync failed:', err)
+      console.error('Sync failed:', err)
     } finally {
       setSyncing(false)
     }

@@ -62,7 +62,24 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
       const existing = reviews?.find(r => r.userId === userId)
       if (existing) {
         const newGrade = existing.gradeOpinion === grade ? undefined : grade
-        await db.reviews.update(existing.id, { gradeOpinion: newGrade })
+        await db.reviews.update(existing.id, {
+          gradeOpinion: newGrade,
+          syncStatus: 'pending',
+        })
+        await db.syncQueue.add({
+          entity: 'review',
+          localId: existing.localId || existing.id,
+          action: 'update',
+          payload: {
+            routeId: route.id,
+            rating: existing.rating || 0,
+            comment: existing.comment || null,
+            gradeOpinion: newGrade || null,
+            conditionsNote: existing.conditionsNote || null,
+          },
+          createdAt: Date.now(),
+          retryCount: 0,
+        })
       } else {
         const localId = crypto.randomUUID()
         await db.reviews.add({
@@ -74,6 +91,18 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
           gradeOpinion: grade,
           syncStatus: 'pending',
           createdAt: new Date().toISOString(),
+        })
+        await db.syncQueue.add({
+          entity: 'review',
+          localId,
+          action: 'create',
+          payload: {
+            routeId: route.id,
+            rating: 0,
+            gradeOpinion: grade,
+          },
+          createdAt: Date.now(),
+          retryCount: 0,
         })
       }
     } catch (err) {

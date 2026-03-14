@@ -19,3 +19,8 @@ body {
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
+
+/* Safe area for fixed bottom nav on phones with gesture bar */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}

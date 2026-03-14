@@ -13,7 +13,7 @@ const STYLE_EMOJI: Record<string, string> = {
   attempt: '\u2B1C',
 }
 
-const GRADE_CHIPS = ['4', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c+', '8a']
+// Will be derived from actual routes dynamically
 
 const FOLLOWED_KEY = 'activity_followed_users'
 
@@ -37,6 +37,19 @@ export function ActivityPage() {
   const users = useLiveQuery(() => db.users.toArray())
 
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
+
+  // Derive grade chips from actual routes
+  const gradeChips = useMemo(() => {
+    if (!routes) return []
+    const grades = new Map<string, number>()
+    for (const r of routes) {
+      grades.set(r.grade, r.gradeSort)
+    }
+    return [...grades.entries()]
+      .sort((a, b) => a[1] - b[1])
+      .map(([grade]) => grade)
+  }, [routes])
+
   const [userSearch, setUserSearch] = useState('')
   const [followed, setFollowed] = useState<Set<string>>(loadFollowed)
   const [showFollowedOnly, setShowFollowedOnly] = useState(false)
@@ -107,9 +120,7 @@ export function ActivityPage() {
       result = result.filter(a => {
         const route = routeMap.get(a.routeId)
         if (!route) return false
-        const gradeBase = route.grade.match(/^(\d[a-c]?\+?)/i)
-        if (!gradeBase) return false
-        return selectedGrades.has(gradeBase[1])
+        return selectedGrades.has(route.grade)
       })
     }
 
@@ -154,7 +165,7 @@ export function ActivityPage() {
 
       {/* Grade filter chips */}
       <div className="flex flex-wrap gap-1 mb-4">
-        {GRADE_CHIPS.map(g => (
+        {gradeChips.map(g => (
           <button
             key={g}
             onClick={() => toggleGrade(g)}

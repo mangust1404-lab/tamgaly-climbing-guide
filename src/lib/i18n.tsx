@@ -171,6 +171,11 @@ const translations = {
   'profile.comment': { ru: 'Комментарий', en: 'Comment' },
   'profile.commentPlaceholder': { ru: 'Условия, бета, впечатления...', en: 'Conditions, beta, impressions...' },
   'profile.saved': { ru: 'Пролаз сохранён!', en: 'Ascent saved!' },
+  'profile.updateAscent': { ru: 'Обновить пролаз', en: 'Update ascent' },
+  'profile.duplicateScored': { ru: 'Этот маршрут уже пролезен (онсайт/флеш/редпоинт). Можно добавить только топроуп или попытку.', en: 'This route already has a scored ascent. You can only add toprope or attempt.' },
+  'profile.ascentHistory': { ru: 'История пролазов', en: 'Ascent history' },
+  'profile.confirmDelete': { ru: 'Удалить этот пролаз?', en: 'Delete this ascent?' },
+  'profile.editProfile': { ru: 'Редактировать профиль', en: 'Edit profile' },
 
   // Review form
   'review.title': { ru: 'Оставить отзыв', en: 'Leave a review' },

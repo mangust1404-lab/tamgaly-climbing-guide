@@ -16,15 +16,13 @@ COPY data/topo-data.json data/topo-data.json
 # Create data directory for SQLite
 RUN mkdir -p server/data
 
-# Run migrations
-RUN npm run db:migrate
-
-# Seed with route data
-RUN npm run db:seed
+# Copy entrypoint (runs migrations + seed on start, so volume-mounted DB gets them)
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 3001
 
 ENV PORT=3001
 ENV NODE_ENV=production
 
-CMD ["npm", "run", "server:start"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
