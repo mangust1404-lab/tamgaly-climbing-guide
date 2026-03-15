@@ -25,8 +25,8 @@ export function MapPage() {
   const geoRoutes = (routes ?? []).filter(r => r.latitude && r.longitude)
 
   return (
-    <div className="w-full" style={{ height: 'calc(100dvh - 56px)' }}>
-      <OfflineMap sectors={sectors} area={area} routes={geoRoutes} />
+    <div className="flex-1 relative">
+      <OfflineMap sectors={sectors} area={area} routes={geoRoutes} allRoutes={routes ?? []} />
     </div>
   )
 }

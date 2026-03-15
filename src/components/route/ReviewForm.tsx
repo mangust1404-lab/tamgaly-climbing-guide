@@ -44,7 +44,7 @@ export function ReviewForm({ route, onClose }: ReviewFormProps) {
         entity: 'review',
         localId,
         action: 'create',
-        payload: { routeId: route.id, rating, comment, gradeOpinion },
+        payload: { userId: user?.id ?? 'anon', routeId: route.id, rating, comment, gradeOpinion },
         createdAt: Date.now(),
         retryCount: 0,
       })

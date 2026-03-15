@@ -1,9 +1,10 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useGps } from '../../hooks/useGps'
 import { distanceMeters, formatDistance } from '../../lib/map/geo'
+import { gradeToTopoColor } from '../../lib/utils'
 import { useI18n } from '../../lib/i18n'
 import type { Area, Route, Sector } from '../../lib/db/schema'
 
@@ -15,9 +16,10 @@ interface OfflineMapProps {
   sectors: Sector[]
   area?: Area
   routes?: Route[]
+  allRoutes?: Route[]
 }
 
-export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
+export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMapProps) {
   const { t, td } = useI18n()
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
@@ -27,6 +29,42 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
   const navigate = useNavigate()
   const { position } = useGps()
   const [nearestSector, setNearestSector] = useState<{ name: string; distance: string } | null>(null)
+
+  // Compute sector gradient: proportional color bar by grade distribution
+  const colorSource = allRoutes ?? routes
+  const sectorGradients = useMemo(() => {
+    const result: Record<string, string> = {}
+    for (const sector of sectors) {
+      const sectorRoutes = colorSource.filter(r => r.sectorId === sector.id)
+      if (sectorRoutes.length === 0) { result[sector.id] = '#2563eb'; continue }
+      // Count routes per grade prefix (4,5,6,7,8)
+      const counts = new Map<string, number>()
+      for (const r of sectorRoutes) {
+        const prefix = r.grade.charAt(0)
+        counts.set(prefix, (counts.get(prefix) || 0) + 1)
+      }
+      // Sort by grade prefix ascending
+      const sorted = [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+      const total = sectorRoutes.length
+      // Build CSS linear-gradient with proportional stops
+      const segments: string[] = []
+      let pos = 0
+      const prefixColors: Record<string, string> = {
+        '4': '#3B82F6', '5': '#F59E0B', '6': '#22C55E', '7': '#EF4444', '8': '#1F2937',
+      }
+      for (const [prefix, count] of sorted) {
+        const color = prefixColors[prefix] || '#6B7280'
+        const pct = (count / total) * 100
+        segments.push(`${color} ${pos.toFixed(1)}%`)
+        segments.push(`${color} ${(pos + pct).toFixed(1)}%`)
+        pos += pct
+      }
+      result[sector.id] = segments.length > 0
+        ? `linear-gradient(90deg, ${segments.join(', ')})`
+        : '#2563eb'
+    }
+    return result
+  }, [sectors, colorSource])
 
   // Initialize map
   useEffect(() => {
@@ -91,24 +129,31 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
     }
 
     sectors.forEach((sector) => {
+      const gradient = sectorGradients[sector.id] || '#2563eb'
+      const isGradient = gradient.startsWith('linear-gradient')
       const icon = L.divIcon({
         html: `<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
-          <div style="
-            background: #2563eb;
-            color: white;
-            padding: 2px 7px;
-            border-radius: 10px;
-            font-size: 10px;
-            font-weight: 700;
-            white-space: nowrap;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-            line-height: 1.3;
-          ">${td(sector.name)}</div>
+          <div style="position:relative;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.4);">
+            <div style="
+              position:absolute;inset:0;
+              background: ${gradient};
+            "></div>
+            <div style="
+              position:relative;
+              color: white;
+              padding: 2px 7px;
+              font-size: 10px;
+              font-weight: 700;
+              white-space: nowrap;
+              line-height: 1.3;
+              text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            ">${td(sector.name)}</div>
+          </div>
           <div style="
             width: 0; height: 0;
             border-left: 4px solid transparent;
             border-right: 4px solid transparent;
-            border-top: 5px solid #2563eb;
+            border-top: 5px solid ${isGradient ? '#666' : gradient};
           "></div>
         </div>`,
         className: '',
@@ -136,7 +181,7 @@ export function OfflineMap({ sectors, area, routes = [] }: OfflineMapProps) {
       )
       map.fitBounds(bounds, { padding: [30, 30] })
     }
-  }, [sectors, area, navigate, t])
+  }, [sectors, area, navigate, t, sectorGradients])
 
   // Route markers (shown at higher zoom levels)
   useEffect(() => {

@@ -59,7 +59,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
         entity: 'ascent',
         localId,
         action: 'create',
-        payload: { routeId: route.id, date, style, rating, notes, points },
+        payload: { userId: user?.id ?? 'anon', routeId: route.id, date, style, rating, notes, points },
         createdAt: Date.now(),
         retryCount: 0,
       })
@@ -77,7 +77,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
       <form
         onSubmit={handleSubmit}
-        className="bg-white w-full rounded-t-2xl p-4 pb-8 animate-slide-up"
+        className="bg-white w-full rounded-t-2xl p-4 pb-20 animate-slide-up max-h-[90dvh] overflow-y-auto"
       >
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold">{t('ascent.title')}</h3>

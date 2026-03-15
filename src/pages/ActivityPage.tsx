@@ -196,9 +196,10 @@ export function ActivityPage() {
             const isFollowed = followed.has(ascent.userId)
 
             return (
-              <div
+              <Link
                 key={ascent.localId || ascent.id}
-                className="bg-white border border-gray-100 rounded-lg p-3"
+                to={route ? `/route/${route.id}` : '#'}
+                className="block bg-white border border-gray-100 rounded-lg p-3"
               >
                 <div className="flex items-start gap-3">
                   {/* User info + follow */}
@@ -208,7 +209,7 @@ export function ActivityPage() {
                         {user?.displayName || t('activity.unknownUser')}
                       </span>
                       <button
-                        onClick={() => toggleFollow(ascent.userId)}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollow(ascent.userId) }}
                         className={`text-xs px-1.5 py-0.5 rounded transition-colors flex-shrink-0 ${
                           isFollowed
                             ? 'bg-blue-100 text-blue-700'
@@ -222,16 +223,9 @@ export function ActivityPage() {
 
                     {/* Route info */}
                     <div className="flex items-center gap-2 mb-1">
-                      {route ? (
-                        <Link
-                          to={`/route/${route.id}`}
-                          className="text-sm text-blue-600 hover:underline truncate"
-                        >
-                          {td(route.name)}
-                        </Link>
-                      ) : (
-                        <span className="text-sm text-gray-400">{t('activity.unknownRoute')}</span>
-                      )}
+                      <span className="text-sm font-medium truncate">
+                        {route ? td(route.name) : t('activity.unknownRoute')}
+                      </span>
                       {route && (
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${gradeColor(route.grade)}`}>
                           {route.grade}
@@ -256,7 +250,7 @@ export function ActivityPage() {
                     )}
                   </div>
                 </div>
-              </div>
+              </Link>
             )
           })}
         </div>

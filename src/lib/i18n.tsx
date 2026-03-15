@@ -158,6 +158,25 @@ const translations = {
   'route.people': { ru: 'чел.', en: 'ppl', kk: 'адам' },
   'route.pendingSync': { ru: 'ожидает синхронизации', en: 'pending sync', kk: 'синхрондауды күтуде' },
   'route.voteGrade': { ru: 'Оценить категорию', en: 'Rate grade', kk: 'Категорияны бағалау' },
+  'route.stats': { ru: 'Статистика', en: 'Stats', kk: 'Статистика' },
+  'route.successfulAscents': { ru: 'Пролезли', en: 'Sent', kk: 'Өрмелеген' },
+  'route.myNotes': { ru: 'Мои заметки', en: 'My notes', kk: 'Менің жазбаларым' },
+  'route.notesPlaceholder': { ru: 'Бета, условия, впечатления...', en: 'Beta, conditions, impressions...', kk: 'Бета, жағдайлар, әсерлер...' },
+  'route.quickdraws': { ru: 'Оттяжек', en: 'Quickdraws', kk: 'Оттяжка' },
+  'route.ropeLength': { ru: 'Верёвка', en: 'Rope', kk: 'Арқан' },
+  'terrain.slab': { ru: 'Положилово', en: 'Slab', kk: 'Тақта' },
+  'terrain.vertical': { ru: 'Вертикаль', en: 'Vertical', kk: 'Тік' },
+  'terrain.overhang': { ru: 'Нависание', en: 'Overhang', kk: 'Асу' },
+  'terrain.roof': { ru: 'Потолок', en: 'Roof', kk: 'Төбе' },
+  'terrain.chimney': { ru: 'Камин', en: 'Chimney', kk: 'Камин' },
+  'hold.crimps': { ru: 'Мизера', en: 'Crimps', kk: 'Мизер' },
+  'hold.slopers': { ru: 'Пассивы', en: 'Slopers', kk: 'Слоупер' },
+  'hold.pinches': { ru: 'Щипки', en: 'Pinches', kk: 'Шымшу' },
+  'hold.sidepulls': { ru: 'Откидки', en: 'Sidepulls', kk: 'Бүйір' },
+  'hold.pockets': { ru: 'Карманы', en: 'Pockets', kk: 'Қалта' },
+  'hold.jugs': { ru: 'Ручки', en: 'Jugs', kk: 'Тұтқа' },
+  'route.suggestInfo': { ru: 'Предложить инфо', en: 'Suggest info', kk: 'Ақпарат ұсыну' },
+  'route.suggestSent': { ru: 'Отправлено!', en: 'Sent!', kk: 'Жіберілді!' },
 
   // Profile page
   'profile.title': { ru: 'Профиль', en: 'Profile', kk: 'Профиль' },
@@ -184,6 +203,15 @@ const translations = {
   'profile.updateAscent': { ru: 'Обновить пролаз', en: 'Update ascent', kk: 'Өрмелеуді жаңарту' },
   'profile.duplicateScored': { ru: 'Этот маршрут уже пролезен (онсайт/флеш/редпоинт). Можно добавить только топроуп или попытку.', en: 'This route already has a scored ascent. You can only add toprope or attempt.', kk: 'Бұл маршрутта бағаланған өрмелеу бар. Тек топроуп немесе әрекет қосуға болады.' },
   'profile.ascentHistory': { ru: 'История пролазов', en: 'Ascent history', kk: 'Өрмелеу тарихы' },
+  'profile.year': { ru: 'Год', en: 'Year', kk: 'Жыл' },
+  'profile.projects': { ru: 'Проекты', en: 'Projects', kk: 'Жобалар' },
+  'profile.wishlist': { ru: 'Хочу пролезть', en: 'Wishlist', kk: 'Тілектер' },
+  'profile.noProjects': { ru: 'Нет проектов', en: 'No projects', kk: 'Жобалар жоқ' },
+  'profile.noProjectsHint': { ru: 'Свайп вправо на маршруте → добавить в проекты', en: 'Swipe right on a route → add to projects', kk: 'Маршрутта оңға сырғыту → жобаларға қосу' },
+  'swipe.toProjects': { ru: 'В проекты', en: 'To projects', kk: 'Жобаларға' },
+  'swipe.logAscent': { ru: 'Пролаз', en: 'Log ascent', kk: 'Өту' },
+  'swipe.addedToProjects': { ru: 'Добавлено в проекты!', en: 'Added to projects!', kk: 'Жобаларға қосылды!' },
+  'swipe.removedFromProjects': { ru: 'Убрано из проектов', en: 'Removed from projects', kk: 'Жобалардан алынды' },
   'profile.confirmDelete': { ru: 'Удалить этот пролаз?', en: 'Delete this ascent?', kk: 'Бұл өрмелеуді жою керек пе?' },
   'profile.editProfile': { ru: 'Редактировать профиль', en: 'Edit profile', kk: 'Профильді өзгерту' },
 
@@ -237,6 +265,9 @@ const translations = {
 const dataTranslations: Record<Lang, Record<string, string>> = {
   ru: {}, // Russian is the source language, no translation needed
   en: {
+    // Area description
+    'Скалолазный район на берегу реки Или, 120 км от Алматы. Туф (вулканическая порода), ~200 маршрутов от 4 до 8a+. Сезон: март—май, сентябрь—ноябрь.':
+      'Climbing area on the banks of the Ili River, 120 km from Almaty. Tuff (volcanic rock), ~200 routes from 4 to 8a+. Season: March–May, September–November.',
     // Orientations
     'Запад': 'West',
     'Восток': 'East',
@@ -392,6 +423,9 @@ const dataTranslations: Record<Lang, Record<string, string>> = {
     'Пашкина щель': 'Pashka\'s Crack',
   },
   kk: {
+    // Area description
+    'Скалолазный район на берегу реки Или, 120 км от Алматы. Туф (вулканическая порода), ~200 маршрутов от 4 до 8a+. Сезон: март—май, сентябрь—ноябрь.':
+      'Іле өзенінің жағасындағы жартасқа өрмелеу ауданы, Алматыдан 120 км. Туф (вулкандық жыныс), 4-тен 8a+-ге дейін ~200 маршрут. Маусым: наурыз—мамыр, қыркүйек—қараша.',
     // Orientations
     'Запад': 'Батыс',
     'Восток': 'Шығыс',

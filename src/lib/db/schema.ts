@@ -61,6 +61,10 @@ export interface Route {
   numberInSector?: number
   latitude?: number
   longitude?: number
+  quickdraws?: number
+  ropeLength?: number
+  terrainTags?: string[]
+  holdTypes?: string[]
   tags?: string[]
   status: 'draft' | 'published' | 'archived'
   createdAt: string
@@ -166,13 +170,29 @@ export interface Suggestion {
 
 export interface SyncQueueItem {
   id?: number
-  entity: 'ascent' | 'review' | 'achievement'
+  entity: 'ascent' | 'review' | 'achievement' | 'suggestion'
   localId: string
   action: 'create' | 'update' | 'delete'
   payload: Record<string, unknown>
   createdAt: number
   retryCount: number
   lastError?: string
+}
+
+export interface RouteNote {
+  routeId: string
+  userId: string
+  text: string
+  updatedAt: string
+}
+
+export interface WishlistItem {
+  id: string
+  userId: string
+  routeId: string
+  type: 'wishlist' | 'project'
+  notes?: string
+  addedAt: string
 }
 
 export interface SyncMeta {
@@ -195,6 +215,8 @@ export class ClimbingDB extends Dexie {
   suggestions!: Table<Suggestion>
   syncQueue!: Table<SyncQueueItem>
   syncMeta!: Table<SyncMeta>
+  routeNotes!: Table<RouteNote>
+  wishlist!: Table<WishlistItem>
 
   constructor() {
     super('tamgaly-climbing-guide')
@@ -215,6 +237,11 @@ export class ClimbingDB extends Dexie {
 
     this.version(2).stores({
       suggestions: 'id, sectorId, userId, status, type, createdAt',
+    })
+
+    this.version(3).stores({
+      routeNotes: '[routeId+userId], routeId, userId',
+      wishlist: 'id, userId, routeId, type, [userId+routeId]',
     })
   }
 }

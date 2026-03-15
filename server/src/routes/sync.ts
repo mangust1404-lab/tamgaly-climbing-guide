@@ -210,6 +210,61 @@ syncRouter.post('/review', async (c) => {
   return c.json({ error: 'Unknown action' }, 400)
 })
 
+// Push suggestion from client
+syncRouter.post('/suggestion', async (c) => {
+  const body = await c.req.json()
+  const sdb = getDb()
+
+  const { action, localId, payload } = body
+
+  if (action === 'create') {
+    const existing = sdb.prepare('SELECT id FROM suggestion WHERE id = ?').get(payload.id || localId)
+    if (existing) {
+      return c.json({ status: 'duplicate', serverId: (existing as { id: string }).id })
+    }
+
+    sdb.prepare(`
+      INSERT INTO suggestion (id, user_id, user_name, sector_id, type, status, data, comment, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      payload.id || localId,
+      payload.userId || 'anonymous',
+      payload.userName || '',
+      payload.sectorId || null,
+      payload.type || 'route',
+      'pending',
+      payload.data || null,
+      payload.comment || null,
+      payload.createdAt || new Date().toISOString(),
+    )
+
+    return c.json({ status: 'created', serverId: payload.id || localId })
+  }
+
+  return c.json({ error: 'Unknown action' }, 400)
+})
+
+// Pull suggestions (for admin moderation)
+syncRouter.get('/suggestions', async (c) => {
+  const sdb = getDb()
+  const status = c.req.query('status') || 'pending'
+  const suggestions = sdb.prepare('SELECT * FROM suggestion WHERE status = ? ORDER BY created_at DESC').all(status)
+  return c.json(suggestions)
+})
+
+// Update suggestion status (approve/reject)
+syncRouter.patch('/suggestion/:id', async (c) => {
+  const sdb = getDb()
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { status, reviewedBy } = body
+
+  sdb.prepare('UPDATE suggestion SET status = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?')
+    .run(status, reviewedBy || null, new Date().toISOString(), id)
+
+  return c.json({ status: 'updated' })
+})
+
 // Pull reviews from server (grade votes, ratings, comments)
 syncRouter.get('/reviews', async (c) => {
   const db = getDb()

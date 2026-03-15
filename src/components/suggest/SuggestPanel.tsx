@@ -45,16 +45,26 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
   }
 
   const submitSuggestion = async (type: 'photo' | 'route' | 'topo-line', data: string) => {
-    await db.suggestions.add({
+    const suggestion = {
       id: crypto.randomUUID(),
       userId: user.id,
       userName: user.displayName,
       sectorId,
       type,
-      status: 'pending',
+      status: 'pending' as const,
       data,
       comment: comment || undefined,
       createdAt: new Date().toISOString(),
+    }
+    await db.suggestions.add(suggestion)
+    // Sync to server
+    await db.syncQueue.add({
+      entity: 'suggestion',
+      action: 'create',
+      localId: suggestion.id,
+      payload: suggestion as unknown as Record<string, unknown>,
+      createdAt: Date.now(),
+      retryCount: 0,
     })
     setSent(true)
     setMode(null)

@@ -141,6 +141,11 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test/setup.ts'],
+  },
   server: {
     proxy: {
       // Exclude /api/save-topo-data (handled by topoSavePlugin)

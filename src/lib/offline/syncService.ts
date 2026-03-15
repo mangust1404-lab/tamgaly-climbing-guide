@@ -292,7 +292,7 @@ async function reconcileMissing(userId: string): Promise<number> {
           localId: a.localId,
           action: 'create',
           payload: {
-            routeId: a.routeId, date: a.date, style: a.style,
+            userId: a.userId, routeId: a.routeId, date: a.date, style: a.style,
             rating: a.rating, notes: a.notes, points: a.points,
           },
           createdAt: Date.now(),
@@ -325,7 +325,7 @@ async function reconcileMissing(userId: string): Promise<number> {
             localId: r.localId,
             action: 'create',
             payload: {
-              routeId: r.routeId, rating: r.rating,
+              userId: r.userId, routeId: r.routeId, rating: r.rating,
               comment: r.comment, gradeOpinion: r.gradeOpinion,
               conditionsNote: r.conditionsNote,
             },

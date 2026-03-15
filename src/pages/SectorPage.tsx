@@ -1,13 +1,16 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../lib/db/schema'
+import { db, type Route as RouteType } from '../lib/db/schema'
 import { TopoViewer } from '../components/topo/TopoViewer'
 import { RouteList } from '../components/topo/RouteList'
+import { AscentForm } from '../components/route/AscentForm'
+import { SwipeableRouteRow } from '../components/route/SwipeableRouteRow'
 import { gradeColor } from '../lib/utils'
 import { useGps } from '../hooks/useGps'
 import { distanceMeters, formatDistance, bearing } from '../lib/map/geo'
 import { useI18n } from '../lib/i18n'
+import { useUser } from '../lib/userContext'
 import { SuggestPanel } from '../components/suggest/SuggestPanel'
 
 const GRADE_FILTERS = ['all', '4-5a', '5b-5c', '6a-6b', '6b+-6c+', '7a+'] as const
@@ -26,9 +29,27 @@ function matchesGradeFilter(gradeSort: number, filter: string): boolean {
 
 export function SectorPage() {
   const { t, td } = useI18n()
+  const { user } = useUser()
   const { sectorId } = useParams<{ sectorId: string }>()
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [gradeFilter, setGradeFilter] = useState('all')
+  const [ascentRoute, setAscentRoute] = useState<RouteType | null>(null)
+  const [swipeToast, setSwipeToast] = useState('')
+
+  const addToProjects = useCallback(async (route: RouteType) => {
+    if (!user?.id) return
+    const existing = await db.wishlist.where('[userId+routeId]').equals([user.id, route.id]).first()
+    if (existing) return
+    await db.wishlist.add({
+      id: crypto.randomUUID(),
+      userId: user.id,
+      routeId: route.id,
+      type: 'project',
+      addedAt: new Date().toISOString(),
+    })
+    setSwipeToast(t('swipe.addedToProjects'))
+    setTimeout(() => setSwipeToast(''), 2000)
+  }, [user?.id, t])
 
   const { position } = useGps()
 
@@ -332,44 +353,65 @@ export function SectorPage() {
               const isSelected = route.id === selectedRouteId
               const avgRating = routeRatings?.get(route.id)
               return (
-                <Link
+                <SwipeableRouteRow
                   key={route.id}
-                  to={`/route/${route.id}`}
-                  className={`flex items-center gap-2 border rounded-lg p-2.5 transition-colors ${
-                    isSelected
-                      ? 'bg-blue-50 border-blue-300'
-                      : 'bg-white border-gray-200 hover:border-blue-300'
-                  }`}
+                  onSwipeRight={() => addToProjects(route)}
+                  onSwipeLeft={() => setAscentRoute(route)}
                 >
-                  {tr && (
-                    <span
-                      onClick={(e) => { e.preventDefault(); handleRouteSelect(route.id) }}
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 cursor-pointer"
-                      style={{ backgroundColor: tr.color }}
-                      title={t('sector.showOnTopo')}
-                    >
-                      {tr.routeNumber}
+                  <Link
+                    to={`/route/${route.id}`}
+                    className={`flex items-center gap-2 border rounded-lg p-2.5 transition-colors ${
+                      isSelected
+                        ? 'bg-blue-50 border-blue-300'
+                        : 'bg-white border-gray-200 hover:border-blue-300'
+                    }`}
+                  >
+                    {tr && (
+                      <span
+                        onClick={(e) => { e.preventDefault(); handleRouteSelect(route.id) }}
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 cursor-pointer"
+                        style={{ backgroundColor: tr.color }}
+                        title={t('sector.showOnTopo')}
+                      >
+                        {tr.routeNumber}
+                      </span>
+                    )}
+                    <span className={`w-11 text-center text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(route.grade)}`}>
+                      {route.grade}
                     </span>
-                  )}
-                  <span className={`w-11 text-center text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(route.grade)}`}>
-                    {route.grade}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <span className="text-sm font-medium truncate">{td(route.name)}</span>
-                      {avgRating != null && avgRating >= 4 && (
-                        <span className="flex-shrink-0 text-[10px] text-yellow-500">
-                          ★{avgRating % 1 === 0 ? avgRating : avgRating.toFixed(1)}
-                        </span>
-                      )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm font-medium truncate">{td(route.name)}</span>
+                        {avgRating != null && avgRating >= 4 && (
+                          <span className="flex-shrink-0 text-[10px] text-yellow-500">
+                            ★{avgRating % 1 === 0 ? avgRating : avgRating.toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-gray-400">
+                        {t(`routeType.${route.routeType}` as any)}
+                        {route.lengthM && ` · ${route.lengthM}${t('route.meters')}`}
+                        {route.pitches > 1 && ` · ${route.pitches} ${t('route.pitchesCount')}`}
+                        {route.quickdraws && ` · ${route.quickdraws} ${t('route.quickdraws').toLowerCase()}`}
+                      </div>
+                      {(route.terrainTags?.length || route.holdTypes?.length) ? (
+                        <div className="flex flex-wrap gap-0.5 mt-0.5">
+                          {route.terrainTags?.map(tag => (
+                            <span key={tag} className="bg-blue-50 text-blue-600 rounded px-1 py-0 text-[9px]">{t(`terrain.${tag}` as any)}</span>
+                          ))}
+                          {route.holdTypes?.map(h => (
+                            <span key={h} className="bg-orange-50 text-orange-600 rounded px-1 py-0 text-[9px]">{t(`hold.${h}` as any)}</span>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="text-[10px] text-gray-400">
-                      {t(`routeType.${route.routeType}` as any)}
-                      {route.lengthM && ` · ${route.lengthM}${t('route.meters')}`}
-                      {route.pitches > 1 && ` · ${route.pitches} ${t('route.pitchesCount')}`}
-                    </div>
-                  </div>
-                </Link>
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAscentRoute(route) }}
+                      className="w-7 h-7 rounded-full bg-green-100 text-green-700 text-sm font-bold flex items-center justify-center flex-shrink-0"
+                      title={t('route.logAscent')}
+                    >+</button>
+                  </Link>
+                </SwipeableRouteRow>
               )
             })}
           </div>
@@ -381,6 +423,17 @@ export function SectorPage() {
         <SuggestPanel sectorId={sector.id} />
       </div>
 
+      {/* Ascent form modal */}
+      {ascentRoute && (
+        <AscentForm route={ascentRoute} onClose={() => setAscentRoute(null)} />
+      )}
+
+      {/* Swipe toast */}
+      {swipeToast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+          {swipeToast}
+        </div>
+      )}
     </div>
   )
 }

@@ -71,6 +71,7 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
           localId: existing.localId || existing.id,
           action: 'update',
           payload: {
+            userId,
             routeId: route.id,
             rating: existing.rating || 0,
             comment: existing.comment || null,
@@ -97,6 +98,7 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
           localId,
           action: 'create',
           payload: {
+            userId,
             routeId: route.id,
             rating: 0,
             gradeOpinion: grade,

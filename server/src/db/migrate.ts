@@ -154,6 +154,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_ascent_route ON ascent(route_id);
   CREATE INDEX IF NOT EXISTS idx_ascent_user ON ascent(user_id);
   CREATE INDEX IF NOT EXISTS idx_review_route ON review(route_id);
+
+  CREATE TABLE IF NOT EXISTS suggestion (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    user_name TEXT,
+    sector_id TEXT,
+    type TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    data TEXT,
+    comment TEXT,
+    reviewed_by TEXT,
+    reviewed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_suggestion_status ON suggestion(status);
 `)
 
 console.log('Database tables created successfully.')

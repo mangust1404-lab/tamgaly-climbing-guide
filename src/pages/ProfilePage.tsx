@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { calculatePoints, calculateTotalScore } from '../lib/scoring/points'
@@ -39,17 +40,33 @@ export function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
   const [editingAscent, setEditingAscent] = useState<string | null>(null)
+  const [period, setPeriod] = useState<'all' | 'year' | 'season' | 'month' | 'week'>('all')
+  const [profileTab, setProfileTab] = useState<'ascents' | 'projects'>('ascents')
 
   const ascents = useLiveQuery(() =>
     db.ascents.orderBy('date').reverse().toArray(),
   )
   const routes = useLiveQuery(() => db.routes.toArray())
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
+  const wishlistItems = useLiveQuery(
+    () => user?.id ? db.wishlist.where('userId').equals(user.id).toArray() : [],
+    [user?.id],
+  )
 
   const stats = useMemo(() => {
     if (!ascents || !routes) return null
 
-    const myAscents = ascents.filter(a => a.userId === user?.id)
+    const now = Date.now()
+    const myAscents = ascents.filter(a => {
+      if (a.userId !== user?.id) return false
+      if (period === 'all') return true
+      const date = new Date(a.date).getTime()
+      if (period === 'week') return now - date < 7 * 86400000
+      if (period === 'month') return now - date < 30 * 86400000
+      if (period === 'season') return now - date < 90 * 86400000
+      if (period === 'year') return now - date < 365 * 86400000
+      return true
+    })
     const routeMap = new Map(routes.map((r) => [r.id, r]))
     const completed = myAscents.filter((a) => a.style !== 'attempt')
     // Recalculate points: only scored styles (onsight/flash/redpoint) get points
@@ -106,7 +123,7 @@ export function ProfilePage() {
       pyramid,
       pending: myAscents.filter((a) => a.syncStatus === 'pending').length,
     }
-  }, [ascents, routes, user?.id])
+  }, [ascents, routes, user?.id, period])
 
   const sectorRoutes = useMemo(() => {
     if (!routes || !selectedSectorId) return []
@@ -155,7 +172,7 @@ export function ProfilePage() {
           entity: 'ascent',
           localId: editingAscent,
           action: 'update',
-          payload: { routeId: selectedRoute.id, date, style, rating, notes, points },
+          payload: { userId: user?.id ?? 'anon', routeId: selectedRoute.id, date, style, rating, notes, points },
           createdAt: Date.now(),
           retryCount: 0,
         })
@@ -181,7 +198,7 @@ export function ProfilePage() {
           entity: 'ascent',
           localId,
           action: 'create',
-          payload: { routeId: selectedRoute.id, date, style, rating, notes, points },
+          payload: { userId: user?.id ?? 'anon', routeId: selectedRoute.id, date, style, rating, notes, points },
           createdAt: Date.now(),
           retryCount: 0,
         })
@@ -297,14 +314,14 @@ export function ProfilePage() {
             </button>
           )}
         </div>
-        <button
-          onClick={() => { setShowForm(!showForm); if (showForm) { setEditingAscent(null); setSelectedRouteId('') } }}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            showForm ? 'bg-gray-200 text-gray-600' : 'bg-green-600 text-white'
-          }`}
-        >
-          {showForm ? t('cancel') : `+ ${t('profile.logAscent')}`}
-        </button>
+        {showForm && (
+          <button
+            onClick={() => { setShowForm(false); setEditingAscent(null); setSelectedRouteId('') }}
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-200 text-gray-600"
+          >
+            {t('cancel')}
+          </button>
+        )}
       </div>
       {/* removed subtitle */}
 
@@ -443,7 +460,48 @@ export function ProfilePage() {
         </div>
       )}
 
-      {!stats || stats.totalAscents === 0 ? (
+      {/* Tab switcher */}
+      <div className="flex gap-1 mb-4">
+        <button
+          onClick={() => setProfileTab('ascents')}
+          className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${profileTab === 'ascents' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+        >{t('route.ascents')}</button>
+        <button
+          onClick={() => setProfileTab('projects')}
+          className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${profileTab === 'projects' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+        >{t('profile.projects')} {(wishlistItems?.length ?? 0) > 0 ? `(${wishlistItems?.length})` : ''}</button>
+      </div>
+
+      {profileTab === 'projects' ? (
+        /* Projects tab */
+        (wishlistItems?.length ?? 0) === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <p className="text-4xl mb-3">📋</p>
+            <p className="text-sm">{t('profile.noProjects')}</p>
+            <p className="text-xs mt-1">{t('profile.noProjectsHint')}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {wishlistItems?.map(item => {
+              const route = routes?.find(r => r.id === item.routeId)
+              return (
+                <Link key={item.id} to={`/route/${item.routeId}`} className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
+                  {route && (
+                    <span className={`text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(route.grade)}`}>
+                      {route.grade}
+                    </span>
+                  )}
+                  <span className="text-sm font-medium truncate flex-1">{route ? td(route.name) : item.routeId}</span>
+                  <button
+                    onClick={async (e) => { e.preventDefault(); e.stopPropagation(); await db.wishlist.delete(item.id) }}
+                    className="text-gray-400 hover:text-red-500 p-1 text-xs flex-shrink-0"
+                  >✕</button>
+                </Link>
+              )
+            })}
+          </div>
+        )
+      ) : !stats || stats.totalAscents === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <p className="text-4xl mb-3">👤</p>
           <p className="text-sm">{t('profile.noAscents')}</p>
@@ -512,14 +570,39 @@ export function ProfilePage() {
             </>
           )}
 
+          {/* Period filter */}
+          <div className="flex gap-1 mb-3">
+            {(['all', 'year', 'season', 'month', 'week'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                  period === p ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {t(p === 'all' ? 'leaderboard.allTime' : p === 'year' ? 'profile.year' : p === 'season' ? 'leaderboard.season' : p === 'month' ? 'leaderboard.month' : 'leaderboard.week' as any)}
+              </button>
+            ))}
+          </div>
+
           {/* Ascent history */}
           <h2 className="text-sm font-semibold mb-2">{t('profile.ascentHistory')}</h2>
           <div className="space-y-2">
-            {ascents?.filter(a => a.userId === user?.id).map(ascent => {
+            {ascents?.filter(a => {
+              if (a.userId !== user?.id) return false
+              if (period === 'all') return true
+              const now = Date.now()
+              const date = new Date(a.date).getTime()
+              if (period === 'week') return now - date < 7 * 86400000
+              if (period === 'month') return now - date < 30 * 86400000
+              if (period === 'season') return now - date < 90 * 86400000
+              if (period === 'year') return now - date < 365 * 86400000
+              return true
+            }).map(ascent => {
               const route = routes?.find(r => r.id === ascent.routeId)
               const styleEmoji = ASCENT_STYLES.find(s => s.value === ascent.style)?.emoji || ''
               return (
-                <div key={ascent.id} className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
+                <Link key={ascent.id} to={`/route/${ascent.routeId}`} className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2">
                   <span className="text-lg">{styleEmoji}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
@@ -541,15 +624,15 @@ export function ProfilePage() {
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
                     <button
-                      onClick={() => handleEditAscent(ascent)}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditAscent(ascent) }}
                       className="text-gray-400 hover:text-blue-500 p-1 text-xs"
                     >✎</button>
                     <button
-                      onClick={() => handleDeleteAscent(ascent.id)}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteAscent(ascent.id) }}
                       className="text-gray-400 hover:text-red-500 p-1 text-xs"
                     >✕</button>
                   </div>
-                </div>
+                </Link>
               )
             })}
           </div>

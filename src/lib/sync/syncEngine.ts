@@ -55,6 +55,8 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
             syncedAt: new Date().toISOString(),
             ...(result.serverId ? { id: result.serverId } : {}),
           })
+        } else if (item.entity === 'suggestion') {
+          // Suggestions don't need local update, just remove from queue
         }
 
         // Remove from queue
