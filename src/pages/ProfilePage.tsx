@@ -27,8 +27,10 @@ const SCORED_STYLES = ['onsight', 'flash', 'redpoint']
 
 export function ProfilePage() {
   const { t, td } = useI18n()
-  const { user, register, updateName } = useUser()
+  const { user, register, restore, lookupByName, updateName } = useUser()
   const [nameInput, setNameInput] = useState('')
+  const [foundUsers, setFoundUsers] = useState<Array<{ id: string; display_name: string; created_at: string }>>([])
+  const [lookingUp, setLookingUp] = useState(false)
   const [editingName, setEditingName] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [selectedSectorId, setSelectedSectorId] = useState('')
@@ -253,33 +255,67 @@ export function ProfilePage() {
 
   // Onboarding: ask for name
   if (!user) {
+    const handleLookup = async () => {
+      if (!nameInput.trim()) return
+      setLookingUp(true)
+      const results = await lookupByName(nameInput)
+      setFoundUsers(results)
+      setLookingUp(false)
+    }
+
     return (
       <div className="p-4 flex flex-col items-center justify-center min-h-[60vh]">
         <span className="text-5xl mb-4">🧗</span>
         <h1 className="text-xl font-bold mb-2">{t('profile.welcome')}</h1>
         <p className="text-sm text-gray-500 mb-6 text-center">{t('profile.enterName')}</p>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            if (nameInput.trim()) register(nameInput)
-          }}
-          className="w-full max-w-xs"
-        >
+        <div className="w-full max-w-xs">
           <input
             autoFocus
             value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
+            onChange={(e) => { setNameInput(e.target.value); setFoundUsers([]) }}
             placeholder={t('profile.namePlaceholder')}
             className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-3"
           />
-          <button
-            type="submit"
-            disabled={!nameInput.trim()}
-            className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-40"
-          >
-            {t('profile.start')}
-          </button>
-        </form>
+
+          {/* Found existing users */}
+          {foundUsers.length > 0 && (
+            <div className="mb-3 space-y-2">
+              <p className="text-xs text-gray-500">{t('profile.existingFound')}:</p>
+              {foundUsers.map(u => (
+                <button
+                  key={u.id}
+                  onClick={() => restore({ id: u.id, displayName: u.display_name, createdAt: u.created_at })}
+                  className="w-full text-left bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm"
+                >
+                  <span className="font-medium">{u.display_name}</span>
+                  <span className="text-xs text-gray-400 ml-2">
+                    {new Date(u.created_at).toLocaleDateString()}
+                  </span>
+                  <span className="float-right text-green-600 text-xs font-medium">{t('profile.restore')}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleLookup}
+              disabled={!nameInput.trim() || lookingUp}
+              className="flex-1 bg-gray-100 text-gray-700 rounded-lg py-3 text-sm font-medium disabled:opacity-40"
+            >
+              {lookingUp ? '...' : t('profile.findAccount')}
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (nameInput.trim()) register(nameInput) }}
+              disabled={!nameInput.trim()}
+              className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-40"
+            >
+              {t('profile.start')}
+            </button>
+          </div>
+        </div>
       </div>
     )
   }

@@ -323,6 +323,19 @@ syncRouter.get('/ascents', async (c) => {
   return c.json(ascents)
 })
 
+// Lookup user by display name (for account recovery)
+syncRouter.get('/user/lookup', async (c) => {
+  const db = getDb()
+  const name = c.req.query('name')
+  if (!name) return c.json({ error: 'name required' }, 400)
+
+  const users = db.prepare(
+    'SELECT id, display_name, created_at FROM app_user WHERE display_name = ? COLLATE NOCASE'
+  ).all(name.trim())
+
+  return c.json(users)
+})
+
 // Pull users (for leaderboard display names)
 syncRouter.get('/users', async (c) => {
   const db = getDb()

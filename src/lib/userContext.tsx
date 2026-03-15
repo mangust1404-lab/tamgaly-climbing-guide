@@ -13,6 +13,8 @@ export interface LocalUser {
 interface UserContextValue {
   user: LocalUser | null
   register: (name: string) => LocalUser
+  restore: (user: LocalUser) => void
+  lookupByName: (name: string) => Promise<Array<{ id: string; display_name: string; created_at: string }>>
   updateName: (name: string) => void
 }
 
@@ -50,6 +52,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return newUser
   }, [])
 
+  const lookupByName = useCallback(async (name: string) => {
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    try {
+      const res = await fetch(`${API_BASE}/sync/user/lookup?name=${encodeURIComponent(name.trim())}`)
+      if (!res.ok) return []
+      return await res.json()
+    } catch {
+      return []
+    }
+  }, [])
+
+  const restore = useCallback((restored: LocalUser) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(restored))
+    setUser(restored)
+    db.users.put({
+      id: restored.id,
+      displayName: restored.displayName,
+      createdAt: restored.createdAt,
+      updatedAt: restored.createdAt,
+    } as any).catch(() => {})
+    syncUser(restored).catch(() => {})
+  }, [])
+
   const updateName = useCallback((name: string) => {
     setUser(prev => {
       if (!prev) return prev
@@ -64,7 +89,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <UserCtx.Provider value={{ user, register, updateName }}>
+    <UserCtx.Provider value={{ user, register, restore, lookupByName, updateName }}>
       {children}
     </UserCtx.Provider>
   )
