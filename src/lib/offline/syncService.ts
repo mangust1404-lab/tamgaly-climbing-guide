@@ -27,7 +27,9 @@ export async function processSyncQueue(userId: string): Promise<{ synced: number
 
   for (const item of items) {
     try {
-      const endpoint = item.entity === 'ascent' ? '/sync/ascent' : '/sync/review'
+      const endpoint = item.entity === 'ascent' ? '/sync/ascent'
+        : item.entity === 'suggestion' ? '/sync/suggestion'
+        : '/sync/review'
       const payload = { ...item.payload, userId }
 
       const res = await fetch(`${API_BASE}${endpoint}`, {

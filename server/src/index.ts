@@ -25,3 +25,22 @@ const port = parseInt(process.env.PORT || '3001')
 console.log(`Server running on http://localhost:${port}`)
 
 serve({ fetch: app.fetch, port })
+
+// Graceful shutdown: checkpoint WAL to prevent data loss on docker restart
+import { getDb } from './db/connection'
+
+function shutdown(signal: string) {
+  console.log(`${signal} received, checkpointing WAL...`)
+  try {
+    const db = getDb()
+    db.pragma('wal_checkpoint(TRUNCATE)')
+    db.close()
+    console.log('DB closed cleanly.')
+  } catch (e) {
+    console.error('Shutdown error:', e)
+  }
+  process.exit(0)
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
