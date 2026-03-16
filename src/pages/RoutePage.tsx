@@ -231,6 +231,8 @@ export function RoutePage() {
                   await db.suggestions.add(suggestion)
                   await db.syncQueue.add({ entity: 'suggestion', action: 'create', localId: suggestion.id, payload: suggestion as unknown as Record<string, unknown>, createdAt: Date.now(), retryCount: 0 })
                   setSuggestSent(true)
+                  setSugQd(''); setSugRope(''); setSugTerrain(new Set()); setSugHolds(new Set()); setSugComment('')
+                  setTimeout(() => { setSuggestSent(false); setShowSuggest(false) }, 3000)
                 }}
                 disabled={!sugQd && !sugRope && sugTerrain.size === 0 && sugHolds.size === 0}
                 className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"

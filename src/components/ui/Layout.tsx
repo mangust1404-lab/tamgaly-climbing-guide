@@ -82,7 +82,7 @@ export function Layout() {
         <div className="h-9 flex-shrink-0" />
       )}
 
-      <main className={`flex-1 flex flex-col min-h-0 relative pb-14 ${isMapPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+      <main className={`flex-1 flex flex-col min-h-0 relative ${isMapPage ? 'overflow-hidden pb-0' : 'overflow-y-auto pb-14'}`}>
         <Outlet />
       </main>
 
