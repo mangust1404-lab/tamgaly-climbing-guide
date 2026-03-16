@@ -25,7 +25,7 @@ export function MapPage() {
   const geoRoutes = (routes ?? []).filter(r => r.latitude && r.longitude)
 
   return (
-    <div className="absolute inset-0 bottom-14">
+    <div style={{ height: 'calc(100dvh - 56px)', width: '100%' }}>
       <OfflineMap sectors={sectors} area={area} routes={geoRoutes} allRoutes={routes ?? []} />
     </div>
   )
