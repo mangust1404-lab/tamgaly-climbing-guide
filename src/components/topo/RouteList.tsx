@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { Route, TopoRoute } from '../../lib/db/schema'
 import { GradeVoting } from '../route/GradeVoting'
 import { AscentForm } from '../route/AscentForm'
@@ -14,6 +14,7 @@ interface RouteListProps {
 
 export function RouteList({ topoRoutes, selectedRouteId, onSelect }: RouteListProps) {
   const { t } = useI18n()
+  const navigate = useNavigate()
   const [showAscentForm, setShowAscentForm] = useState(false)
 
   const selectedTr = selectedRouteId
@@ -77,8 +78,18 @@ export function RouteList({ topoRoutes, selectedRouteId, onSelect }: RouteListPr
         return (
           <button
             key={tr.routeId}
-            onClick={() => onSelect(tr.routeId)}
-            className="flex items-center gap-1 rounded-full pl-0.5 pr-2 py-0.5 text-[11px] bg-white border border-gray-200 hover:border-gray-400 transition-colors"
+            onClick={() => {
+              if (selectedRouteId === tr.routeId) {
+                navigate(`/route/${tr.routeId}`)
+              } else {
+                onSelect(tr.routeId)
+              }
+            }}
+            className={`flex items-center gap-1 rounded-full pl-0.5 pr-2 py-0.5 text-[11px] border transition-colors ${
+              selectedRouteId === tr.routeId
+                ? 'bg-blue-50 border-blue-300'
+                : 'bg-white border-gray-200 hover:border-gray-400'
+            }`}
           >
             <span
               className="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[9px] font-bold"
