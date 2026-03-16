@@ -51,10 +51,9 @@ export function RouteList({ topoRoutes, selectedRouteId, onSelect }: RouteListPr
           </Link>
           <button
             onClick={() => setShowAscentForm(true)}
-            className="ml-auto flex-shrink-0 text-[11px] bg-green-600 text-white rounded-full px-2.5 py-1 font-medium"
-          >
-            {t('route.logAscent')}
-          </button>
+            className="ml-auto w-7 h-7 rounded-full bg-green-100 text-green-700 text-sm font-bold flex items-center justify-center flex-shrink-0"
+            title={t('route.logAscent')}
+          >+</button>
         </div>
         {/* Grade voting */}
         <GradeVoting route={selectedRoute} compact />
