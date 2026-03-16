@@ -1,10 +1,7 @@
-import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { Route, TopoRoute } from '../../lib/db/schema'
 import { GradeVoting } from '../route/GradeVoting'
-import { AscentForm } from '../route/AscentForm'
 import { gradeColor } from '../../lib/utils'
-import { useI18n } from '../../lib/i18n'
 
 interface RouteListProps {
   topoRoutes: (TopoRoute & { route?: Route })[]
@@ -13,9 +10,7 @@ interface RouteListProps {
 }
 
 export function RouteList({ topoRoutes, selectedRouteId, onSelect }: RouteListProps) {
-  const { t } = useI18n()
   const navigate = useNavigate()
-  const [showAscentForm, setShowAscentForm] = useState(false)
 
   const selectedTr = selectedRouteId
     ? topoRoutes.find(tr => tr.routeId === selectedRouteId)
@@ -50,21 +45,9 @@ export function RouteList({ topoRoutes, selectedRouteId, onSelect }: RouteListPr
           >
             {selectedRoute.name}
           </Link>
-          <button
-            onClick={() => setShowAscentForm(true)}
-            className="ml-auto w-7 h-7 rounded-full bg-green-100 text-green-700 text-sm font-bold flex items-center justify-center flex-shrink-0"
-            title={t('route.logAscent')}
-          >+</button>
         </div>
         {/* Grade voting */}
         <GradeVoting route={selectedRoute} compact />
-        {/* Ascent form modal */}
-        {showAscentForm && (
-          <AscentForm
-            route={selectedRoute}
-            onClose={() => setShowAscentForm(false)}
-          />
-        )}
       </div>
     )
   }

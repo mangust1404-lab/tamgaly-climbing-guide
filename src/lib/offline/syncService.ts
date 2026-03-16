@@ -344,12 +344,43 @@ async function reconcileMissing(userId: string): Promise<number> {
   return requeued
 }
 
+/** Pull updated route details (quickdraws, rope_length, etc.) from server */
+async function pullRouteDetails(): Promise<number> {
+  try {
+    const res = await fetch(`${API_BASE}/routes`)
+    if (!res.ok) return 0
+    const { routes } = await res.json() as { routes: Array<Record<string, unknown>> }
+    let updated = 0
+    for (const r of routes) {
+      if (!r.quickdraws && !r.rope_length && !r.terrain_tags && !r.hold_types) continue
+      const updates: Record<string, unknown> = {}
+      if (r.quickdraws) updates.quickdraws = r.quickdraws
+      if (r.rope_length) updates.ropeLength = r.rope_length
+      if (r.terrain_tags) {
+        try { updates.terrainTags = JSON.parse(r.terrain_tags as string) } catch { updates.terrainTags = r.terrain_tags }
+      }
+      if (r.hold_types) {
+        try { updates.holdTypes = JSON.parse(r.hold_types as string) } catch { updates.holdTypes = r.hold_types }
+      }
+      if (Object.keys(updates).length > 0) {
+        await db.routes.update(r.id as string, updates)
+        updated++
+      }
+    }
+    return updated
+  } catch (err) {
+    console.warn('Failed to pull route details:', err)
+    return 0
+  }
+}
+
 /**
  * Full sync cycle:
  * 1. Register/update user on server
  * 2. Reconcile: re-queue locally synced items missing on server
  * 3. Push pending items from queue (ascents + reviews)
  * 4. Pull new ascents and reviews from server
+ * 5. Pull updated route details
  */
 export async function fullSync(user: { id: string; displayName: string }): Promise<{
   pushed: number
@@ -371,6 +402,9 @@ export async function fullSync(user: { id: string; displayName: string }): Promi
   // 4. Pull new ascents and reviews from server (with cleanup of stale data)
   const pulledAscents = await pullAscents(user.id)
   const pulledReviews = await pullReviews(user.id)
+
+  // 5. Pull updated route details (quickdraws, rope length, etc.)
+  await pullRouteDetails()
 
   return { pushed, pulled: pulledAscents + pulledReviews, failed }
 }

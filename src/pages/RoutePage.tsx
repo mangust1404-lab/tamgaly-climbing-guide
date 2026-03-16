@@ -21,6 +21,7 @@ export function RoutePage() {
   const [sugRope, setSugRope] = useState('')
   const [sugTerrain, setSugTerrain] = useState<Set<string>>(new Set())
   const [sugHolds, setSugHolds] = useState<Set<string>>(new Set())
+  const [sugComment, setSugComment] = useState('')
 
   const route = useLiveQuery(
     () => (routeId ? db.routes.get(routeId) : undefined),
@@ -131,27 +132,44 @@ export function RoutePage() {
 
       {/* Extra route info: quickdraws, rope, terrain, holds */}
       {(route.quickdraws || route.ropeLength || route.terrainTags?.length || route.holdTypes?.length) && (
-        <div className="flex flex-wrap gap-1.5 mb-3 text-xs">
-          {route.quickdraws && (
-            <span className="bg-gray-100 text-gray-700 rounded-full px-2 py-0.5">
-              {t('route.quickdraws')}: {route.quickdraws}
-            </span>
+        <div className="space-y-1.5 mb-3 text-xs">
+          {/* Equipment line */}
+          {(route.quickdraws || route.ropeLength) && (
+            <div className="flex items-center gap-3">
+              {route.quickdraws && (
+                <span className="inline-flex items-center gap-1 text-gray-700">
+                  <img src="/icons/quickdraw.png" alt="" className="h-5 w-auto" />
+                  {t('route.quickdraws')}: {route.quickdraws}
+                </span>
+              )}
+              {route.ropeLength && (
+                <span className="inline-flex items-center gap-1 text-gray-700">
+                  <img src="/icons/rope.png" alt="" className="h-3.5 w-auto opacity-70" />
+                  {t('route.ropeLength')}: {route.ropeLength}{t('route.meters')}
+                </span>
+              )}
+            </div>
           )}
-          {route.ropeLength && (
-            <span className="bg-gray-100 text-gray-700 rounded-full px-2 py-0.5">
-              {t('route.ropeLength')}: {route.ropeLength}{t('route.meters')}
-            </span>
+          {/* Terrain line */}
+          {route.terrainTags && route.terrainTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              {route.terrainTags.map(tag => (
+                <span key={tag} className="bg-blue-50 text-blue-700 rounded-full px-2 py-0.5">
+                  {t(`terrain.${tag}` as any)}
+                </span>
+              ))}
+            </div>
           )}
-          {route.terrainTags?.map(tag => (
-            <span key={tag} className="bg-blue-50 text-blue-700 rounded-full px-2 py-0.5">
-              {t(`terrain.${tag}` as any)}
-            </span>
-          ))}
-          {route.holdTypes?.map(hold => (
-            <span key={hold} className="bg-orange-50 text-orange-700 rounded-full px-2 py-0.5">
-              {t(`hold.${hold}` as any)}
-            </span>
-          ))}
+          {/* Holds line */}
+          {route.holdTypes && route.holdTypes.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              {route.holdTypes.map(hold => (
+                <span key={hold} className="bg-orange-50 text-orange-700 rounded-full px-2 py-0.5">
+                  {t(`hold.${hold}` as any)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -171,15 +189,15 @@ export function RoutePage() {
               <div className="flex gap-2">
                 <div className="flex-1">
                   <label className="text-[10px] text-gray-500">{t('route.quickdraws')}</label>
-                  <input type="number" value={sugQd} onChange={e => setSugQd(e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-sm" placeholder="e.g. 8" />
+                  <input type="number" value={sugQd} onChange={e => setSugQd(e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-sm" placeholder="8" />
                 </div>
                 <div className="flex-1">
                   <label className="text-[10px] text-gray-500">{t('route.ropeLength')}</label>
-                  <input type="number" value={sugRope} onChange={e => setSugRope(e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-sm" placeholder="e.g. 50" />
+                  <input type="number" value={sugRope} onChange={e => setSugRope(e.target.value)} className="w-full border border-gray-200 rounded px-2 py-1 text-sm" placeholder="50" />
                 </div>
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 block mb-1">{t('terrain.vertical').split(' ')[0]}</label>
+                <label className="text-[10px] text-gray-500 block mb-1">{t('route.terrain' as any)}</label>
                 <div className="flex flex-wrap gap-1">
                   {['slab', 'vertical', 'overhang', 'roof', 'chimney'].map(tag => (
                     <button key={tag} type="button" onClick={() => setSugTerrain(prev => { const n = new Set(prev); n.has(tag) ? n.delete(tag) : n.add(tag); return n })}
@@ -189,7 +207,7 @@ export function RoutePage() {
                 </div>
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 block mb-1">{t('hold.crimps').split(' ')[0]}</label>
+                <label className="text-[10px] text-gray-500 block mb-1">{t('route.holds' as any)}</label>
                 <div className="flex flex-wrap gap-1">
                   {['crimps', 'slopers', 'pinches', 'sidepulls', 'pockets', 'jugs'].map(h => (
                     <button key={h} type="button" onClick={() => setSugHolds(prev => { const n = new Set(prev); n.has(h) ? n.delete(h) : n.add(h); return n })}
@@ -198,11 +216,18 @@ export function RoutePage() {
                   ))}
                 </div>
               </div>
+              <textarea
+                value={sugComment}
+                onChange={e => setSugComment(e.target.value)}
+                placeholder={t('suggest.comment')}
+                rows={2}
+                className="w-full border border-gray-200 rounded px-2 py-1 text-sm resize-none"
+              />
               <button
                 onClick={async () => {
                   if (!routeId || !user?.id) return
                   const data = { routeId, quickdraws: sugQd ? Number(sugQd) : undefined, ropeLength: sugRope ? Number(sugRope) : undefined, terrainTags: [...sugTerrain], holdTypes: [...sugHolds] }
-                  const suggestion = { id: crypto.randomUUID(), userId: user.id, userName: user.displayName ?? '', sectorId: route.sectorId, type: 'route' as const, status: 'pending' as const, data: JSON.stringify(data), createdAt: new Date().toISOString() }
+                  const suggestion = { id: crypto.randomUUID(), userId: user.id, userName: user.displayName ?? '', sectorId: route.sectorId, type: 'route' as const, status: 'pending' as const, data: JSON.stringify(data), comment: sugComment || undefined, createdAt: new Date().toISOString() }
                   await db.suggestions.add(suggestion)
                   await db.syncQueue.add({ entity: 'suggestion', action: 'create', localId: suggestion.id, payload: suggestion as unknown as Record<string, unknown>, createdAt: Date.now(), retryCount: 0 })
                   setSuggestSent(true)

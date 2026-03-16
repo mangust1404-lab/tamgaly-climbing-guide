@@ -175,6 +175,8 @@ const translations = {
   'hold.sidepulls': { ru: 'Откидки', en: 'Sidepulls', kk: 'Бүйір' },
   'hold.pockets': { ru: 'Карманы', en: 'Pockets', kk: 'Қалта' },
   'hold.jugs': { ru: 'Ручки', en: 'Jugs', kk: 'Тұтқа' },
+  'route.terrain': { ru: 'Рельеф', en: 'Terrain', kk: 'Рельеф' },
+  'route.holds': { ru: 'Зацепки', en: 'Holds', kk: 'Ұстамалар' },
   'route.suggestInfo': { ru: 'Предложить инфо', en: 'Suggest info', kk: 'Ақпарат ұсыну' },
   'route.suggestSent': { ru: 'Отправлено!', en: 'Sent!', kk: 'Жіберілді!' },
 

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../lib/db/schema'
 import { calculatePoints } from '../../lib/scoring/points'
 import { useI18n } from '../../lib/i18n'
@@ -28,7 +29,18 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
   const [rating, setRating] = useState(0)
   const [saving, setSaving] = useState(false)
 
-  const points = calculatePoints(route.grade, style)
+  const SCORED_STYLES = ['onsight', 'flash', 'redpoint']
+  const myAscents = useLiveQuery(
+    () => db.ascents.where('routeId').equals(route.id).toArray(),
+    [route.id],
+  )
+  const hasScoredAscent = useMemo(() => {
+    if (!myAscents || !user) return false
+    return myAscents.some(a => a.userId === user.id && SCORED_STYLES.includes(a.style))
+  }, [myAscents, user])
+
+  const isBlocked = SCORED_STYLES.includes(style) && hasScoredAscent
+  const points = isBlocked ? 0 : calculatePoints(route.grade, style)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -155,8 +167,15 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
           />
         </div>
 
+        {/* Duplicate warning */}
+        {isBlocked && (
+          <div className="text-center text-xs text-red-600 bg-red-50 rounded-lg p-2 mb-4">
+            {t('profile.duplicateScored')}
+          </div>
+        )}
+
         {/* Points preview */}
-        {points > 0 && (
+        {points > 0 && !isBlocked && (
           <div className="text-center text-sm text-blue-600 font-medium mb-4">
             +{points} {t('route.points')}
           </div>
@@ -164,7 +183,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
 
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || isBlocked}
           className="w-full bg-green-600 text-white rounded-lg py-3 font-medium disabled:opacity-50"
         >
           {saving ? t('saving') : t('save')}

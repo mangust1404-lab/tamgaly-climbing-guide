@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../lib/db/schema'
+import { AdminNav } from '../../components/admin/AdminNav'
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -68,6 +69,7 @@ export function AdminSectorsPage() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto">
+      <AdminNav />
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Редактор секторов</h1>
         {saved && <span className="text-green-600 text-sm font-medium">Сохранено</span>}

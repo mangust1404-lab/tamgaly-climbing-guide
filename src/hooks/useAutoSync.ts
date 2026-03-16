@@ -15,10 +15,13 @@ export function useAutoSync() {
 
   const pendingCount = useLiveQuery(() => db.syncQueue.count(), []) ?? 0
 
+  const syncingRef = useRef(false)
+
   const doSync = useCallback(async () => {
     if (!user) { console.warn('Sync: no user'); return }
-    if (syncing) { console.warn('Sync: already syncing'); return }
+    if (syncingRef.current) { console.warn('Sync: already syncing'); return }
 
+    syncingRef.current = true
     setSyncing(true)
     setLastError(null)
     try {
@@ -26,7 +29,6 @@ export function useAutoSync() {
       const result = await fullSync(user)
       setLastResult(result)
       if (result.failed > 0) {
-        // Read last error from syncQueue
         const failedItem = await db.syncQueue.orderBy('retryCount').reverse().first()
         setLastError(failedItem?.lastError || `${result.failed} failed`)
       }
@@ -36,9 +38,10 @@ export function useAutoSync() {
       console.error('Sync failed:', err)
       setLastError(msg)
     } finally {
+      syncingRef.current = false
       setSyncing(false)
     }
-  }, [user, syncing])
+  }, [user])
 
   // Auto-sync on mount and periodically
   useEffect(() => {

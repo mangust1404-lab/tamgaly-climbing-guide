@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Topo } from '../../lib/db/schema'
 import { TopoEditor } from '../../components/topo/TopoEditor'
 import { CropModal } from '../../components/topo/CropModal'
+import { AdminNav } from '../../components/admin/AdminNav'
 
 type UploadType = 'topo' | 'approach'
 
@@ -264,6 +265,7 @@ export function AdminTopoPage() {
 
   return (
     <div className="p-4 max-w-4xl mx-auto">
+      <AdminNav />
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-4">

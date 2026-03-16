@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Topo } from '../../lib/db/schema'
+import { AdminNav } from '../../components/admin/AdminNav'
 
 const PHOTO_DIR = '/topos/'
 
@@ -433,6 +434,7 @@ export function AdminPhotoTagger() {
   if (photos.length === 0) {
     return (
       <div className="p-4">
+        <AdminNav />
         <h1 className="text-2xl font-bold mb-4">Разметка фото</h1>
         <p className="text-gray-500 text-sm">
           Загрузка... Убедитесь, что файл <code>public/topos/manifest.json</code> существует.
@@ -791,6 +793,7 @@ export function AdminPhotoTagger() {
   // ─── GRID MODE ───
   return (
     <div className="p-4">
+      <AdminNav />
       <div className="flex justify-between items-center mb-3">
         <h1 className="text-lg font-bold">Разметка фото ({taggedCount}/{photos.length})</h1>
         <button onClick={() => setMode('single')} className="text-sm text-blue-600">По одному</button>
