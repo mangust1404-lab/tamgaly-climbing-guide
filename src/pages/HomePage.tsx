@@ -180,14 +180,14 @@ export function HomePage() {
       <div className="flex gap-2 mb-4">
         <Link
           to="/map"
-          className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-3 text-center text-sm font-medium"
+          className="flex-1 border border-gray-200 text-gray-700 rounded-lg px-4 py-3 text-center text-sm font-medium"
         >
           {t('home.openMap')}
         </Link>
         <button
           onClick={handleRefresh}
           disabled={dl?.stage === 'fetching' || dl?.stage === 'saving'}
-          className="flex-1 bg-gray-100 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50 relative"
+          className="flex-1 bg-green-500/50 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50 relative"
         >
           {dl?.stage === 'fetching' || dl?.stage === 'saving'
             ? t('home.downloading')
