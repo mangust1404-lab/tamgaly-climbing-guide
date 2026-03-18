@@ -106,8 +106,14 @@ export function HomePage() {
         const cat = sunCategory(s.sunExposure)
         if (cat === null) return true // mixed sectors (Zamanka) always shown
         if (sunMode === 'sun') return cat === sunFilter
-        // shade mode: show sectors where sun is NOT at that time
-        return cat !== sunFilter && cat !== 'allday'
+        // shade mode: show sectors that DON'T have sun at the requested time
+        if (sunFilter === 'allday') {
+          // "shade all day" = no sector has full shade (all get some sun)
+          return false
+        }
+        if (cat === 'allday') return false // sun all day = no shade ever
+        // morning shade → show afternoon-sun sectors; afternoon shade → show morning-sun sectors
+        return cat !== sunFilter
       })
     }
     if (maxRopeLength && routes) {
@@ -273,8 +279,8 @@ export function HomePage() {
       {/* Sector filters: 3 rows — sun, rope, clear */}
       <div className="space-y-1.5 mb-2">
         {/* Row 1: Sun/shade segmented toggle + time filter */}
-        <div className="flex items-center justify-end gap-1.5 overflow-x-auto -mx-1 px-1">
-          <div className="flex-shrink-0 flex rounded-full border border-gray-200 overflow-hidden">
+        <div className="flex items-center gap-1.5 -mx-1 px-1">
+          <div className="ml-auto flex-shrink-0 flex rounded-full border border-gray-200 overflow-hidden">
             <button
               onClick={() => setSunMode('sun')}
               className={`px-2 py-1 text-xs font-medium flex items-center gap-1 transition-colors ${
@@ -309,7 +315,8 @@ export function HomePage() {
           ))}
         </div>
         {/* Row 2: Rope length filter */}
-        <div className="flex items-center justify-end gap-1.5 overflow-x-auto -mx-1 px-1">
+        <div className="flex items-center gap-1.5 -mx-1 px-1">
+          <div className="ml-auto" />
           <img src="/icons/rope.png" alt="" className="h-4 w-auto flex-shrink-0" />
           {[40, 50, 60, 80].map(len => (
             <button

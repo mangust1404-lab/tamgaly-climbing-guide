@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { bodyLimit } from 'hono/body-limit'
 import { serve } from '@hono/node-server'
 import { writeFileSync, readFileSync, existsSync } from 'fs'
 import { join } from 'path'
@@ -12,6 +13,7 @@ import { downloadRouter } from './routes/download'
 const app = new Hono()
 
 app.use('/*', cors())
+app.use('/api/sync/*', bodyLimit({ maxSize: 10 * 1024 * 1024 })) // 10MB for photo suggestions
 
 // Health check
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
