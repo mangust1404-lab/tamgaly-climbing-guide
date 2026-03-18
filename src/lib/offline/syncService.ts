@@ -26,6 +26,12 @@ export async function processSyncQueue(userId: string): Promise<{ synced: number
   let failed = 0
 
   for (const item of items) {
+    // Skip and remove items that have failed too many times
+    if ((item.retryCount || 0) >= 5) {
+      console.warn(`Sync: removing stuck item ${item.entity} ${item.localId} after ${item.retryCount} retries: ${item.lastError}`)
+      await db.syncQueue.delete(item.id!)
+      continue
+    }
     try {
       const endpoint = item.entity === 'ascent' ? '/sync/ascent'
         : item.entity === 'suggestion' ? '/sync/suggestion'

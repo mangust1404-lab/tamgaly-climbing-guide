@@ -281,7 +281,7 @@ export function HomePage() {
                 sunMode === 'sun' ? 'bg-yellow-400 text-yellow-900' : 'bg-white text-gray-400'
               }`}
             >
-              <img src="/icons/sun.png" alt="" className="h-3 w-3" />
+              <img src="/icons/sun.svg" alt="" className="h-3 w-3" />
               {t('home.filterSun')}
             </button>
             <button
@@ -374,7 +374,7 @@ export function HomePage() {
                   <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                     {sector.sunExposure && (
                       <span className="inline-flex items-center gap-0.5" title={td(sector.sunExposure)}>
-                        <img src="/icons/sun.png" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+                        <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
                         <span>{sunHours(sector.sunExposure)}</span>
                       </span>
                     )}
