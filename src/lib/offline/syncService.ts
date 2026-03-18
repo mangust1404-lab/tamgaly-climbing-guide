@@ -67,14 +67,14 @@ export async function processSyncQueue(userId: string): Promise<{ synced: number
         console.error(`Sync failed for ${item.entity} ${item.localId}:`, errMsg)
         failed++
         await db.syncQueue.update(item.id!, {
-          retryCount: item.retryCount + 1,
+          retryCount: (item.retryCount || 0) + 1,
           lastError: errMsg,
         })
       }
     } catch (err) {
       failed++
       await db.syncQueue.update(item.id!, {
-        retryCount: item.retryCount + 1,
+        retryCount: (item.retryCount || 0) + 1,
         lastError: err instanceof Error ? err.message : 'Network error',
       })
     }

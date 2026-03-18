@@ -44,6 +44,7 @@ export function ProfilePage() {
   const [editingAscent, setEditingAscent] = useState<string | null>(null)
   const [period, setPeriod] = useState<'all' | 'year' | 'season' | 'month' | 'week'>('all')
   const [profileTab, setProfileTab] = useState<'ascents' | 'projects'>('ascents')
+  const [styleFilter, setStyleFilter] = useState<string | null>(null)
 
   const ascents = useLiveQuery(() =>
     db.ascents.orderBy('date').reverse().toArray(),
@@ -607,7 +608,7 @@ export function ProfilePage() {
           )}
 
           {/* Period filter */}
-          <div className="flex gap-1 mb-3">
+          <div className="flex gap-1 mb-1.5">
             {(['all', 'year', 'season', 'month', 'week'] as const).map(p => (
               <button
                 key={p}
@@ -620,12 +621,27 @@ export function ProfilePage() {
               </button>
             ))}
           </div>
+          {/* Style filter */}
+          <div className="flex gap-1 mb-3">
+            {ASCENT_STYLES.map(s => (
+              <button
+                key={s.value}
+                onClick={() => setStyleFilter(prev => prev === s.value ? null : s.value)}
+                className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                  styleFilter === s.value ? STYLE_COLORS[s.value] + ' ring-1 ring-current' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {s.emoji} {t(`style.${s.value}` as any)}
+              </button>
+            ))}
+          </div>
 
           {/* Ascent history */}
           <h2 className="text-sm font-semibold mb-2">{t('profile.ascentHistory')}</h2>
           <div className="space-y-2">
             {ascents?.filter(a => {
               if (a.userId !== user?.id) return false
+              if (styleFilter && a.style !== styleFilter) return false
               if (period === 'all') return true
               const now = Date.now()
               const date = new Date(a.date).getTime()

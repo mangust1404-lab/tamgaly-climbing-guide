@@ -272,15 +272,28 @@ export function HomePage() {
 
       {/* Sector filters: 3 rows — sun, rope, clear */}
       <div className="space-y-1.5 mb-2">
-        {/* Row 1: Sun/shade toggle + time filter */}
-        <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1">
-          <button
-            onClick={() => setSunMode(m => m === 'sun' ? 'shade' : 'sun')}
-            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm border border-gray-200"
-            title={sunMode === 'sun' ? t('home.filterSun') : t('home.filterShade')}
-          >
-            {sunMode === 'sun' ? '☀️' : '🌑'}
-          </button>
+        {/* Row 1: Sun/shade segmented toggle + time filter */}
+        <div className="flex items-center justify-end gap-1.5 overflow-x-auto -mx-1 px-1">
+          <div className="flex-shrink-0 flex rounded-full border border-gray-200 overflow-hidden">
+            <button
+              onClick={() => setSunMode('sun')}
+              className={`px-2 py-1 text-xs font-medium flex items-center gap-1 transition-colors ${
+                sunMode === 'sun' ? 'bg-yellow-400 text-yellow-900' : 'bg-white text-gray-400'
+              }`}
+            >
+              <img src="/icons/sun.png" alt="" className="h-3 w-3" />
+              {t('home.filterSun')}
+            </button>
+            <button
+              onClick={() => setSunMode('shade')}
+              className={`px-2 py-1 text-xs font-medium flex items-center gap-1 transition-colors ${
+                sunMode === 'shade' ? 'bg-gray-700 text-white' : 'bg-white text-gray-400'
+              }`}
+            >
+              ⛅
+              {t('home.filterShade')}
+            </button>
+          </div>
           {([['morning', t('home.sunMorning')], ['afternoon', t('home.sunAfternoon')], ['allday', t('home.sunAllDay')]] as const).map(([key, label]) => (
             <button
               key={key}
@@ -296,7 +309,7 @@ export function HomePage() {
           ))}
         </div>
         {/* Row 2: Rope length filter */}
-        <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1">
+        <div className="flex items-center justify-end gap-1.5 overflow-x-auto -mx-1 px-1">
           <img src="/icons/rope.png" alt="" className="h-4 w-auto flex-shrink-0" />
           {[40, 50, 60, 80].map(len => (
             <button

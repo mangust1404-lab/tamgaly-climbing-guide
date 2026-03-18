@@ -73,7 +73,7 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
       errors++
       // Increment retry count
       await db.syncQueue.update(item.id!, {
-        retryCount: item.retryCount + 1,
+        retryCount: (item.retryCount || 0) + 1,
         lastError: err instanceof Error ? err.message : 'Unknown error',
       })
     }
