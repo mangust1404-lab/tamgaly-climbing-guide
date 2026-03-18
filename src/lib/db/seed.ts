@@ -515,26 +515,8 @@ export async function loadTopoDataFromFile() {
       return
     }
 
-    // Read with progress tracking
-    const total = Number(resp.headers.get('content-length')) || 0
-    const reader = resp.body?.getReader()
-    let received = 0
-    const chunks: Uint8Array[] = []
-    if (reader) {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        chunks.push(value)
-        received += value.length
-        if (total > 0) {
-          emitLoadProgress(5 + Math.round((received / total) * 60), `Загрузка: ${Math.round(received / 1024 / 1024)}/${Math.round(total / 1024 / 1024)} МБ`)
-        }
-      }
-    }
-    const blob = new Blob(chunks as unknown as BlobPart[])
-    const text = chunks.length === 1 ? new TextDecoder().decode(chunks[0]) : await blob.text()
-    emitLoadProgress(70, 'Обработка данных...')
-    const data = JSON.parse(text) as {
+    emitLoadProgress(30, 'Загрузка данных (~15 МБ)...')
+    const data = await resp.json() as {
       version?: number
       topos?: Array<Record<string, unknown>>
       topoRoutes?: Array<Record<string, unknown>>
