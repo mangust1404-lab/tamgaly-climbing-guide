@@ -29,7 +29,7 @@ export function sunHours(sunExposure?: string): string {
   if (sunExposure.includes('После обеда')) return '13:00–17:00'
   if (sunExposure.includes('Весь день')) return '8:00–18:00'
   if (sunExposure.includes('Днём')) return '10:00–16:00'
-  if (sunExposure.includes('—')) return '☀/🌑' // mixed (e.g. Zamanka)
+  if (sunExposure.includes('—')) return 'Юг ☀ / Сев ⛅' // mixed (e.g. Zamanka)
   return ''
 }
 

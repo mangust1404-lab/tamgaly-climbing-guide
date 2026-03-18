@@ -267,41 +267,46 @@ export function HomePage() {
         <p className="text-gray-400 text-sm mb-4">{t('home.noRoutesInRange')}</p>
       )}
 
-      {/* Sector filters: sun exposure + rope length */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-        <img src="/icons/sun.svg" alt="" className="h-4 w-4 opacity-50 flex-shrink-0" />
-        {([['morning', t('home.sunMorning')], ['afternoon', t('home.sunAfternoon')], ['allday', t('home.sunAllDay')]] as const).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setSunFilter(prev => prev === key ? null : key)}
-            className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-              sunFilter === key ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-        <span className="text-gray-300 mx-0.5">|</span>
-        <img src="/icons/rope.png" alt="" className="h-3.5 w-auto opacity-50 flex-shrink-0" />
-        {[40, 50, 60, 80].map(len => (
-          <button
-            key={len}
-            onClick={() => setMaxRopeLength(prev => prev === len ? null : len)}
-            className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-              maxRopeLength === len ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            ≤{len}{t('route.meters')}
-          </button>
-        ))}
-        {hasActiveFilters && (
-          <button
-            onClick={() => { setSunFilter(null); setMaxRopeLength(null) }}
-            className="px-2 py-1 rounded-full text-xs text-red-500 hover:bg-red-50 whitespace-nowrap"
-          >
-            ✕ {t('home.clearFilters')}
-          </button>
-        )}
+      {/* Sector filters: 3 rows — sun, rope, clear */}
+      <div className="space-y-1.5 mb-2">
+        {/* Row 1: Sun exposure filter */}
+        <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1">
+          <img src="/icons/sun.png" alt="" className="h-4 w-4 flex-shrink-0" />
+          {([['morning', t('home.sunMorning')], ['afternoon', t('home.sunAfternoon')], ['allday', t('home.sunAllDay')]] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setSunFilter(prev => prev === key ? null : key)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                sunFilter === key ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {/* Row 2: Rope length filter */}
+        <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1">
+          <img src="/icons/rope.png" alt="" className="h-4 w-auto flex-shrink-0" />
+          {[40, 50, 60, 80].map(len => (
+            <button
+              key={len}
+              onClick={() => setMaxRopeLength(prev => prev === len ? null : len)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                maxRopeLength === len ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              ≤{len}{t('route.meters')}
+            </button>
+          ))}
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setSunFilter(null); setMaxRopeLength(null) }}
+              className="px-2 py-1 rounded-full text-xs text-red-500 hover:bg-red-50 whitespace-nowrap"
+            >
+              ✕ {t('home.clearFilters')}
+            </button>
+          )}
+        </div>
       </div>
 
       <h2 className="text-lg font-semibold mb-3">{t('home.sectors')}</h2>
@@ -345,13 +350,13 @@ export function HomePage() {
                   <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                     {sector.sunExposure && (
                       <span className="inline-flex items-center gap-0.5" title={td(sector.sunExposure)}>
-                        <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+                        <img src="/icons/sun.png" alt="" className="h-3.5 w-3.5 inline opacity-60" />
                         <span>{sunHours(sector.sunExposure)}</span>
                       </span>
                     )}
                     {sector.approachTimeMin && (
                       <span className="inline-flex items-center gap-0.5">
-                        <img src="/icons/walking.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+                        <img src="/icons/walking.png" alt="" className="h-3.5 w-3.5 inline opacity-60" />
                         <span>{sector.approachTimeMin} {t('sector.min')}</span>
                       </span>
                     )}

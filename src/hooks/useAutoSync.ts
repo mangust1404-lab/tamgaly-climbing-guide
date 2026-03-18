@@ -29,7 +29,7 @@ export function useAutoSync() {
       const result = await fullSync(user)
       setLastResult(result)
       if (result.failed > 0) {
-        const failedItem = await db.syncQueue.orderBy('retryCount').reverse().first()
+        const failedItem = await db.syncQueue.toCollection().last()
         setLastError(failedItem?.lastError || `${result.failed} failed`)
       }
       console.log(`Sync done: pushed ${result.pushed}, pulled ${result.pulled}, failed ${result.failed}`)

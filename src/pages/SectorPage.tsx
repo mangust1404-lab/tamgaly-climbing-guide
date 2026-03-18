@@ -187,13 +187,13 @@ export function SectorPage() {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-400">
           {sector.sunExposure && (
             <span className="inline-flex items-center gap-0.5" title={td(sector.sunExposure)}>
-              <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+              <img src="/icons/sun.png" alt="" className="h-3.5 w-3.5 inline opacity-60" />
               {sunHours(sector.sunExposure)}
             </span>
           )}
           {sector.approachTimeMin && (
             <span className="inline-flex items-center gap-0.5">
-              <img src="/icons/walking.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+              <img src="/icons/walking.png" alt="" className="h-3.5 w-3.5 inline opacity-60" />
               {sector.approachTimeMin} {t('sector.min')}
             </span>
           )}
