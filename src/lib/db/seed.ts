@@ -515,17 +515,39 @@ function emitLoadProgress(percent: number, message: string) {
 
 export async function loadTopoDataFromFile() {
   try {
-    // Check if DB already has data — skip expensive 15MB fetch+parse
+    const base = import.meta.env.BASE_URL || '/'
+
+    // Check if DB already has data
     const topoCount = await db.topos.count()
     const routeCount = await db.routes.count()
-    if (topoCount > 0 && routeCount > 0) {
-      console.log('DB already has data, skipping topo-data.json load')
-      return
+    const hasData = topoCount > 0 && routeCount > 0
+
+    if (hasData) {
+      // Check version via lightweight HEAD + small fetch to see if update needed
+      try {
+        const meta = await db.syncMeta.get('topoDataVersion')
+        const localVersion = parseInt(meta?.value || '0') || 0
+        // Fetch just the beginning to get version field
+        const checkResp = await fetch(`${base}data/topo-data.json`, {
+          cache: 'no-cache',
+          headers: { 'Range': 'bytes=0-200' },
+        })
+        const snippet = await checkResp.text()
+        const versionMatch = snippet.match(/"version"\s*:\s*(\d+)/)
+        const serverVersion = versionMatch ? parseInt(versionMatch[1]) : 0
+        if (serverVersion <= localVersion) {
+          console.log(`Topo data up to date (local v${localVersion}, server v${serverVersion})`)
+          return
+        }
+        console.log(`Topo data update available: v${localVersion} → v${serverVersion}`)
+      } catch {
+        console.log('DB already has data, version check failed, skipping')
+        return
+      }
     }
 
-    const base = import.meta.env.BASE_URL || '/'
     emitLoadProgress(10, 'Загрузка данных (~15 МБ)...')
-    const resp = await fetch(`${base}data/topo-data.json`)
+    const resp = await fetch(`${base}data/topo-data.json`, { cache: 'no-cache' })
     if (!resp.ok) {
       console.warn('topo-data.json not found, skipping')
       emitLoadProgress(100, '')

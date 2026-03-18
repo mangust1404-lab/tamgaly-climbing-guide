@@ -83,71 +83,91 @@ export function ModerationPage() {
   const localOnly = (localPending ?? []).filter(s => !serverIds.has(s.id))
   const pending = [...serverSuggestions, ...localOnly]
 
+  const [processing, setProcessing] = useState<string | null>(null)
+  const [needsSave, setNeedsSave] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const handleSaveToServer = async () => {
+    setSaving(true)
+    await saveTopoData()
+    setSaving(false)
+    setNeedsSave(false)
+  }
+
   const handleApprove = async (s: Suggestion) => {
-    if (s.type === 'photo') {
-      const topoCount = await db.topos.where('sectorId').equals(s.sectorId).count()
-      await db.topos.add({
-        id: `topo-${Date.now()}`,
-        sectorId: s.sectorId,
-        imageUrl: s.data,
-        imageWidth: 0,
-        imageHeight: 0,
-        type: 'topo',
-        sortOrder: topoCount + 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-    } else if (s.type === 'route') {
-      const info = JSON.parse(s.data) as { name?: string; grade?: string; type?: string; routeId?: string; quickdraws?: number; ropeLength?: number; terrainTags?: string[]; holdTypes?: string[] }
-      if (info.routeId) {
-        const updates: Record<string, unknown> = {}
-        if (info.quickdraws) updates.quickdraws = info.quickdraws
-        if (info.ropeLength) updates.ropeLength = info.ropeLength
-        if (info.terrainTags?.length) updates.terrainTags = info.terrainTags
-        if (info.holdTypes?.length) updates.holdTypes = info.holdTypes
-        if (Object.keys(updates).length > 0) {
-          await db.routes.update(info.routeId, updates)
-          try {
-            await fetch(`${API_BASE}/routes/${info.routeId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(updates),
-            })
-          } catch { /* offline */ }
-        }
-      } else if (info.name && info.grade) {
-        const gradeSort = gradeToSort(info.grade)
-        await db.routes.add({
-          id: `route-${Date.now()}`,
+    setProcessing(s.id)
+    try {
+      if (s.type === 'photo') {
+        const topoCount = await db.topos.where('sectorId').equals(s.sectorId).count()
+        await db.topos.add({
+          id: `topo-${Date.now()}`,
           sectorId: s.sectorId,
-          name: info.name,
-          slug: info.name.toLowerCase().replace(/\s+/g, '-'),
-          grade: info.grade,
-          gradeSystem: 'french',
-          gradeSort,
-          pitches: 1,
-          routeType: (info.type || 'sport') as 'sport' | 'trad' | 'boulder',
-          status: 'published',
+          imageUrl: s.data,
+          imageWidth: 0,
+          imageHeight: 0,
+          type: 'topo',
+          sortOrder: topoCount + 1,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         })
+      } else if (s.type === 'route') {
+        const info = JSON.parse(s.data) as { name?: string; grade?: string; type?: string; routeId?: string; quickdraws?: number; ropeLength?: number; terrainTags?: string[]; holdTypes?: string[] }
+        if (info.routeId) {
+          const updates: Record<string, unknown> = {}
+          if (info.quickdraws) updates.quickdraws = info.quickdraws
+          if (info.ropeLength) updates.ropeLength = info.ropeLength
+          if (info.terrainTags?.length) updates.terrainTags = info.terrainTags
+          if (info.holdTypes?.length) updates.holdTypes = info.holdTypes
+          if (Object.keys(updates).length > 0) {
+            await db.routes.update(info.routeId, updates)
+            try {
+              await fetch(`${API_BASE}/routes/${info.routeId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updates),
+              })
+            } catch { /* offline */ }
+          }
+        } else if (info.name && info.grade) {
+          const gradeSort = gradeToSort(info.grade)
+          await db.routes.add({
+            id: `route-${Date.now()}`,
+            sectorId: s.sectorId,
+            name: info.name,
+            slug: info.name.toLowerCase().replace(/\s+/g, '-'),
+            grade: info.grade,
+            gradeSystem: 'french',
+            gradeSort,
+            pitches: 1,
+            routeType: (info.type || 'sport') as 'sport' | 'trad' | 'boulder',
+            status: 'published',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })
+        }
       }
+
+      // Update status on server
+      try {
+        await fetch(`${API_BASE}/sync/suggestion/${s.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'approved' }),
+        })
+      } catch { /* offline */ }
+
+      await db.suggestions.update(s.id, { status: 'approved', reviewedAt: new Date().toISOString() })
+
+      // Remove from list immediately
+      setServerSuggestions(prev => prev.filter(x => x.id !== s.id))
+      if (s.type === 'photo') setNeedsSave(true)
+    } finally {
+      setProcessing(null)
     }
-
-    try {
-      await fetch(`${API_BASE}/sync/suggestion/${s.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'approved' }),
-      })
-    } catch { /* offline */ }
-
-    await db.suggestions.update(s.id, { status: 'approved', reviewedAt: new Date().toISOString() })
-    if (s.type === 'photo') saveTopoData()
-    fetchFromServer()
   }
 
   const handleReject = async (s: Suggestion) => {
+    setProcessing(s.id)
     try {
       await fetch(`${API_BASE}/sync/suggestion/${s.id}`, {
         method: 'PATCH',
@@ -156,7 +176,8 @@ export function ModerationPage() {
       })
     } catch { /* offline */ }
     await db.suggestions.update(s.id, { status: 'rejected', reviewedAt: new Date().toISOString() })
-    fetchFromServer()
+    setServerSuggestions(prev => prev.filter(x => x.id !== s.id))
+    setProcessing(null)
   }
 
   return (
@@ -164,9 +185,20 @@ export function ModerationPage() {
       <AdminNav />
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold">{t('admin.moderation')}</h1>
-        <button onClick={fetchFromServer} className="text-sm text-blue-600 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
-          {loading ? '...' : '↻ Refresh'}
-        </button>
+        <div className="flex gap-2">
+          {needsSave && (
+            <button
+              onClick={handleSaveToServer}
+              disabled={saving}
+              className="text-sm text-white px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 font-medium"
+            >
+              {saving ? 'Сохранение...' : '💾 На сервер'}
+            </button>
+          )}
+          <button onClick={fetchFromServer} className="text-sm text-blue-600 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
+            {loading ? '...' : '↻ Refresh'}
+          </button>
+        </div>
       </div>
 
       {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg p-3 mb-4">{error}</div>}
@@ -184,6 +216,7 @@ export function ModerationPage() {
               suggestion={s}
               onApprove={() => handleApprove(s)}
               onReject={() => handleReject(s)}
+              processing={processing === s.id}
               t={t}
               td={td}
             />
@@ -194,10 +227,11 @@ export function ModerationPage() {
   )
 }
 
-function SuggestionCard({ suggestion: s, onApprove, onReject, t, td }: {
+function SuggestionCard({ suggestion: s, onApprove, onReject, processing, t, td }: {
   suggestion: Suggestion
   onApprove: () => void
   onReject: () => void
+  processing: boolean
   t: (key: any, params?: any) => string
   td: (text: string) => string
 }) {
@@ -245,13 +279,15 @@ function SuggestionCard({ suggestion: s, onApprove, onReject, t, td }: {
         <div className="flex gap-2">
           <button
             onClick={onApprove}
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-lg py-2 text-sm font-medium transition-colors"
+            disabled={processing}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
-            ✓ {t('admin.approve')}
+            {processing ? '...' : `✓ ${t('admin.approve')}`}
           </button>
           <button
             onClick={onReject}
-            className="flex-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-lg py-2 text-sm font-medium transition-colors"
+            disabled={processing}
+            className="flex-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             ✕ {t('admin.reject')}
           </button>

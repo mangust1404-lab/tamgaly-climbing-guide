@@ -208,23 +208,28 @@ export function HomePage() {
         <button
           onClick={handleRefresh}
           disabled={dl?.stage === 'fetching' || dl?.stage === 'saving'}
-          className="flex-1 bg-green-500/20 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50 relative"
+          className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50 relative ${
+            dl?.stage === 'done'
+              ? 'bg-green-500/30 text-green-800'
+              : dl?.stage === 'error'
+                ? 'bg-red-500/20 text-red-700'
+                : 'bg-green-500/20 text-gray-700'
+          }`}
         >
           {dl?.stage === 'fetching' || dl?.stage === 'saving'
-            ? t('home.downloading')
+            ? dl.message
             : dl?.stage === 'done'
-              ? t('home.updateData')
-              : t('home.downloadOffline')}
-          {dl && dl.stage !== 'error' && dl.stage !== 'done' && (
+              ? dl.message
+              : dl?.stage === 'error'
+                ? dl.message
+                : t('home.downloadOffline')}
+          {dl && (dl.stage === 'fetching' || dl.stage === 'saving') && (
             <span className="absolute bottom-0 left-0 right-0 h-1 bg-blue-100 rounded-b-lg overflow-hidden">
               <span
                 className="block h-full bg-blue-500 transition-all duration-300"
                 style={{ width: `${dl.percent}%` }}
               />
             </span>
-          )}
-          {dl?.stage === 'done' && (
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
           )}
         </button>
       </div>

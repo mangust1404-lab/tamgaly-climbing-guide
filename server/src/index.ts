@@ -13,7 +13,7 @@ import { downloadRouter } from './routes/download'
 const app = new Hono()
 
 app.use('/*', cors())
-app.use('/*', bodyLimit({ maxSize: 20 * 1024 * 1024 })) // 20MB global limit
+app.use('/*', bodyLimit({ maxSize: 200 * 1024 * 1024 })) // 200MB limit (topo-data has base64 photos, grows to ~100MB+)
 
 // Health check
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
@@ -44,9 +44,17 @@ app.post('/api/save-topo-data', async (c) => {
   try {
     const body = await c.req.json()
     const json = JSON.stringify(body, null, 0)
+    // Save to Docker persistent volume
     const dataPath = join(process.cwd(), 'server', 'data', 'topo-data.json')
     writeFileSync(dataPath, json, 'utf-8')
-    console.log(`Saved topo-data.json v${body.version} (${(json.length / 1024).toFixed(0)}KB)`)
+    // Also save to nginx-served frontend path (if writable)
+    const frontendPath = '/var/www/tamgaly/data/topo-data.json'
+    try {
+      writeFileSync(frontendPath, json, 'utf-8')
+      console.log(`Saved topo-data.json v${body.version} (${(json.length / 1024).toFixed(0)}KB) → both paths`)
+    } catch {
+      console.log(`Saved topo-data.json v${body.version} (${(json.length / 1024).toFixed(0)}KB) → server only (frontend path not writable)`)
+    }
     return c.json({ status: 'saved', version: body.version })
   } catch (err) {
     console.error('Failed to save topo-data:', err)

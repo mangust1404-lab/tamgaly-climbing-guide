@@ -65,6 +65,7 @@ deploy_server() {
       --restart unless-stopped \
       -p 3001:3001 \
       -v tamgaly-data:/app/server/data \
+      -v /var/www/tamgaly/data:/var/www/tamgaly/data \
       -e PORT=3001 \
       tamgaly-api
     echo "Container status:"

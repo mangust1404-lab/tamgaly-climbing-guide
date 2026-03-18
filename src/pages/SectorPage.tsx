@@ -61,7 +61,7 @@ export function SectorPage() {
   const routes = useLiveQuery(
     () =>
       sectorId
-        ? db.routes.where('sectorId').equals(sectorId).sortBy('gradeSort')
+        ? db.routes.where('sectorId').equals(sectorId).sortBy('numberInSector')
         : [],
     [sectorId],
   )
