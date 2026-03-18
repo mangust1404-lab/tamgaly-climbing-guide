@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { refreshTopoData, type DownloadProgress } from '../lib/offline/downloadManager'
-import { gradeColor } from '../lib/utils'
+import { gradeColor, sunHours } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 
 const GRADE_SORT: Record<string, number> = {
@@ -16,6 +16,16 @@ const GRADE_SORT: Record<string, number> = {
 
 const GRADE_CHIPS = ['4', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c+', '8a']
 
+type SunFilter = 'morning' | 'afternoon' | 'allday'
+
+function sunCategory(sunExposure?: string): SunFilter | null {
+  if (!sunExposure) return null
+  if (sunExposure.includes('Утром') || sunExposure.includes('Первое солнце')) return 'morning'
+  if (sunExposure.includes('После обеда')) return 'afternoon'
+  if (sunExposure.includes('Весь день') || sunExposure.includes('Днём')) return 'allday'
+  return null // mixed sectors match any filter
+}
+
 export function HomePage() {
   const { t, td } = useI18n()
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
@@ -23,6 +33,8 @@ export function HomePage() {
   const [dl, setDl] = useState<DownloadProgress | null>(null)
   const [search, setSearch] = useState('')
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
+  const [sunFilter, setSunFilter] = useState<SunFilter | null>(null)
+  const [maxRopeLength, setMaxRopeLength] = useState<number | null>(null)
 
   const toggleGrade = (g: string) => {
     setSelectedGrades(prev => {
@@ -83,6 +95,32 @@ export function HomePage() {
       gradeRanges.set(sid, minG === maxG ? minG : `${minG}—${maxG}`)
     }
   }
+
+  // Filter sectors by sun exposure and max rope length
+  const filteredSectors = useMemo(() => {
+    if (!sectors) return []
+    let result = sectors
+    if (sunFilter) {
+      result = result.filter(s => {
+        const cat = sunCategory(s.sunExposure)
+        // Mixed sectors (Zamanka) match any filter
+        return cat === sunFilter || cat === null
+      })
+    }
+    if (maxRopeLength && routes) {
+      // Only show sectors that have at least one route fitting in the rope length
+      const sectorIdsWithFittingRoutes = new Set<string>()
+      for (const r of routes) {
+        if (r.lengthM && r.lengthM <= maxRopeLength) {
+          sectorIdsWithFittingRoutes.add(r.sectorId)
+        }
+      }
+      result = result.filter(s => sectorIdsWithFittingRoutes.has(s.id))
+    }
+    return result
+  }, [sectors, routes, sunFilter, maxRopeLength])
+
+  const hasActiveFilters = sunFilter !== null || maxRopeLength !== null
 
   const handleRefresh = useCallback(async () => {
     try {
@@ -229,13 +267,52 @@ export function HomePage() {
         <p className="text-gray-400 text-sm mb-4">{t('home.noRoutesInRange')}</p>
       )}
 
+      {/* Sector filters: sun exposure + rope length */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+        <img src="/icons/sun.svg" alt="" className="h-4 w-4 opacity-50 flex-shrink-0" />
+        {([['morning', t('home.sunMorning')], ['afternoon', t('home.sunAfternoon')], ['allday', t('home.sunAllDay')]] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setSunFilter(prev => prev === key ? null : key)}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+              sunFilter === key ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="text-gray-300 mx-0.5">|</span>
+        <img src="/icons/rope.png" alt="" className="h-3.5 w-auto opacity-50 flex-shrink-0" />
+        {[40, 50, 60, 80].map(len => (
+          <button
+            key={len}
+            onClick={() => setMaxRopeLength(prev => prev === len ? null : len)}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+              maxRopeLength === len ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            ≤{len}{t('route.meters')}
+          </button>
+        ))}
+        {hasActiveFilters && (
+          <button
+            onClick={() => { setSunFilter(null); setMaxRopeLength(null) }}
+            className="px-2 py-1 rounded-full text-xs text-red-500 hover:bg-red-50 whitespace-nowrap"
+          >
+            ✕ {t('home.clearFilters')}
+          </button>
+        )}
+      </div>
+
       <h2 className="text-lg font-semibold mb-3">{t('home.sectors')}</h2>
 
       {!sectors || sectors.length === 0 ? (
         <p className="text-gray-400 text-sm">{t('home.noData')}</p>
+      ) : filteredSectors.length === 0 ? (
+        <p className="text-gray-400 text-sm">{t('home.noSectorsMatch')}</p>
       ) : (
         <div className="space-y-2">
-          {sectors.map((sector) => (
+          {filteredSectors.map((sector) => (
             <Link
               key={sector.id}
               to={`/sector/${sector.id}`}
@@ -264,10 +341,20 @@ export function HomePage() {
                     )}
                   </div>
                 </div>
-                {sector.orientation && (
-                  <div className="text-xs text-gray-400 mt-0.5">
-                    {td(sector.orientation)}
-                    {sector.approachTimeMin && ` · ${sector.approachTimeMin} ${t('home.approachMin')}`}
+                {(sector.orientation || sector.sunExposure || sector.approachTimeMin) && (
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                    {sector.sunExposure && (
+                      <span className="inline-flex items-center gap-0.5" title={td(sector.sunExposure)}>
+                        <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+                        <span>{sunHours(sector.sunExposure)}</span>
+                      </span>
+                    )}
+                    {sector.approachTimeMin && (
+                      <span className="inline-flex items-center gap-0.5">
+                        <img src="/icons/walking.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+                        <span>{sector.approachTimeMin} {t('sector.min')}</span>
+                      </span>
+                    )}
                   </div>
                 )}
               </div>

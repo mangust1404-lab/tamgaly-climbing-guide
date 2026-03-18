@@ -6,7 +6,7 @@ import { TopoViewer } from '../components/topo/TopoViewer'
 import { RouteList } from '../components/topo/RouteList'
 import { AscentForm } from '../components/route/AscentForm'
 import { SwipeableRouteRow } from '../components/route/SwipeableRouteRow'
-import { gradeColor } from '../lib/utils'
+import { gradeColor, sunHours } from '../lib/utils'
 import { useGps } from '../hooks/useGps'
 import { distanceMeters, formatDistance, bearing } from '../lib/map/geo'
 import { useI18n } from '../lib/i18n'
@@ -184,10 +184,19 @@ export function SectorPage() {
           )}
         </div>
         <h1 className="text-xl font-bold">{td(sector.name)}</h1>
-        <div className="flex flex-wrap gap-x-2 text-xs text-gray-400">
-          {sector.orientation && <span>{td(sector.orientation)}</span>}
-          {sector.sunExposure && <span>{td(sector.sunExposure)}</span>}
-          {sector.approachTimeMin && <span>{sector.approachTimeMin} {t('sector.min')}</span>}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-400">
+          {sector.sunExposure && (
+            <span className="inline-flex items-center gap-0.5" title={td(sector.sunExposure)}>
+              <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+              {sunHours(sector.sunExposure)}
+            </span>
+          )}
+          {sector.approachTimeMin && (
+            <span className="inline-flex items-center gap-0.5">
+              <img src="/icons/walking.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+              {sector.approachTimeMin} {t('sector.min')}
+            </span>
+          )}
           {sector.description && <span>· {td(sector.description)}</span>}
         </div>
       </div>

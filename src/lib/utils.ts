@@ -20,6 +20,19 @@ export function gradeColor(grade: string): string {
   return 'bg-gray-100 text-gray-800'
 }
 
+/** Map Russian sunExposure values to approximate sun hours */
+export function sunHours(sunExposure?: string): string {
+  if (!sunExposure) return ''
+  if (sunExposure.includes('Первое солнце')) return '7:00–11:00'
+  if (sunExposure.includes('Утром')) return '8:00–12:00'
+  if (sunExposure.includes('После обеда') && sunExposure.includes('жарко')) return '13:00–18:00'
+  if (sunExposure.includes('После обеда')) return '13:00–17:00'
+  if (sunExposure.includes('Весь день')) return '8:00–18:00'
+  if (sunExposure.includes('Днём')) return '10:00–16:00'
+  if (sunExposure.includes('—')) return '☀/🌑' // mixed (e.g. Zamanka)
+  return ''
+}
+
 /** Unique sorted list of grade "groups" from routes, for filter chips */
 export function gradeGroups(grades: string[]): string[] {
   const groups = new Set<string>()

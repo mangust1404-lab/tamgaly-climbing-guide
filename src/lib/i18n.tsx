@@ -56,6 +56,13 @@ const translations = {
   'home.installApp': { ru: 'Установить приложение на телефон', en: 'Install app on phone', kk: 'Телефонға қолданба орнату' },
   'home.noRoutesInRange': { ru: 'Нет маршрутов в этом диапазоне', en: 'No routes in this range', kk: 'Бұл диапазонда маршрут жоқ' },
   'home.aboutArea': { ru: 'О районе', en: 'About the area', kk: 'Аудан туралы' },
+  'home.sunMorning': { ru: 'Утро', en: 'Morning', kk: 'Таңертең' },
+  'home.sunAfternoon': { ru: 'После обеда', en: 'Afternoon', kk: 'Түстен кейін' },
+  'home.sunAllDay': { ru: 'Весь день', en: 'All day', kk: 'Күні бойы' },
+  'home.sunMixed': { ru: 'Тень+солнце', en: 'Shade+sun', kk: 'Көлеңке+күн' },
+  'home.ropeFilter': { ru: 'Верёвка ≤', en: 'Rope ≤', kk: 'Арқан ≤' },
+  'home.noSectorsMatch': { ru: 'Нет секторов по фильтру', en: 'No sectors match', kk: 'Сүзгіге сәйкес жоқ' },
+  'home.clearFilters': { ru: 'Сбросить', en: 'Clear', kk: 'Тазалау' },
 
   // About page
   'about.location': { ru: 'Расположение', en: 'Location', kk: 'Орналасуы' },
