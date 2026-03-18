@@ -34,6 +34,8 @@ export interface Sector {
   approachGpsTrack?: GeoJSON.LineString
   orientation?: string
   sunExposure?: string
+  sunFrom?: number    // Sun start hour (e.g. 8 = 8:00)
+  sunTo?: number      // Sun end hour (e.g. 17 = 17:00)
   coverImageUrl?: string
   sortOrder: number
   createdAt: string

@@ -107,7 +107,7 @@ function SectorEditForm({
   sector,
   onUpdate,
 }: {
-  sector: { id: string; name: string; description?: string; orientation?: string; approachDescription?: string; approachTimeMin?: number; sunExposure?: string; sortOrder: number }
+  sector: { id: string; name: string; description?: string; orientation?: string; approachDescription?: string; approachTimeMin?: number; sunExposure?: string; sunFrom?: number; sunTo?: number; sortOrder: number }
   onUpdate: (id: string, field: string, value: string | number | undefined) => void
 }) {
   const [name, setName] = useState(sector.name)
@@ -116,6 +116,8 @@ function SectorEditForm({
   const [approachDesc, setApproachDesc] = useState(sector.approachDescription || '')
   const [approachTime, setApproachTime] = useState(sector.approachTimeMin?.toString() || '')
   const [sunExposure, setSunExposure] = useState(sector.sunExposure || '')
+  const [sunFrom, setSunFrom] = useState(sector.sunFrom?.toString() || '')
+  const [sunTo, setSunTo] = useState(sector.sunTo?.toString() || '')
   const [sortOrder, setSortOrder] = useState(sector.sortOrder.toString())
 
   const field = (label: string, value: string, setValue: (v: string) => void, fieldName: string, multiline = false) => (
@@ -170,7 +172,35 @@ function SectorEditForm({
         </div>
       </div>
 
-      {field('Освещение (утро, вечер...)', sunExposure, setSunExposure, 'sunExposure')}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="mb-3">
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Солнце с (час)</label>
+          <input
+            type="number"
+            min="0"
+            max="24"
+            value={sunFrom}
+            onChange={e => setSunFrom(e.target.value)}
+            onBlur={() => onUpdate(sector.id, 'sunFrom', sunFrom ? parseInt(sunFrom) : undefined)}
+            placeholder="8"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 focus:outline-none"
+          />
+        </div>
+        <div className="mb-3">
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Солнце до (час)</label>
+          <input
+            type="number"
+            min="0"
+            max="24"
+            value={sunTo}
+            onChange={e => setSunTo(e.target.value)}
+            onBlur={() => onUpdate(sector.id, 'sunTo', sunTo ? parseInt(sunTo) : undefined)}
+            placeholder="17"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 focus:outline-none"
+          />
+        </div>
+      </div>
+      {field('Освещение (заметка)', sunExposure, setSunExposure, 'sunExposure')}
     </div>
   )
 }

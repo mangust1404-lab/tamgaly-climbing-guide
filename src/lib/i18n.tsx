@@ -83,6 +83,7 @@ const translations = {
 
   // Route
   'route.logAscent': { ru: 'Залогировать пролаз', en: 'Log ascent', kk: 'Өрмелеуді жазу' },
+  'route.climbed': { ru: 'Пролазано', en: 'Climbed', kk: 'Өрмелеп шықтым' },
   'route.review': { ru: 'Отзыв', en: 'Review', kk: 'Пікір' },
   'route.ascents': { ru: 'Пролазы', en: 'Ascents', kk: 'Өрмелеулер' },
   'route.reviews': { ru: 'Отзывы', en: 'Reviews', kk: 'Пікірлер' },

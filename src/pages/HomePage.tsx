@@ -18,12 +18,18 @@ const GRADE_CHIPS = ['4', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+
 
 type SunFilter = 'morning' | 'afternoon' | 'allday'
 
-function sunCategory(sunExposure?: string): SunFilter | null {
+function sunCategory(sunExposure?: string, sunFrom?: number, sunTo?: number): SunFilter | null {
+  // Numeric fields take priority
+  if (sunFrom != null && sunTo != null) {
+    if (sunTo <= 13) return 'morning'
+    if (sunFrom >= 12) return 'afternoon'
+    return 'allday'
+  }
   if (!sunExposure) return null
   if (sunExposure.includes('Утром') || sunExposure.includes('Первое солнце')) return 'morning'
   if (sunExposure.includes('После обеда')) return 'afternoon'
   if (sunExposure.includes('Весь день') || sunExposure.includes('Днём')) return 'allday'
-  return null // mixed sectors match any filter
+  return null
 }
 
 export function HomePage() {
@@ -104,7 +110,7 @@ export function HomePage() {
     let result = sectors
     if (sunFilter) {
       result = result.filter(s => {
-        const cat = sunCategory(s.sunExposure)
+        const cat = sunCategory(s.sunExposure, s.sunFrom, s.sunTo)
         if (cat === null) return true // mixed sectors (Zamanka) always shown
         if (sunMode === 'sun') return cat === sunFilter
         // shade mode: show sectors that DON'T have sun at the requested time
@@ -402,12 +408,12 @@ export function HomePage() {
                     )}
                   </div>
                 </div>
-                {(sector.orientation || sector.sunExposure || sector.approachTimeMin) && (
+                {(sector.orientation || sector.sunExposure || sector.sunFrom || sector.approachTimeMin) && (
                   <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                    {sector.sunExposure && (
-                      <span className="inline-flex items-center gap-0.5" title={td(sector.sunExposure)}>
+                    {(sector.sunFrom || sector.sunExposure) && (
+                      <span className="inline-flex items-center gap-0.5" title={sector.sunExposure ? td(sector.sunExposure) : ''}>
                         <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
-                        <span>{sunHours(sector.sunExposure)}</span>
+                        <span>{sector.sunFrom && sector.sunTo ? `${sector.sunFrom}:00–${sector.sunTo}:00` : sunHours(sector.sunExposure)}</span>
                       </span>
                     )}
                     {sector.approachTimeMin && (

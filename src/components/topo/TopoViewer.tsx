@@ -248,7 +248,7 @@ export function TopoViewer({
 
   return (
     <div className="relative bg-gray-900 rounded-lg overflow-hidden">
-      <div ref={containerRef} className="w-full aspect-[4/3]" />
+      <div ref={containerRef} className="w-full h-[60dvh]" />
       {!ready && (
         <div className="absolute inset-0 flex items-center justify-center text-white text-sm">
           {t('topo.loading')}

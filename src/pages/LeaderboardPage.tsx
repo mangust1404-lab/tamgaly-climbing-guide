@@ -13,7 +13,7 @@ export function LeaderboardPage() {
   const [expandedName, setExpandedName] = useState<string | null>(null)
 
   const ascents = useLiveQuery(() =>
-    db.ascents.toArray().then(all => all.filter(a => a.style !== 'attempt')),
+    db.ascents.toArray().then(all => all.filter(a => a.style !== 'attempt' && a.style !== 'toprope')),
   )
 
   const routes = useLiveQuery(() => db.routes.toArray())

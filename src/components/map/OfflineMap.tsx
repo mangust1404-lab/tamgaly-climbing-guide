@@ -104,7 +104,7 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
       const entranceIcon = L.divIcon({
         html: `<div style="display:flex;flex-direction:column;align-items:center;">
           <div style="
-            background: #dc2626;
+            background: #38bdf8;
             color: white;
             padding: 2px 7px;
             border-radius: 10px;
@@ -117,7 +117,7 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
             width: 0; height: 0;
             border-left: 4px solid transparent;
             border-right: 4px solid transparent;
-            border-top: 5px solid #dc2626;
+            border-top: 5px solid #38bdf8;
           "></div>
         </div>`,
         className: '',

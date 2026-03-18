@@ -121,6 +121,18 @@ export function SectorPage() {
     [wallTopos, routes],
   )
 
+  // Set of route IDs the current user has climbed (scored styles only)
+  const climbedRouteIds = useLiveQuery(
+    async () => {
+      if (!user?.id || !routes || routes.length === 0) return new Set<string>()
+      const rIds = routes.map(r => r.id)
+      const ascents = await db.ascents.where('routeId').anyOf(rIds).toArray()
+      const scored = ascents.filter(a => a.userId === user.id && ['onsight', 'flash', 'redpoint'].includes(a.style))
+      return new Set(scored.map(a => a.routeId))
+    },
+    [user?.id, routes],
+  )
+
   const [activeTopoIdx, setActiveTopoIdx] = useState(0)
   const [zoom, setZoom] = useState(1)
   const imgRef = useRef<HTMLDivElement>(null)
@@ -185,10 +197,17 @@ export function SectorPage() {
         </div>
         <h1 className="text-xl font-bold">{td(sector.name)}</h1>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-400">
-          {sector.sunExposure && (
-            <span className="inline-flex items-center gap-0.5" title={td(sector.sunExposure)}>
+          {(sector.sunFrom || sector.sunExposure) && (
+            <span className="inline-flex items-center gap-0.5" title={sector.sunExposure ? td(sector.sunExposure) : ''}>
               <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
-              {sunHours(sector.sunExposure)}
+              {sector.sunFrom && sector.sunTo
+                ? `${sector.sunFrom}:00–${sector.sunTo}:00`
+                : sunHours(sector.sunExposure)}
+            </span>
+          )}
+          {sector.orientation && (
+            <span className="inline-flex items-center gap-0.5">
+              {sector.orientation}
             </span>
           )}
           {sector.approachTimeMin && (
@@ -201,10 +220,13 @@ export function SectorPage() {
         </div>
       </div>
 
-      {/* Approach photos */}
-      {approachPhotos.length > 0 && (
+      {/* Approach info */}
+      {(approachPhotos.length > 0 || sector.approachDescription) && (
         <div className="px-4 pt-2 pb-1">
           <h2 className="text-sm font-semibold mb-1">{t('sector.approach')}</h2>
+          {sector.approachDescription && (
+            <p className="text-xs text-gray-500 mb-2">{td(sector.approachDescription)}</p>
+          )}
           <div className="space-y-2">
             {approachPhotos.map((photo) => (
               <div key={photo.id}>
@@ -415,11 +437,15 @@ export function SectorPage() {
                         </div>
                       ) : null}
                     </div>
-                    <button
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAscentRoute(route) }}
-                      className="w-7 h-7 rounded-full bg-green-100 text-green-700 text-sm font-bold flex items-center justify-center flex-shrink-0"
-                      title={t('route.logAscent')}
-                    >+</button>
+                    {climbedRouteIds?.has(route.id) ? (
+                      <span className="w-7 h-7 rounded-full bg-green-500 text-white text-sm flex items-center justify-center flex-shrink-0" title={t('route.climbed')}>✓</span>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAscentRoute(route) }}
+                        className="w-7 h-7 rounded-full bg-green-100 text-green-700 text-sm font-bold flex items-center justify-center flex-shrink-0"
+                        title={t('route.logAscent')}
+                      >+</button>
+                    )}
                   </Link>
                 </SwipeableRouteRow>
               )

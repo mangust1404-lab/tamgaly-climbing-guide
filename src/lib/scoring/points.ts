@@ -18,7 +18,7 @@ const STYLE_MULTIPLIER: Record<string, number> = {
   onsight: 1.5,
   flash: 1.3,
   redpoint: 1.0,
-  toprope: 0.5,
+  toprope: 0,
   attempt: 0,
 }
 
