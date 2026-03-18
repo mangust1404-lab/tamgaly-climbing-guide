@@ -7,59 +7,68 @@ import { AdminNav } from '../../components/admin/AdminNav'
 
 type UploadType = 'topo' | 'approach'
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
+/** Save topo data to server. Returns true on success, false on failure. */
+async function saveTopoData(): Promise<boolean> {
+  const topos = await db.topos.toArray()
+  const topoRoutes = await db.topoRoutes.toArray()
+  const sectors = await db.sectors.toArray()
+  const routes = await db.routes.toArray()
 
-async function saveTopoData() {
-  // Debounce: wait 1s after last change before saving
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(async () => {
-    const topos = await db.topos.toArray()
-    const topoRoutes = await db.topoRoutes.toArray()
-    const sectors = await db.sectors.toArray()
-    const routes = await db.routes.toArray()
+  const sectorCovers: Record<string, string> = {}
+  for (const s of sectors) {
+    if (s.coverImageUrl) sectorCovers[s.id] = s.coverImageUrl
+  }
 
-    const sectorCovers: Record<string, string> = {}
-    for (const s of sectors) {
-      if (s.coverImageUrl) sectorCovers[s.id] = s.coverImageUrl
+  const meta = await db.syncMeta.get('topoDataVersion')
+  const version = (parseInt(meta?.value || '0') || 0) + 1
+
+  const data = {
+    version,
+    exportedAt: new Date().toISOString(),
+    topos,
+    topoRoutes,
+    routes,
+    sectors,
+    sectorCovers,
+  }
+
+  try {
+    const resp = await fetch('/api/save-topo-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (resp.ok) {
+      await db.syncMeta.put({ key: 'topoDataVersion', value: String(version) })
+      console.log(`Saved topo-data v${version} to server`)
+      return true
     }
+    console.error('Server save failed:', resp.status, resp.statusText)
+    return false
+  } catch (err) {
+    console.error('Server save error:', err)
+    return false
+  }
+}
 
-    const meta = await db.syncMeta.get('topoDataVersion')
-    const version = (parseInt(meta?.value || '0') || 0) + 1
-
-    const data = {
-      version,
-      exportedAt: new Date().toISOString(),
-      topos,
-      topoRoutes,
-      routes,
-      sectors,
-      sectorCovers,
-    }
-
-    try {
-      const resp = await fetch('/api/save-topo-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      if (resp.ok) {
-        await db.syncMeta.put({ key: 'topoDataVersion', value: String(version) })
-        console.log(`Saved topo-data v${version}`)
-      } else {
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url; a.download = 'topo-data.json'; a.click()
-        URL.revokeObjectURL(url)
-      }
-    } catch {
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = 'topo-data.json'; a.click()
-      URL.revokeObjectURL(url)
-    }
-  }, 1000)
+/** Download topo data as local file (fallback) */
+async function downloadTopoData() {
+  const topos = await db.topos.toArray()
+  const topoRoutes = await db.topoRoutes.toArray()
+  const sectors = await db.sectors.toArray()
+  const routes = await db.routes.toArray()
+  const sectorCovers: Record<string, string> = {}
+  for (const s of sectors) {
+    if (s.coverImageUrl) sectorCovers[s.id] = s.coverImageUrl
+  }
+  const meta = await db.syncMeta.get('topoDataVersion')
+  const version = (parseInt(meta?.value || '0') || 0) + 1
+  const data = { version, exportedAt: new Date().toISOString(), topos, topoRoutes, routes, sectors, sectorCovers }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = 'topo-data.json'; a.click()
+  URL.revokeObjectURL(url)
 }
 
 export function AdminTopoPage() {
@@ -70,7 +79,19 @@ export function AdminTopoPage() {
   const [editingCaption, setEditingCaption] = useState<{ id: string; text: string } | null>(null)
   const [uploading, setUploading] = useState(false)
   const [croppingTopo, setCroppingTopo] = useState<Topo | null>(null)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [hasChanges, setHasChanges] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const markChanged = () => setHasChanges(true)
+
+  const handleSave = async () => {
+    setSaveStatus('saving')
+    const ok = await saveTopoData()
+    setSaveStatus(ok ? 'saved' : 'error')
+    if (ok) setHasChanges(false)
+    setTimeout(() => setSaveStatus('idle'), 3000)
+  }
 
   const topos = useLiveQuery(
     () => selectedSectorId
@@ -134,13 +155,13 @@ export function AdminTopoPage() {
 
     e.target.value = ''
     setUploading(false)
-    saveTopoData()
+    markChanged()
   }
 
   const handleDeleteTopo = async (topoId: string) => {
     await db.topoRoutes.where('topoId').equals(topoId).delete()
     await db.topos.delete(topoId)
-    saveTopoData()
+    markChanged()
   }
 
   const handleToggleCover = async (imageUrl: string) => {
@@ -153,7 +174,7 @@ export function AdminTopoPage() {
     } else {
       await db.sectors.update(selectedSectorId, { coverImageUrl: imageUrl })
     }
-    saveTopoData()
+    markChanged()
   }
 
   const handleCrop = async (croppedDataUrl: string, width: number, height: number) => {
@@ -165,7 +186,7 @@ export function AdminTopoPage() {
       updatedAt: new Date().toISOString(),
     })
     setCroppingTopo(null)
-    saveTopoData()
+    markChanged()
   }
 
   const handleSaveCaption = async () => {
@@ -272,12 +293,17 @@ export function AdminTopoPage() {
           <div>
             <h1 className="text-xl font-bold text-gray-900">Топо-редактор</h1>
           </div>
-          <button
-            onClick={saveTopoData}
-            className="ml-auto text-sm bg-gray-800 text-white px-5 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            💾 Сохранить
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {saveStatus === 'saved' && <span className="text-xs text-green-600 font-medium">Сохранено!</span>}
+            {saveStatus === 'error' && <span className="text-xs text-red-600 font-medium">Ошибка сервера</span>}
+            <button
+              onClick={handleSave}
+              disabled={saveStatus === 'saving'}
+              className="text-sm px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 font-medium"
+            >
+              {saveStatus === 'saving' ? 'Сохранение...' : '💾 На сервер'}
+            </button>
+          </div>
         </div>
 
         {/* Sector selector — card-style buttons */}
@@ -379,12 +405,12 @@ export function AdminTopoPage() {
       {editingTopo && (
         <div>
           <button
-            onClick={() => { setEditingTopo(null); saveTopoData() }}
+            onClick={() => { setEditingTopo(null); markChanged() }}
             className="text-sm text-blue-600 mb-3 hover:underline"
           >
             &larr; Назад к {selectedSector?.name || 'списку'}
           </button>
-          <TopoEditor topo={editingTopo} onSave={saveTopoData} />
+          <TopoEditor topo={editingTopo} onSave={markChanged} />
         </div>
       )}
     </div>

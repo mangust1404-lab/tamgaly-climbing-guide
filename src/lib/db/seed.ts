@@ -364,6 +364,13 @@ export async function restoreToposFromTags() {
   const raw = localStorage.getItem('photo-tags')
   if (!raw) return
 
+  // Skip if topos already exist — no need to restore
+  const existingTopos = await db.topos.count()
+  if (existingTopos > 0) {
+    console.log('Topos already in DB, skipping restoreToposFromTags')
+    return
+  }
+
   let tags: Record<string, { type: string; sectorId?: string; sectorIds?: string[]; routeIds?: string[]; routeId?: string }>
   try { tags = JSON.parse(raw) } catch { return }
 
@@ -409,12 +416,14 @@ export async function restoreToposFromTags() {
     }
   }
 
-  // Helper: load image to get actual dimensions
+  // Helper: load image to get actual dimensions (with 3s timeout)
   const getImageDims = (url: string): Promise<{ w: number; h: number }> =>
     new Promise(resolve => {
+      const fallback = { w: 1920, h: 1080 }
+      const timeout = setTimeout(() => resolve(fallback), 3000)
       const img = new Image()
-      img.onload = () => resolve({ w: img.naturalWidth || 1920, h: img.naturalHeight || 1080 })
-      img.onerror = () => resolve({ w: 1920, h: 1080 })
+      img.onload = () => { clearTimeout(timeout); resolve({ w: img.naturalWidth || 1920, h: img.naturalHeight || 1080 }) }
+      img.onerror = () => { clearTimeout(timeout); resolve(fallback) }
       img.src = url
     })
 

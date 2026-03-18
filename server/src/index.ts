@@ -13,7 +13,7 @@ import { downloadRouter } from './routes/download'
 const app = new Hono()
 
 app.use('/*', cors())
-app.use('/api/sync/*', bodyLimit({ maxSize: 10 * 1024 * 1024 })) // 10MB for photo suggestions
+app.use('/*', bodyLimit({ maxSize: 20 * 1024 * 1024 })) // 20MB global limit
 
 // Health check
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
@@ -40,10 +40,10 @@ app.get('/api/topo-data', (c) => {
 
 // Save topo-data.json from admin editor
 app.post('/api/save-topo-data', async (c) => {
+  console.log('POST /api/save-topo-data received, content-length:', c.req.header('content-length'))
   try {
     const body = await c.req.json()
     const json = JSON.stringify(body, null, 0)
-    // Write to persistent volume
     const dataPath = join(process.cwd(), 'server', 'data', 'topo-data.json')
     writeFileSync(dataPath, json, 'utf-8')
     console.log(`Saved topo-data.json v${body.version} (${(json.length / 1024).toFixed(0)}KB)`)

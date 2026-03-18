@@ -12,10 +12,11 @@ createRoot(document.getElementById('root')!).render(
 )
 
 // Seed data in background — useLiveQuery will pick it up reactively
-seedDemoData()
-  .then(() => updateGpsCoordinates())
-  .then(() => loadTopoDataFromFile())
-  .then(() => restoreToposFromTags())
-  .catch((err) => {
-    console.error('Seed failed:', err)
-  })
+async function initData() {
+  try { await seedDemoData() } catch (e) { console.error('seedDemoData failed:', e) }
+  try { await updateGpsCoordinates() } catch (e) { console.error('updateGpsCoordinates failed:', e) }
+  try { await loadTopoDataFromFile() } catch (e) { console.error('loadTopoDataFromFile failed:', e) }
+  try { await restoreToposFromTags() } catch (e) { console.error('restoreToposFromTags failed:', e) }
+  console.log('Data init complete')
+}
+initData()
