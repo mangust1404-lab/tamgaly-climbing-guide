@@ -506,8 +506,16 @@ function emitLoadProgress(percent: number, message: string) {
 
 export async function loadTopoDataFromFile() {
   try {
+    // Check if DB already has data — skip expensive 15MB fetch+parse
+    const topoCount = await db.topos.count()
+    const routeCount = await db.routes.count()
+    if (topoCount > 0 && routeCount > 0) {
+      console.log('DB already has data, skipping topo-data.json load')
+      return
+    }
+
     const base = import.meta.env.BASE_URL || '/'
-    emitLoadProgress(5, 'Загрузка данных...')
+    emitLoadProgress(10, 'Загрузка данных (~15 МБ)...')
     const resp = await fetch(`${base}data/topo-data.json`)
     if (!resp.ok) {
       console.warn('topo-data.json not found, skipping')
@@ -515,8 +523,12 @@ export async function loadTopoDataFromFile() {
       return
     }
 
-    emitLoadProgress(30, 'Загрузка данных (~15 МБ)...')
-    const data = await resp.json() as {
+    emitLoadProgress(40, 'Обработка данных...')
+    // Parse in next tick to avoid blocking UI
+    const text = await resp.text()
+    await new Promise(r => setTimeout(r, 0))
+    emitLoadProgress(60, 'Обработка данных...')
+    const data = JSON.parse(text) as {
       version?: number
       topos?: Array<Record<string, unknown>>
       topoRoutes?: Array<Record<string, unknown>>
@@ -525,14 +537,9 @@ export async function loadTopoDataFromFile() {
       sectorCovers?: Record<string, string>
     }
 
-    if (!data.topos?.length && !data.topoRoutes?.length) return
-
-    // Check if we already loaded this version
-    const meta = await db.syncMeta.get('topoDataVersion')
-    if (meta?.value === String(data.version || 0)) {
-      // Already loaded — but check if DB has data (could have been cleared)
-      const topoCount = await db.topos.count()
-      if (topoCount > 0) return
+    if (!data.topos?.length && !data.topoRoutes?.length) {
+      emitLoadProgress(100, '')
+      return
     }
 
     emitLoadProgress(75, 'Сохранение маршрутов...')
