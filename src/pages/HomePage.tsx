@@ -33,6 +33,7 @@ export function HomePage() {
   const [dl, setDl] = useState<DownloadProgress | null>(null)
   const [search, setSearch] = useState('')
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
+  const [topoLoadProgress, setTopoLoadProgress] = useState<{ percent: number; message: string } | null>(null)
   const [sunFilter, setSunFilter] = useState<SunFilter | null>(null)
   const [sunMode, setSunMode] = useState<'sun' | 'shade'>('sun') // sun = where sun IS, shade = where sun ISN'T
   const [maxRopeLength, setMaxRopeLength] = useState<number | null>(null)
@@ -139,6 +140,17 @@ export function HomePage() {
     }
   }, [])
 
+  // Listen for topo data loading progress
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { percent, message } = (e as CustomEvent).detail
+      if (percent >= 100) setTopoLoadProgress(null)
+      else setTopoLoadProgress({ percent, message })
+    }
+    window.addEventListener('topo-load-progress', handler)
+    return () => window.removeEventListener('topo-load-progress', handler)
+  }, [])
+
   // PWA install prompt
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [isInstalled, setIsInstalled] = useState(false)
@@ -176,6 +188,15 @@ export function HomePage() {
         <Link to="/about" className="text-blue-600 text-xs">{t('home.aboutArea')}</Link>
       </div>
       {/* subtitle removed — info is on About page */}
+
+      {topoLoadProgress && (
+        <div className="mb-4 bg-blue-50 rounded-lg p-3">
+          <div className="text-xs text-blue-700 mb-1">{topoLoadProgress.message}</div>
+          <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${topoLoadProgress.percent}%` }} />
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 mb-4">
         <Link

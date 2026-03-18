@@ -499,15 +499,42 @@ const ROUTE_GPS: Array<{ sectorId: string; name: string; latitude: number; longi
  * Load topo data from data/topo-data.json (committed in git).
  * This is the source of truth for topo photos and route overlays.
  */
+/** Dispatch custom event for loading progress (picked up by HomePage) */
+function emitLoadProgress(percent: number, message: string) {
+  window.dispatchEvent(new CustomEvent('topo-load-progress', { detail: { percent, message } }))
+}
+
 export async function loadTopoDataFromFile() {
   try {
     const base = import.meta.env.BASE_URL || '/'
+    emitLoadProgress(5, 'Загрузка данных...')
     const resp = await fetch(`${base}data/topo-data.json`)
     if (!resp.ok) {
       console.warn('topo-data.json not found, skipping')
+      emitLoadProgress(100, '')
       return
     }
-    const data = await resp.json() as {
+
+    // Read with progress tracking
+    const total = Number(resp.headers.get('content-length')) || 0
+    const reader = resp.body?.getReader()
+    let received = 0
+    const chunks: Uint8Array[] = []
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+        received += value.length
+        if (total > 0) {
+          emitLoadProgress(5 + Math.round((received / total) * 60), `Загрузка: ${Math.round(received / 1024 / 1024)}/${Math.round(total / 1024 / 1024)} МБ`)
+        }
+      }
+    }
+    const blob = new Blob(chunks as unknown as BlobPart[])
+    const text = chunks.length === 1 ? new TextDecoder().decode(chunks[0]) : await blob.text()
+    emitLoadProgress(70, 'Обработка данных...')
+    const data = JSON.parse(text) as {
       version?: number
       topos?: Array<Record<string, unknown>>
       topoRoutes?: Array<Record<string, unknown>>
@@ -526,6 +553,7 @@ export async function loadTopoDataFromFile() {
       if (topoCount > 0) return
     }
 
+    emitLoadProgress(75, 'Сохранение маршрутов...')
     // Load routes (with updated grades, names, new routes from admin)
     if (data.routes && data.routes.length > 0) {
       await db.routes.bulkPut(data.routes as any[])
@@ -558,9 +586,11 @@ export async function loadTopoDataFromFile() {
     }
 
     await db.syncMeta.put({ key: 'topoDataVersion', value: String(data.version || 0) })
+    emitLoadProgress(100, '')
     console.log(`Topo data loaded (version ${data.version || 0})`)
   } catch (err) {
     console.error('Failed to load topo-data.json:', err)
+    emitLoadProgress(100, '')
   }
 }
 
