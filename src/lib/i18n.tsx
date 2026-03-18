@@ -60,6 +60,8 @@ const translations = {
   'home.sunAfternoon': { ru: 'После обеда', en: 'Afternoon', kk: 'Түстен кейін' },
   'home.sunAllDay': { ru: 'Весь день', en: 'All day', kk: 'Күні бойы' },
   'home.sunMixed': { ru: 'Тень+солнце', en: 'Shade+sun', kk: 'Көлеңке+күн' },
+  'home.filterSun': { ru: 'Где солнце', en: 'Where sun', kk: 'Күн бар жерде' },
+  'home.filterShade': { ru: 'Где тень', en: 'Where shade', kk: 'Көлеңке бар жерде' },
   'home.ropeFilter': { ru: 'Верёвка ≤', en: 'Rope ≤', kk: 'Арқан ≤' },
   'home.noSectorsMatch': { ru: 'Нет секторов по фильтру', en: 'No sectors match', kk: 'Сүзгіге сәйкес жоқ' },
   'home.clearFilters': { ru: 'Сбросить', en: 'Clear', kk: 'Тазалау' },

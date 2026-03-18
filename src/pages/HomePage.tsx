@@ -34,6 +34,7 @@ export function HomePage() {
   const [search, setSearch] = useState('')
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
   const [sunFilter, setSunFilter] = useState<SunFilter | null>(null)
+  const [sunMode, setSunMode] = useState<'sun' | 'shade'>('sun') // sun = where sun IS, shade = where sun ISN'T
   const [maxRopeLength, setMaxRopeLength] = useState<number | null>(null)
 
   const toggleGrade = (g: string) => {
@@ -103,8 +104,10 @@ export function HomePage() {
     if (sunFilter) {
       result = result.filter(s => {
         const cat = sunCategory(s.sunExposure)
-        // Mixed sectors (Zamanka) match any filter
-        return cat === sunFilter || cat === null
+        if (cat === null) return true // mixed sectors (Zamanka) always shown
+        if (sunMode === 'sun') return cat === sunFilter
+        // shade mode: show sectors where sun is NOT at that time
+        return cat !== sunFilter && cat !== 'allday'
       })
     }
     if (maxRopeLength && routes) {
@@ -118,7 +121,7 @@ export function HomePage() {
       result = result.filter(s => sectorIdsWithFittingRoutes.has(s.id))
     }
     return result
-  }, [sectors, routes, sunFilter, maxRopeLength])
+  }, [sectors, routes, sunFilter, sunMode, maxRopeLength])
 
   const hasActiveFilters = sunFilter !== null || maxRopeLength !== null
 
@@ -269,15 +272,23 @@ export function HomePage() {
 
       {/* Sector filters: 3 rows — sun, rope, clear */}
       <div className="space-y-1.5 mb-2">
-        {/* Row 1: Sun exposure filter */}
+        {/* Row 1: Sun/shade toggle + time filter */}
         <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1">
-          <img src="/icons/sun.png" alt="" className="h-4 w-4 flex-shrink-0" />
+          <button
+            onClick={() => setSunMode(m => m === 'sun' ? 'shade' : 'sun')}
+            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm border border-gray-200"
+            title={sunMode === 'sun' ? t('home.filterSun') : t('home.filterShade')}
+          >
+            {sunMode === 'sun' ? '☀️' : '🌑'}
+          </button>
           {([['morning', t('home.sunMorning')], ['afternoon', t('home.sunAfternoon')], ['allday', t('home.sunAllDay')]] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setSunFilter(prev => prev === key ? null : key)}
               className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                sunFilter === key ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                sunFilter === key
+                  ? (sunMode === 'sun' ? 'bg-yellow-500 text-white' : 'bg-gray-700 text-white')
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
               {label}
