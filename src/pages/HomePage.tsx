@@ -208,7 +208,7 @@ export function HomePage() {
         <button
           onClick={handleRefresh}
           disabled={dl?.stage === 'fetching' || dl?.stage === 'saving'}
-          className="flex-1 bg-green-500/50 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50 relative"
+          className="flex-1 bg-green-500/20 text-gray-700 rounded-lg px-4 py-3 text-sm font-medium disabled:opacity-50 relative"
         >
           {dl?.stage === 'fetching' || dl?.stage === 'saving'
             ? t('home.downloading')
@@ -251,7 +251,7 @@ export function HomePage() {
       </div>
 
       {/* Grade filter chips */}
-      <div className="flex gap-1 overflow-x-auto pb-3 -mx-1 px-1">
+      <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-3 -mx-1 px-1">
         {GRADE_CHIPS.map((g) => (
           <button
             key={g}
@@ -300,8 +300,8 @@ export function HomePage() {
       {/* Sector filters: 3 rows — sun, rope, clear */}
       <div className="space-y-1.5 mb-2">
         {/* Row 1: Sun/shade segmented toggle + time filter */}
-        <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1">
-          <div className="ml-auto flex-shrink-0 flex rounded-full border border-gray-200 overflow-hidden">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
+          <div className="flex-shrink-0 flex rounded-full border border-gray-200 overflow-hidden">
             <button
               onClick={() => setSunMode('sun')}
               className={`px-2 py-1 text-xs font-medium flex items-center gap-1 transition-colors ${
@@ -336,8 +336,7 @@ export function HomePage() {
           ))}
         </div>
         {/* Row 2: Rope length filter */}
-        <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1">
-          <div className="ml-auto" />
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
           <img src="/icons/rope.png" alt="" className="h-4 w-auto flex-shrink-0" />
           {[40, 50, 60, 80].map(len => (
             <button
