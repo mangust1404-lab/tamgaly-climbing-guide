@@ -263,60 +263,81 @@ export function TopoViewer({
     updateOverlay()
   }, [updateOverlay])
 
-  // Prevent OSD from capturing single-finger drags so the page scrolls normally.
-  // OSD uses pointer events; we intercept at capture phase and block propagation
-  // for single-touch drags. Two-finger pinch-zoom still works.
+  // Touch shield: transparent overlay that blocks OSD from stealing scroll.
+  // Single finger → page scrolls (shield absorbs, browser handles natively).
+  // Two fingers → shield hides, OSD gets pinch-zoom.
+  // Tap → forwarded to OSD for route selection.
+  const shieldRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
-    if (!containerRef.current || !ready) return
-    const canvas = containerRef.current.querySelector('.openseadragon-canvas') as HTMLElement
-    if (!canvas) return
+    const shield = shieldRef.current
+    if (!shield) return
 
-    canvas.style.touchAction = 'pan-y pinch-zoom'
+    let touchCount = 0
+    let startY = 0
+    let isTap = true
 
-    let activePointers = new Set<number>()
-
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') activePointers.add(e.pointerId)
-    }
-    const onPointerUp = (e: PointerEvent) => {
-      activePointers.delete(e.pointerId)
-    }
-    const onPointerMove = (e: PointerEvent) => {
-      // Single finger touch: block OSD, let browser scroll
-      if (e.pointerType === 'touch' && activePointers.size <= 1) {
-        e.stopPropagation()
-        // Release pointer capture that OSD sets — this is what blocks browser scroll
-        try { (e.target as Element).releasePointerCapture(e.pointerId) } catch {}
+    const onTouchStart = (e: TouchEvent) => {
+      touchCount = e.touches.length
+      if (touchCount >= 2) {
+        // Two fingers: hide shield so OSD gets pinch-zoom
+        shield.style.pointerEvents = 'none'
+      } else {
+        startY = e.touches[0].clientY
+        isTap = true
       }
     }
 
-    // Also release capture right after OSD sets it on pointerdown (single finger)
-    const onGotCapture = (e: PointerEvent) => {
-      if (e.pointerType === 'touch' && activePointers.size <= 1) {
-        try { (e.target as Element).releasePointerCapture(e.pointerId) } catch {}
+    const onTouchMove = (e: TouchEvent) => {
+      isTap = false
+      // Single finger: shield stays, browser scrolls page (touch-action: pan-y handles it)
+    }
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) {
+        // Restore shield
+        shield.style.pointerEvents = 'auto'
+        touchCount = 0
+
+        // If it was a tap (no movement), forward click to OSD for route selection
+        if (isTap && viewerRef.current) {
+          const touch = e.changedTouches[0]
+          const canvas = containerRef.current?.querySelector('.openseadragon-canvas') as HTMLElement
+          if (canvas) {
+            const click = new MouseEvent('click', {
+              bubbles: true,
+              clientX: touch.clientX,
+              clientY: touch.clientY,
+            })
+            canvas.dispatchEvent(click)
+          }
+        }
       }
     }
 
-    canvas.addEventListener('pointerdown', onPointerDown, { capture: true })
-    canvas.addEventListener('pointermove', onPointerMove, { capture: true })
-    canvas.addEventListener('pointerup', onPointerUp, { capture: true })
-    canvas.addEventListener('pointercancel', onPointerUp, { capture: true })
-    canvas.addEventListener('gotpointercapture', onGotCapture)
+    shield.addEventListener('touchstart', onTouchStart, { passive: true })
+    shield.addEventListener('touchmove', onTouchMove, { passive: true })
+    shield.addEventListener('touchend', onTouchEnd, { passive: true })
 
     return () => {
-      canvas.removeEventListener('pointerdown', onPointerDown, { capture: true } as any)
-      canvas.removeEventListener('pointermove', onPointerMove, { capture: true } as any)
-      canvas.removeEventListener('pointerup', onPointerUp, { capture: true } as any)
-      canvas.removeEventListener('pointercancel', onPointerUp, { capture: true } as any)
-      canvas.removeEventListener('gotpointercapture', onGotCapture)
+      shield.removeEventListener('touchstart', onTouchStart)
+      shield.removeEventListener('touchmove', onTouchMove)
+      shield.removeEventListener('touchend', onTouchEnd)
     }
   }, [ready])
 
   return (
     <div className="relative bg-gray-900 rounded-lg overflow-hidden">
-      <div ref={containerRef} className="w-full h-[60dvh]" style={{ touchAction: 'pan-y' }} />
+      <div ref={containerRef} className="w-full h-[60dvh]" />
+      {/* Transparent shield: absorbs single-finger touch for page scroll,
+          hides on two-finger for OSD pinch-zoom, forwards taps for route selection */}
+      <div
+        ref={shieldRef}
+        className="absolute inset-0 z-10"
+        style={{ touchAction: 'pan-y pinch-zoom' }}
+      />
       {!ready && (
-        <div className="absolute inset-0 flex items-center justify-center text-white text-sm">
+        <div className="absolute inset-0 z-20 flex items-center justify-center text-white text-sm">
           {t('topo.loading')}
         </div>
       )}
