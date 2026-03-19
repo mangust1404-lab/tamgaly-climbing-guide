@@ -20,10 +20,12 @@ const GRADE_CHIPS = ['4', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+
 type SunFilter = 'morning' | 'afternoon' | 'allday'
 
 function sunCategory(sunExposure?: string, sunFrom?: number, sunTo?: number): SunFilter | null {
-  // Numeric fields take priority
-  if (sunFrom != null && sunTo != null) {
-    if (sunTo <= 13) return 'morning'
-    if (sunFrom >= 12) return 'afternoon'
+  // Numeric fields take priority (either or both can be set)
+  const from = sunFrom ?? 0
+  const to = sunTo ?? 24
+  if (sunFrom != null || sunTo != null) {
+    if (to <= 14) return 'morning'
+    if (from >= 12) return 'afternoon'
     return 'allday'
   }
   if (!sunExposure) return null
