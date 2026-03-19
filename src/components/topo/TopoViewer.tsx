@@ -300,31 +300,52 @@ export function TopoViewer({
         if (tapTimer) clearTimeout(tapTimer)
         tapTimer = setTimeout(showShield, 300)
 
-        // Forward tap to OSD for route selection
+        // Handle tap directly: convert screen coords to image coords, hit-test routes
         if (isTap && viewerRef.current) {
           const touch = e.changedTouches[0]
-          // Temporarily hide shield, dispatch pointer events to OSD canvas
-          hideShield()
-          const canvas = containerRef.current?.querySelector('.openseadragon-canvas') as HTMLElement
-          if (canvas) {
-            // OSD expects pointer/mouse events at the canvas position
-            const rect = canvas.getBoundingClientRect()
-            const x = touch.clientX
-            const y = touch.clientY
-            // Dispatch pointerdown + pointerup (OSD turns this into canvas-click)
-            for (const type of ['pointerdown', 'pointerup'] as const) {
-              canvas.dispatchEvent(new PointerEvent(type, {
-                bubbles: true,
-                clientX: x,
-                clientY: y,
-                pointerId: 1,
-                pointerType: 'mouse',
-              }))
+          const viewer = viewerRef.current
+          const container = containerRef.current
+          if (container) {
+            const rect = container.getBoundingClientRect()
+            const pixel = new OpenSeadragon.Point(
+              touch.clientX - rect.left,
+              touch.clientY - rect.top,
+            )
+            const vpPt = viewer.viewport.pointFromPixel(pixel)
+            const imgPt = viewer.viewport.viewportToImageCoordinates(vpPt)
+            const ix = imgPt.x, iy = imgPt.y
+            const threshold = Math.max(20, (imageWidth || 500) / 25)
+            let bestRoute: string | null = null
+            let bestDist = threshold
+            for (const tr of topoRoutesRef.current) {
+              if (tr.startX && tr.startY) {
+                const d = Math.hypot(ix - tr.startX, iy - tr.startY)
+                if (d < bestDist) { bestDist = d; bestRoute = tr.routeId }
+              }
+              if (tr.anchorX && tr.anchorY) {
+                const d = Math.hypot(ix - tr.anchorX, iy - tr.anchorY)
+                if (d < bestDist) { bestDist = d; bestRoute = tr.routeId }
+              }
+              const svg = svgOverlayRef.current
+              if (svg && tr.svgPath) {
+                const tmpPath = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+                tmpPath.setAttribute('d', tr.svgPath)
+                svg.appendChild(tmpPath)
+                const len = tmpPath.getTotalLength()
+                const steps = Math.max(10, Math.round(len / 20))
+                for (let s = 0; s <= steps; s++) {
+                  const pt = tmpPath.getPointAtLength((s / steps) * len)
+                  const d = Math.hypot(ix - pt.x, iy - pt.y)
+                  if (d < bestDist) { bestDist = d; bestRoute = tr.routeId }
+                }
+                svg.removeChild(tmpPath)
+              }
+            }
+            if (bestRoute) {
+              const cb = onRouteSelectRef.current
+              cb?.(bestRoute === selectedRouteIdRef.current ? null : bestRoute)
             }
           }
-          // Restore shield after OSD processes the click
-          if (tapTimer) clearTimeout(tapTimer)
-          tapTimer = setTimeout(showShield, 100)
         }
       }
     }

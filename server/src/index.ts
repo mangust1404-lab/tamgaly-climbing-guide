@@ -43,6 +43,30 @@ app.post('/api/save-topo-data', async (c) => {
   console.log('POST /api/save-topo-data received, content-length:', c.req.header('content-length'))
   try {
     const body = await c.req.json()
+
+    // Merge approved suggestion data (quickdraws, ropeLength, etc.) from server DB into routes
+    try {
+      const sdb = getDb()
+      const serverRoutes = sdb.prepare('SELECT id, quickdraws, rope_length, terrain_tags, hold_types FROM route').all() as any[]
+      const serverMap = new Map(serverRoutes.map((r: any) => [r.id, r]))
+      if (body.routes) {
+        for (const route of body.routes) {
+          const sr = serverMap.get(route.id) as any
+          if (sr) {
+            if (sr.quickdraws && !route.quickdraws) route.quickdraws = sr.quickdraws
+            if (sr.rope_length && !route.ropeLength) route.ropeLength = sr.rope_length
+            if (sr.terrain_tags && !route.terrainTags?.length) {
+              try { route.terrainTags = JSON.parse(sr.terrain_tags) } catch {}
+            }
+            if (sr.hold_types && !route.holdTypes?.length) {
+              try { route.holdTypes = JSON.parse(sr.hold_types) } catch {}
+            }
+          }
+        }
+        console.log(`Merged server route data into ${body.routes.length} routes`)
+      }
+    } catch (e) { console.error('Route merge failed:', e) }
+
     const json = JSON.stringify(body, null, 0)
     // Save to Docker persistent volume
     const dataPath = join(process.cwd(), 'server', 'data', 'topo-data.json')
