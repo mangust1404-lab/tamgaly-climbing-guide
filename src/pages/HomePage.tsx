@@ -5,6 +5,7 @@ import { db } from '../lib/db/schema'
 import { refreshTopoData, type DownloadProgress } from '../lib/offline/downloadManager'
 import { gradeColor, sunHours } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
+import { useUser } from '../lib/userContext'
 
 const GRADE_SORT: Record<string, number> = {
   '4': 30, '4a': 40, '4b': 50, '4c': 60,
@@ -34,8 +35,20 @@ function sunCategory(sunExposure?: string, sunFrom?: number, sunTo?: number): Su
 
 export function HomePage() {
   const { t, td } = useI18n()
+  const { user } = useUser()
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
   const routes = useLiveQuery(() => db.routes.toArray())
+
+  // Set of route IDs the current user has climbed (scored styles)
+  const climbedRouteIds = useLiveQuery(
+    async () => {
+      if (!user?.id) return new Set<string>()
+      const ascents = await db.ascents.where('userId').equals(user.id).toArray()
+      const scored = ascents.filter(a => ['onsight', 'flash', 'redpoint'].includes(a.style))
+      return new Set(scored.map(a => a.routeId))
+    },
+    [user?.id],
+  )
   const [dl, setDl] = useState<DownloadProgress | null>(null)
   const [search, setSearch] = useState('')
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
@@ -298,6 +311,9 @@ export function HomePage() {
                   <div className="text-sm font-medium truncate">{td(r.name)}</div>
                   <div className="text-xs text-gray-400">{r.sectorName}</div>
                 </div>
+                {climbedRouteIds?.has(r.id) && (
+                  <span className="w-5 h-5 rounded-full bg-green-100 text-green-400 text-[10px] flex items-center justify-center flex-shrink-0">✓</span>
+                )}
               </Link>
             ))}
           </div>

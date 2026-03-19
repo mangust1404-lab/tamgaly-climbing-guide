@@ -62,15 +62,32 @@ export function TopoViewer({
       showNavigationControl: false,
       gestureSettingsTouch: {
         pinchToZoom: true,
-        flickEnabled: true,
+        scrollToZoom: false,
+        flickEnabled: false,
         clickToZoom: false,
+        dblClickToZoom: true,
+        dragToPan: false,   // Disable single-finger drag so page scrolls normally
       },
       gestureSettingsMouse: {
         clickToZoom: false,
+        scrollToZoom: false,
       },
       minZoomLevel: 0.5,
       maxZoomLevel: 5,
       visibilityRatio: 0.8,
+      panHorizontal: false,
+      panVertical: false,
+    })
+
+    // Enable pan only when zoomed in (so single-finger scroll works at default zoom)
+    viewer.addHandler('zoom', () => {
+      const zoom = viewer.viewport.getZoom()
+      const minZoom = viewer.viewport.getMinZoom()
+      const isZoomed = zoom > minZoom * 1.05
+      viewer.panHorizontal = isZoomed
+      viewer.panVertical = isZoomed
+      // @ts-ignore — runtime property update
+      viewer.gestureSettingsTouch.dragToPan = isZoomed
     })
 
     viewer.addHandler('open', () => {
