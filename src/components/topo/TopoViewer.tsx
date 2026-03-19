@@ -263,25 +263,42 @@ export function TopoViewer({
     updateOverlay()
   }, [updateOverlay])
 
-  // Force browser to handle single-finger vertical scroll over the OSD canvas
+  // Prevent OSD from capturing single-finger drags so the page scrolls normally.
+  // OSD uses pointer events; we intercept at capture phase and block propagation
+  // for single-touch drags. Two-finger pinch-zoom still works.
   useEffect(() => {
     if (!containerRef.current || !ready) return
     const canvas = containerRef.current.querySelector('.openseadragon-canvas') as HTMLElement
     if (!canvas) return
-    // CSS touch-action tells browser to own vertical scroll
+
     canvas.style.touchAction = 'pan-y pinch-zoom'
 
-    // Block OSD's touchmove handler for single-finger drags (so page scrolls)
-    const blockSingleDrag = (e: TouchEvent) => {
-      if (e.touches.length === 1) {
-        // Let browser handle single-finger → page scroll
-        // Don't call preventDefault — allow native scroll
+    let activePointers = new Set<number>()
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') activePointers.add(e.pointerId)
+    }
+    const onPointerUp = (e: PointerEvent) => {
+      activePointers.delete(e.pointerId)
+    }
+    const onPointerMove = (e: PointerEvent) => {
+      // Single finger touch: block OSD, let browser scroll
+      if (e.pointerType === 'touch' && activePointers.size <= 1) {
         e.stopPropagation()
       }
     }
-    // Use capture phase to run before OSD's handlers
-    canvas.addEventListener('touchmove', blockSingleDrag, { capture: true })
-    return () => canvas.removeEventListener('touchmove', blockSingleDrag, { capture: true })
+
+    canvas.addEventListener('pointerdown', onPointerDown, { capture: true })
+    canvas.addEventListener('pointermove', onPointerMove, { capture: true })
+    canvas.addEventListener('pointerup', onPointerUp, { capture: true })
+    canvas.addEventListener('pointercancel', onPointerUp, { capture: true })
+
+    return () => {
+      canvas.removeEventListener('pointerdown', onPointerDown, { capture: true } as any)
+      canvas.removeEventListener('pointermove', onPointerMove, { capture: true } as any)
+      canvas.removeEventListener('pointerup', onPointerUp, { capture: true } as any)
+      canvas.removeEventListener('pointercancel', onPointerUp, { capture: true } as any)
+    }
   }, [ready])
 
   return (
