@@ -264,53 +264,67 @@ export function TopoViewer({
   }, [updateOverlay])
 
   // Touch shield: transparent overlay that blocks OSD from stealing scroll.
-  // Single finger → page scrolls (shield absorbs, browser handles natively).
-  // Two fingers → shield hides, OSD gets pinch-zoom.
-  // Tap → forwarded to OSD for route selection.
+  // Single finger → page scrolls. Two fingers → OSD pinch-zoom. Tap → route select.
   const shieldRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const shield = shieldRef.current
-    if (!shield) return
+    if (!shield || !ready) return
 
-    let touchCount = 0
-    let startY = 0
+    let activeTouches = 0
     let isTap = true
+    let tapTimer: ReturnType<typeof setTimeout> | null = null
+
+    const hideShield = () => { shield.style.pointerEvents = 'none' }
+    const showShield = () => { shield.style.pointerEvents = 'auto' }
 
     const onTouchStart = (e: TouchEvent) => {
-      touchCount = e.touches.length
-      if (touchCount >= 2) {
-        // Two fingers: hide shield so OSD gets pinch-zoom
-        shield.style.pointerEvents = 'none'
+      activeTouches = e.touches.length
+      if (activeTouches >= 2) {
+        // Two+ fingers: immediately hide shield so OSD gets pinch-zoom
+        hideShield()
       } else {
-        startY = e.touches[0].clientY
         isTap = true
       }
     }
 
-    const onTouchMove = (e: TouchEvent) => {
+    const onTouchMove = () => {
       isTap = false
-      // Single finger: shield stays, browser scrolls page (touch-action: pan-y handles it)
     }
 
     const onTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length === 0) {
-        // Restore shield
-        shield.style.pointerEvents = 'auto'
-        touchCount = 0
+      activeTouches = e.touches.length
+      if (activeTouches === 0) {
+        // All fingers lifted — restore shield after a tiny delay
+        // (allows OSD pinch-zoom animation to finish)
+        if (tapTimer) clearTimeout(tapTimer)
+        tapTimer = setTimeout(showShield, 300)
 
-        // If it was a tap (no movement), forward click to OSD for route selection
+        // Forward tap to OSD for route selection
         if (isTap && viewerRef.current) {
           const touch = e.changedTouches[0]
+          // Temporarily hide shield, dispatch pointer events to OSD canvas
+          hideShield()
           const canvas = containerRef.current?.querySelector('.openseadragon-canvas') as HTMLElement
           if (canvas) {
-            const click = new MouseEvent('click', {
-              bubbles: true,
-              clientX: touch.clientX,
-              clientY: touch.clientY,
-            })
-            canvas.dispatchEvent(click)
+            // OSD expects pointer/mouse events at the canvas position
+            const rect = canvas.getBoundingClientRect()
+            const x = touch.clientX
+            const y = touch.clientY
+            // Dispatch pointerdown + pointerup (OSD turns this into canvas-click)
+            for (const type of ['pointerdown', 'pointerup'] as const) {
+              canvas.dispatchEvent(new PointerEvent(type, {
+                bubbles: true,
+                clientX: x,
+                clientY: y,
+                pointerId: 1,
+                pointerType: 'mouse',
+              }))
+            }
           }
+          // Restore shield after OSD processes the click
+          if (tapTimer) clearTimeout(tapTimer)
+          tapTimer = setTimeout(showShield, 100)
         }
       }
     }
@@ -323,6 +337,7 @@ export function TopoViewer({
       shield.removeEventListener('touchstart', onTouchStart)
       shield.removeEventListener('touchmove', onTouchMove)
       shield.removeEventListener('touchend', onTouchEnd)
+      if (tapTimer) clearTimeout(tapTimer)
     }
   }, [ready])
 

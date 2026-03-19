@@ -51,7 +51,9 @@ export function AdminSectorsPage() {
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
   const routes = useLiveQuery(() => db.routes.toArray())
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  const [needsSave, setNeedsSave] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState('')
 
   const routeCounts = new Map<string, number>()
   routes?.forEach(r => {
@@ -60,9 +62,41 @@ export function AdminSectorsPage() {
 
   const handleUpdate = async (sectorId: string, field: string, value: string | number | undefined) => {
     await db.sectors.update(sectorId, { [field]: value, updatedAt: new Date().toISOString() } as any)
-    saveTopoData()
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    setNeedsSave(true)
+  }
+
+  const handleSaveToServer = async () => {
+    setSaving(true)
+    setSaveMsg('')
+    try {
+      const topos = await db.topos.toArray()
+      const topoRoutes = await db.topoRoutes.toArray()
+      const allSectors = await db.sectors.toArray()
+      const allRoutes = await db.routes.toArray()
+      const sectorCovers: Record<string, string> = {}
+      for (const s of allSectors) {
+        if (s.coverImageUrl) sectorCovers[s.id] = s.coverImageUrl
+      }
+      const meta = await db.syncMeta.get('topoDataVersion')
+      const version = (parseInt(meta?.value || '0') || 0) + 1
+      const data = { version, exportedAt: new Date().toISOString(), topos, topoRoutes, routes: allRoutes, sectors: allSectors, sectorCovers }
+      const resp = await fetch('/api/save-topo-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (resp.ok) {
+        await db.syncMeta.put({ key: 'topoDataVersion', value: String(version) })
+        setSaveMsg(`✓ v${version}`)
+        setNeedsSave(false)
+      } else {
+        setSaveMsg('Ошибка сервера')
+      }
+    } catch (err) {
+      setSaveMsg('Ошибка сети')
+    }
+    setSaving(false)
+    setTimeout(() => setSaveMsg(''), 3000)
   }
 
   if (!sectors) return <div className="p-4 text-gray-400">Загрузка...</div>
@@ -72,7 +106,20 @@ export function AdminSectorsPage() {
       <AdminNav />
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold">Редактор секторов</h1>
-        {saved && <span className="text-green-600 text-sm font-medium">Сохранено</span>}
+        <div className="flex items-center gap-2">
+          {saveMsg && <span className="text-sm text-green-600">{saveMsg}</span>}
+          <button
+            onClick={handleSaveToServer}
+            disabled={saving}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+              needsSave
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600'
+            } disabled:opacity-50`}
+          >
+            {saving ? '...' : '💾 На сервер'}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">
