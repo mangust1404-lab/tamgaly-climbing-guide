@@ -523,31 +523,32 @@ export async function loadTopoDataFromFile() {
     const hasData = topoCount > 0 && routeCount > 0
 
     if (hasData) {
-      // Check version via lightweight HEAD + small fetch to see if update needed
+      // Check version — fetch small snippet to compare
       try {
         const meta = await db.syncMeta.get('topoDataVersion')
         const localVersion = parseInt(meta?.value || '0') || 0
-        // Fetch just the beginning to get version field
-        const checkResp = await fetch(`${base}data/topo-data.json`, {
-          cache: 'no-cache',
+        // Use cache-busting query param to bypass all caches (SW, CDN, browser)
+        const checkResp = await fetch(`${base}data/topo-data.json?v=${Date.now()}`, {
+          cache: 'no-store',
           headers: { 'Range': 'bytes=0-200' },
         })
         const snippet = await checkResp.text()
         const versionMatch = snippet.match(/"version"\s*:\s*(\d+)/)
         const serverVersion = versionMatch ? parseInt(versionMatch[1]) : 0
-        if (serverVersion <= localVersion) {
-          console.log(`Topo data up to date (local v${localVersion}, server v${serverVersion})`)
+        console.log(`Topo data version check: local v${localVersion}, server v${serverVersion}`)
+        if (serverVersion > 0 && serverVersion <= localVersion) {
           return
         }
-        console.log(`Topo data update available: v${localVersion} → v${serverVersion}`)
-      } catch {
-        console.log('DB already has data, version check failed, skipping')
-        return
+        // If serverVersion is 0 (parse failed), force re-download
+        console.log(`Topo data update: v${localVersion} → v${serverVersion || '?'}`)
+      } catch (e) {
+        console.warn('Version check failed, forcing re-download:', e)
+        // Don't return — proceed to full download
       }
     }
 
     emitLoadProgress(10, 'Загрузка данных (~15 МБ)...')
-    const resp = await fetch(`${base}data/topo-data.json`, { cache: 'no-cache' })
+    const resp = await fetch(`${base}data/topo-data.json?v=${Date.now()}`, { cache: 'no-store' })
     if (!resp.ok) {
       console.warn('topo-data.json not found, skipping')
       emitLoadProgress(100, '')

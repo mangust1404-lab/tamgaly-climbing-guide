@@ -61,12 +61,38 @@ export function SectorPage() {
   const routes = useLiveQuery(
     () =>
       sectorId
-        ? db.routes.where('sectorId').equals(sectorId).toArray().then(arr =>
-            arr.sort((a, b) => (a.numberInSector ?? 999) - (b.numberInSector ?? 999))
-          )
+        ? db.routes.where('sectorId').equals(sectorId).toArray()
         : [],
     [sectorId],
   )
+
+  // Map routeId → routeNumber from topo photos (user-assigned numbers on the wall)
+  const routeNumberMap = useLiveQuery(
+    async () => {
+      if (!sectorId) return new Map<string, number>()
+      const topos = await db.topos.where('sectorId').equals(sectorId).toArray()
+      const map = new Map<string, number>()
+      for (const topo of topos) {
+        const trs = await db.topoRoutes.where('topoId').equals(topo.id).toArray()
+        for (const tr of trs) {
+          if (tr.routeNumber != null && !map.has(tr.routeId)) {
+            map.set(tr.routeId, tr.routeNumber)
+          }
+        }
+      }
+      return map
+    },
+    [sectorId],
+  )
+
+  // Sort routes by topo routeNumber, fallback to numberInSector
+  const sortedRoutes = useMemo(() => {
+    if (!routes) return undefined
+    const rn = routeNumberMap ?? new Map<string, number>()
+    return [...routes].sort((a, b) =>
+      (rn.get(a.id) ?? a.numberInSector ?? 999) - (rn.get(b.id) ?? b.numberInSector ?? 999)
+    )
+  }, [routes, routeNumberMap])
 
   // Average ratings per route
   const routeRatings = useLiveQuery(
@@ -179,7 +205,7 @@ export function SectorPage() {
     return <div className="p-4 text-gray-400">{t('sector.notFound')}</div>
   }
 
-  const filteredRoutes = routes?.filter(r => matchesGradeFilter(r.gradeSort, gradeFilter)) ?? []
+  const filteredRoutes = sortedRoutes?.filter(r => matchesGradeFilter(r.gradeSort, gradeFilter)) ?? []
 
   const gradeFilterLabel = (f: string) => f === 'all' ? t('sector.all') : f
 
@@ -344,14 +370,14 @@ export function SectorPage() {
       <div className="px-4 pt-1 pb-4">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold">
-            {t('sector.routes')} {routes ? `(${routes.length})` : ''}
+            {t('sector.routes')} {sortedRoutes ? `(${sortedRoutes.length})` : ''}
           </h2>
           {selectedRouteId && (
             <button
               onClick={() => setSelectedRouteId(null)}
               className="text-xs text-blue-600 hover:underline"
             >
-              {t('sector.all')} ({routes?.length})
+              {t('sector.all')} ({sortedRoutes?.length})
             </button>
           )}
         </div>
@@ -377,7 +403,7 @@ export function SectorPage() {
 
         {filteredRoutes.length === 0 ? (
           <p className="text-gray-400 text-sm">
-            {routes?.length ? t('sector.noRoutesInRange') : t('sector.routesNotLoaded')}
+            {sortedRoutes?.length ? t('sector.noRoutesInRange') : t('sector.routesNotLoaded')}
           </p>
         ) : (
           <div className="space-y-1">

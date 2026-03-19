@@ -17,6 +17,6 @@ async function initData() {
   try { await updateGpsCoordinates() } catch (e) { console.error('updateGpsCoordinates failed:', e) }
   try { await loadTopoDataFromFile() } catch (e) { console.error('loadTopoDataFromFile failed:', e) }
   try { await restoreToposFromTags() } catch (e) { console.error('restoreToposFromTags failed:', e) }
-  console.log('Data init complete')
+  console.log('Data init complete (build 2025-03-19b)')
 }
 initData()
