@@ -285,6 +285,15 @@ export function TopoViewer({
       // Single finger touch: block OSD, let browser scroll
       if (e.pointerType === 'touch' && activePointers.size <= 1) {
         e.stopPropagation()
+        // Release pointer capture that OSD sets — this is what blocks browser scroll
+        try { (e.target as Element).releasePointerCapture(e.pointerId) } catch {}
+      }
+    }
+
+    // Also release capture right after OSD sets it on pointerdown (single finger)
+    const onGotCapture = (e: PointerEvent) => {
+      if (e.pointerType === 'touch' && activePointers.size <= 1) {
+        try { (e.target as Element).releasePointerCapture(e.pointerId) } catch {}
       }
     }
 
@@ -292,12 +301,14 @@ export function TopoViewer({
     canvas.addEventListener('pointermove', onPointerMove, { capture: true })
     canvas.addEventListener('pointerup', onPointerUp, { capture: true })
     canvas.addEventListener('pointercancel', onPointerUp, { capture: true })
+    canvas.addEventListener('gotpointercapture', onGotCapture)
 
     return () => {
       canvas.removeEventListener('pointerdown', onPointerDown, { capture: true } as any)
       canvas.removeEventListener('pointermove', onPointerMove, { capture: true } as any)
       canvas.removeEventListener('pointerup', onPointerUp, { capture: true } as any)
       canvas.removeEventListener('pointercancel', onPointerUp, { capture: true } as any)
+      canvas.removeEventListener('gotpointercapture', onGotCapture)
     }
   }, [ready])
 
