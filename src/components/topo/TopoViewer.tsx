@@ -327,7 +327,7 @@ export function TopoViewer({
   }, [ready])
 
   return (
-    <div className="relative bg-gray-900 rounded-lg overflow-hidden">
+    <div className="relative bg-gray-900 rounded-lg" style={{ overflow: 'clip' }}>
       <div ref={containerRef} className="w-full h-[60dvh]" />
       {/* Transparent shield: absorbs single-finger touch for page scroll,
           hides on two-finger for OSD pinch-zoom, forwards taps for route selection */}
