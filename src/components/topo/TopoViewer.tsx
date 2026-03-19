@@ -263,44 +263,52 @@ export function TopoViewer({
     updateOverlay()
   }, [updateOverlay])
 
-  // Touch shield: transparent overlay that blocks OSD from stealing scroll.
-  // Single finger → page scrolls. Two fingers → OSD pinch-zoom. Tap → route select.
+  // Shield: always on top, OSD never receives touch events directly.
+  // Shield handles: scroll (native pan-y), taps (hit-test), pinch-zoom (programmatic OSD zoom).
   const shieldRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const shield = shieldRef.current
     if (!shield || !ready) return
 
-    let activeTouches = 0
-    let isTap = true
-    let tapTimer: ReturnType<typeof setTimeout> | null = null
+    // Disable OSD touch completely
+    const canvas = containerRef.current?.querySelector('.openseadragon-canvas') as HTMLElement
+    if (canvas) canvas.style.pointerEvents = 'none'
 
-    const hideShield = () => { shield.style.pointerEvents = 'none' }
-    const showShield = () => { shield.style.pointerEvents = 'auto' }
+    let isTap = true
+    let pinchStartDist = 0
+    let pinchStartZoom = 0
+
+    const dist = (t: TouchList) =>
+      Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
 
     const onTouchStart = (e: TouchEvent) => {
-      activeTouches = e.touches.length
-      if (activeTouches >= 2) {
-        // Two+ fingers: immediately hide shield so OSD gets pinch-zoom
-        hideShield()
+      if (e.touches.length >= 2 && viewerRef.current) {
+        // Start pinch-zoom
+        e.preventDefault()
+        pinchStartDist = dist(e.touches)
+        pinchStartZoom = viewerRef.current.viewport.getZoom()
       } else {
         isTap = true
       }
     }
 
-    const onTouchMove = () => {
+    const onTouchMove = (e: TouchEvent) => {
       isTap = false
+      if (e.touches.length >= 2 && viewerRef.current && pinchStartDist > 0) {
+        // Pinch-zoom: compute scale ratio and apply to OSD
+        e.preventDefault()
+        const curDist = dist(e.touches)
+        const scale = curDist / pinchStartDist
+        viewerRef.current.viewport.zoomTo(pinchStartZoom * scale)
+      }
     }
 
     const onTouchEnd = (e: TouchEvent) => {
-      activeTouches = e.touches.length
-      if (activeTouches === 0) {
-        // All fingers lifted — restore shield after a tiny delay
-        // (allows OSD pinch-zoom animation to finish)
-        if (tapTimer) clearTimeout(tapTimer)
-        tapTimer = setTimeout(showShield, 300)
+      if (e.touches.length === 0) {
+        pinchStartDist = 0
 
-        // Handle tap directly: convert screen coords to image coords, hit-test routes
+        // Tap → hit-test route selection
         if (isTap && viewerRef.current) {
           const touch = e.changedTouches[0]
           const viewer = viewerRef.current
@@ -350,15 +358,16 @@ export function TopoViewer({
       }
     }
 
-    shield.addEventListener('touchstart', onTouchStart, { passive: true })
-    shield.addEventListener('touchmove', onTouchMove, { passive: true })
+    // passive: false for touchstart/touchmove so we can preventDefault on pinch
+    shield.addEventListener('touchstart', onTouchStart, { passive: false })
+    shield.addEventListener('touchmove', onTouchMove, { passive: false })
     shield.addEventListener('touchend', onTouchEnd, { passive: true })
 
     return () => {
       shield.removeEventListener('touchstart', onTouchStart)
       shield.removeEventListener('touchmove', onTouchMove)
       shield.removeEventListener('touchend', onTouchEnd)
-      if (tapTimer) clearTimeout(tapTimer)
+      if (canvas) canvas.style.pointerEvents = ''
     }
   }, [ready])
 
