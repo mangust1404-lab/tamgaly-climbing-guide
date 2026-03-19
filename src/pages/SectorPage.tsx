@@ -438,11 +438,11 @@ export function SectorPage() {
                       ) : null}
                     </div>
                     {climbedRouteIds?.has(route.id) ? (
-                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-400 text-[10px] flex items-center justify-center flex-shrink-0" title={t('route.climbed')}>✓</span>
+                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 text-[10px] flex items-center justify-center flex-shrink-0" title={t('route.climbed')}>✓</span>
                     ) : (
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAscentRoute(route) }}
-                        className="w-7 h-7 rounded-full bg-green-100 text-green-700 text-sm font-bold flex items-center justify-center flex-shrink-0"
+                        className="w-7 h-7 rounded-full bg-blue-50 text-blue-500 text-sm font-bold flex items-center justify-center flex-shrink-0"
                         title={t('route.logAscent')}
                       >+</button>
                     )}

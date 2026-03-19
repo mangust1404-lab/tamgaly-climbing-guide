@@ -263,9 +263,30 @@ export function TopoViewer({
     updateOverlay()
   }, [updateOverlay])
 
+  // Force browser to handle single-finger vertical scroll over the OSD canvas
+  useEffect(() => {
+    if (!containerRef.current || !ready) return
+    const canvas = containerRef.current.querySelector('.openseadragon-canvas') as HTMLElement
+    if (!canvas) return
+    // CSS touch-action tells browser to own vertical scroll
+    canvas.style.touchAction = 'pan-y pinch-zoom'
+
+    // Block OSD's touchmove handler for single-finger drags (so page scrolls)
+    const blockSingleDrag = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        // Let browser handle single-finger → page scroll
+        // Don't call preventDefault — allow native scroll
+        e.stopPropagation()
+      }
+    }
+    // Use capture phase to run before OSD's handlers
+    canvas.addEventListener('touchmove', blockSingleDrag, { capture: true })
+    return () => canvas.removeEventListener('touchmove', blockSingleDrag, { capture: true })
+  }, [ready])
+
   return (
     <div className="relative bg-gray-900 rounded-lg overflow-hidden">
-      <div ref={containerRef} className="w-full h-[60dvh]" />
+      <div ref={containerRef} className="w-full h-[60dvh]" style={{ touchAction: 'pan-y' }} />
       {!ready && (
         <div className="absolute inset-0 flex items-center justify-center text-white text-sm">
           {t('topo.loading')}
