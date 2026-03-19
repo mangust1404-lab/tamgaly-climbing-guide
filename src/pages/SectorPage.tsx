@@ -61,7 +61,9 @@ export function SectorPage() {
   const routes = useLiveQuery(
     () =>
       sectorId
-        ? db.routes.where('sectorId').equals(sectorId).sortBy('numberInSector')
+        ? db.routes.where('sectorId').equals(sectorId).toArray().then(arr =>
+            arr.sort((a, b) => (a.numberInSector ?? 999) - (b.numberInSector ?? 999))
+          )
         : [],
     [sectorId],
   )

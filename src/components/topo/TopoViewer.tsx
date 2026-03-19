@@ -1,3 +1,25 @@
+/**
+ * TopoViewer — OpenSeadragon-based topo photo viewer with route overlay.
+ *
+ * SCROLL/TOUCH ARCHITECTURE (do not change without testing on mobile!):
+ * OSD aggressively captures pointer events (setPointerCapture + preventDefault),
+ * which blocks native page scrolling. Many approaches were tried and failed:
+ *   - touch-action: pan-y on canvas (OSD overrides via setPointerCapture)
+ *   - stopPropagation on pointermove (OSD still steals scroll)
+ *   - releasePointerCapture / gotpointercapture (unreliable timing)
+ *   - monkey-patching setPointerCapture (scroll works but photo still slides)
+ *
+ * WORKING SOLUTION: "Dead canvas + shield" pattern:
+ *   1. OSD canvas has pointer-events: none — receives NO touch input at all
+ *   2. A transparent shield div sits on top with touch-action: pan-y pinch-zoom
+ *   3. Shield handles ALL interaction:
+ *      - Single finger drag → native page scroll (browser handles it)
+ *      - Pinch (2 fingers) → JS computes distance ratio → viewer.viewport.zoomTo()
+ *      - Tap → converts screen coords to image coords via OSD viewport API,
+ *        then hit-tests against route start/anchor points and SVG paths
+ *   4. Container uses overflow: clip (NOT overflow: hidden — hidden creates
+ *      a scroll container which breaks touch-action: pan-y)
+ */
 import { useRef, useEffect, useState, useCallback } from 'react'
 import OpenSeadragon from 'openseadragon'
 import type { TopoRoute, Route } from '../../lib/db/schema'
