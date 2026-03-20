@@ -20,24 +20,16 @@ deploy_frontend() {
   MSYS_NO_PATHCONV=1 VITE_BASE=/ npx vite build
   cp dist/index.html dist/404.html
 
-  # CRITICAL: copy topo-data.json into dist/data/
-  mkdir -p dist/data
-  if [ -f data/topo-data.json ]; then
-    cp data/topo-data.json dist/data/topo-data.json
-    echo "  topo-data.json copied to dist/data/ ($(du -h data/topo-data.json | cut -f1))"
-  else
-    err "data/topo-data.json not found! Cannot deploy without it."
-  fi
-
   log "Deploying frontend to VPS"
-  # Only remove hashed assets, never touch data/ or icons/
+  # Only remove hashed assets, never touch data/ or topo-images/
   ssh "$HOST" "rm -rf /var/www/tamgaly/assets/*"
-  scp -r dist/* "$HOST:/var/www/tamgaly/"
+  # Deploy everything EXCEPT data/ (server manages topo-data.json via admin endpoint)
+  scp -r dist/assets dist/icons dist/*.html dist/*.js dist/*.svg dist/*.webmanifest "$HOST:/var/www/tamgaly/"
 
   # Verify critical files exist on VPS
   log "Verifying deployment"
   ssh "$HOST" bash <<'VERIFY'
-    files=("/var/www/tamgaly/index.html" "/var/www/tamgaly/sw.js" "/var/www/tamgaly/data/topo-data.json" "/var/www/tamgaly/manifest.webmanifest")
+    files=("/var/www/tamgaly/index.html" "/var/www/tamgaly/sw.js" "/var/www/tamgaly/manifest.webmanifest" "/var/www/tamgaly/data/topo-data.json")
     for f in "${files[@]}"; do
       if [ ! -f "$f" ]; then
         echo "MISSING: $f"
@@ -66,6 +58,7 @@ deploy_server() {
       -p 3001:3001 \
       -v tamgaly-data:/app/server/data \
       -v /var/www/tamgaly/data:/var/www/tamgaly/data \
+      -v /var/www/tamgaly/topo-images:/var/www/tamgaly/topo-images \
       -e PORT=3001 \
       tamgaly-api
     echo "Container status:"

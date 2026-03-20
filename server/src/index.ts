@@ -2,8 +2,9 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { bodyLimit } from 'hono/body-limit'
 import { serve } from '@hono/node-server'
-import { writeFileSync, readFileSync, existsSync } from 'fs'
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import { createHash } from 'crypto'
 import { areasRouter } from './routes/areas'
 import { sectorsRouter } from './routes/sectors'
 import { routesRouter } from './routes/routes'
@@ -38,6 +39,25 @@ app.get('/api/topo-data', (c) => {
   return c.body(data)
 })
 
+/**
+ * Extract base64 data URIs into separate image files on disk.
+ * Returns the URL path to use in JSON instead of the base64 string.
+ */
+function extractBase64Image(dataUri: string, prefix: string, imgDir: string, webPath: string): string {
+  if (!dataUri.startsWith('data:image/')) return dataUri // already a URL path
+  const match = dataUri.match(/^data:image\/(jpeg|png|webp);base64,(.+)$/)
+  if (!match) return dataUri
+  const ext = match[1] === 'jpeg' ? 'jpg' : match[1]
+  const buf = Buffer.from(match[2], 'base64')
+  const hash = createHash('md5').update(buf).digest('hex').slice(0, 10)
+  const filename = `${prefix}-${hash}.${ext}`
+  const filePath = join(imgDir, filename)
+  if (!existsSync(filePath)) {
+    writeFileSync(filePath, buf)
+  }
+  return `${webPath}${filename}`
+}
+
 // Save topo-data.json from admin editor
 app.post('/api/save-topo-data', async (c) => {
   console.log('POST /api/save-topo-data received, content-length:', c.req.header('content-length'))
@@ -66,6 +86,37 @@ app.post('/api/save-topo-data', async (c) => {
         console.log(`Merged server route data into ${body.routes.length} routes`)
       }
     } catch (e) { console.error('Route merge failed:', e) }
+
+    // Extract base64 images into separate files
+    const nginxImgDir = '/var/www/tamgaly/topo-images'
+    const dockerImgDir = join(process.cwd(), 'server', 'data', 'topo-images')
+    // Use nginx dir if writable, else docker volume
+    let imgDir = dockerImgDir
+    try { mkdirSync(nginxImgDir, { recursive: true }); imgDir = nginxImgDir } catch {}
+    if (imgDir === dockerImgDir) mkdirSync(dockerImgDir, { recursive: true })
+    const webPath = '/topo-images/'
+
+    let extractedCount = 0
+    if (body.topos) {
+      for (const topo of body.topos) {
+        if (topo.imageUrl && topo.imageUrl.startsWith('data:image/')) {
+          const topoId = topo.id || 'topo'
+          topo.imageUrl = extractBase64Image(topo.imageUrl, topoId, imgDir, webPath)
+          extractedCount++
+        }
+      }
+    }
+    if (body.sectorCovers) {
+      for (const [sectorId, coverUrl] of Object.entries(body.sectorCovers)) {
+        if (typeof coverUrl === 'string' && coverUrl.startsWith('data:image/')) {
+          body.sectorCovers[sectorId] = extractBase64Image(coverUrl, `cover-${sectorId}`, imgDir, webPath)
+          extractedCount++
+        }
+      }
+    }
+    if (extractedCount > 0) {
+      console.log(`Extracted ${extractedCount} base64 images to ${imgDir}`)
+    }
 
     const json = JSON.stringify(body, null, 0)
     // Save to Docker persistent volume

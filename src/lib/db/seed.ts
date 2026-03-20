@@ -547,7 +547,7 @@ export async function loadTopoDataFromFile() {
       }
     }
 
-    emitLoadProgress(10, 'Загрузка данных (~15 МБ)...')
+    emitLoadProgress(10, 'Загрузка данных...')
     const resp = await fetch(`${base}data/topo-data.json?v=${Date.now()}`, { cache: 'no-store' })
     if (!resp.ok) {
       console.warn('topo-data.json not found, skipping')
