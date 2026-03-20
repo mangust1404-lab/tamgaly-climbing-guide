@@ -569,7 +569,7 @@ export async function loadTopoDataFromFile() {
       sectorCovers?: Record<string, string>
     }
 
-    if (!data.topos?.length && !data.topoRoutes?.length) {
+    if (!data.sectors?.length && !data.routes?.length && !data.topos?.length && !data.topoRoutes?.length) {
       emitLoadProgress(100, '')
       return
     }

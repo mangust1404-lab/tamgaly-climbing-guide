@@ -55,29 +55,32 @@ export async function downloadArea(
         const area = toCamel(bundle.area)
         await db.areas.put(area as any)
 
-        // Sectors
-        for (const row of bundle.sectors) {
-          await db.sectors.put(toCamel(row) as any)
+        // Clear+bulkAdd ensures deletions propagate
+        if (bundle.sectors.length > 0) {
+          await db.sectors.clear()
+          await db.sectors.bulkAdd(bundle.sectors.map(r => toCamel(r)) as any[])
         }
 
-        // Routes
-        for (const row of bundle.routes) {
-          const route = toCamel(row) as any
-          // Parse tags JSON string if present
-          if (typeof route.tags === 'string') {
-            try { route.tags = JSON.parse(route.tags) } catch { /* keep as string */ }
-          }
-          await db.routes.put(route)
+        if (bundle.routes.length > 0) {
+          const routes = bundle.routes.map(row => {
+            const route = toCamel(row) as any
+            if (typeof route.tags === 'string') {
+              try { route.tags = JSON.parse(route.tags) } catch { /* keep as string */ }
+            }
+            return route
+          })
+          await db.routes.clear()
+          await db.routes.bulkAdd(routes as any[])
         }
 
-        // Topos
-        for (const row of bundle.topos) {
-          await db.topos.put(toCamel(row) as any)
+        if (bundle.topos.length > 0) {
+          await db.topos.clear()
+          await db.topos.bulkAdd(bundle.topos.map(r => toCamel(r)) as any[])
         }
 
-        // TopoRoutes
-        for (const row of bundle.topoRoutes) {
-          await db.topoRoutes.put(toCamel(row) as any)
+        if (bundle.topoRoutes.length > 0) {
+          await db.topoRoutes.clear()
+          await db.topoRoutes.bulkAdd(bundle.topoRoutes.map(r => toCamel(r)) as any[])
         }
 
         // Save download version timestamp
@@ -136,21 +139,25 @@ export async function refreshTopoData(
 
     onProgress({ stage: 'saving', message: 'Сохранение...', percent: 50 })
 
-    // Load routes and sectors first (grades, names, new routes)
-    if (data.routes && data.routes.length > 0) {
-      await db.routes.bulkPut(data.routes as any[])
-    }
-    if (data.sectors && data.sectors.length > 0) {
-      await db.sectors.bulkPut(data.sectors as any[])
-    }
-    if (data.topos && data.topos.length > 0) {
-      await db.topos.clear()
-      await db.topos.bulkPut(data.topos as any[])
-    }
-    if (data.topoRoutes && data.topoRoutes.length > 0) {
-      await db.topoRoutes.clear()
-      await db.topoRoutes.bulkPut(data.topoRoutes as any[])
-    }
+    // Replace all data — clear+bulkAdd ensures deletions propagate
+    await db.transaction('rw', [db.sectors, db.routes, db.topos, db.topoRoutes], async () => {
+      if (data.sectors && data.sectors.length > 0) {
+        await db.sectors.clear()
+        await db.sectors.bulkAdd(data.sectors as any[])
+      }
+      if (data.routes && data.routes.length > 0) {
+        await db.routes.clear()
+        await db.routes.bulkAdd(data.routes as any[])
+      }
+      if (data.topos && data.topos.length > 0) {
+        await db.topos.clear()
+        await db.topos.bulkAdd(data.topos as any[])
+      }
+      if (data.topoRoutes && data.topoRoutes.length > 0) {
+        await db.topoRoutes.clear()
+        await db.topoRoutes.bulkAdd(data.topoRoutes as any[])
+      }
+    })
     if (data.sectorCovers) {
       for (const [sectorId, coverUrl] of Object.entries(data.sectorCovers)) {
         await db.sectors.update(sectorId, { coverImageUrl: coverUrl })
