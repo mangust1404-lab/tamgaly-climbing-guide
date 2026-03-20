@@ -68,34 +68,76 @@ export function HomePage() {
     })
   }
 
-  // Search results (text search)
+  // Build sector map and sun category map for reuse
+  const sectorMap = useMemo(() => {
+    if (!sectors) return new Map<string, typeof sectors[0]>()
+    return new Map(sectors.map(s => [s.id, s]))
+  }, [sectors])
+
+  const sectorSunMap = useMemo(() => {
+    const m = new Map<string, SunFilter | null>()
+    sectors?.forEach(s => m.set(s.id, sunCategory(s.sunExposure, s.sunFrom, s.sunTo)))
+    return m
+  }, [sectors])
+
+  // Search results (text search only, no other filters)
   const searchResults = useMemo(() => {
     if (!search.trim() || !routes || !sectors) return []
     const q = search.toLowerCase()
-    const sectorMap = new Map(sectors.map(s => [s.id, s.name]))
     return routes
       .filter(r => r.name.toLowerCase().includes(q) || r.grade.toLowerCase().includes(q))
       .slice(0, 15)
-      .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId) ?? '' }))
-  }, [search, routes, sectors])
+      .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId)?.name ?? '' }))
+  }, [search, routes, sectors, sectorMap])
 
-  // Grade filter results (when grade chips are selected)
-  const gradeResults = useMemo(() => {
-    if (selectedGrades.size === 0 || !routes || !sectors) return []
-    const sectorMap = new Map(sectors.map(s => [s.id, s.name]))
-    // Build a set of matching gradeSort values from selected grades
+  // Combined filter: grade + rope + sun — all applied to routes with AND logic
+  const hasActiveFilters = selectedGrades.size > 0 || sunFilter !== null || maxRopeLength !== null
+
+  const filteredRoutes = useMemo(() => {
+    if (!hasActiveFilters || !routes || !sectors) return []
+
+    // Build grade filter set
     const matchSorts = new Set<number>()
     for (const g of selectedGrades) {
       const sort = GRADE_SORT[g]
       if (sort) matchSorts.add(sort)
     }
-    return routes
-      .filter(r => matchSorts.has(r.gradeSort))
-      .sort((a, b) => a.gradeSort - b.gradeSort)
-      .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId) ?? '' }))
-  }, [selectedGrades, routes, sectors])
 
-  // Count routes per sector
+    // Sun filter: determine which sector IDs pass
+    let sunPassSectors: Set<string> | null = null
+    if (sunFilter) {
+      sunPassSectors = new Set<string>()
+      for (const s of sectors) {
+        const cat = sectorSunMap.get(s.id)
+        if (cat === null) { sunPassSectors.add(s.id); continue } // mixed sectors always pass
+        if (sunMode === 'sun') {
+          if (cat === sunFilter) sunPassSectors.add(s.id)
+        } else {
+          if (sunFilter === 'allday') continue // no full-shade sectors
+          if (cat === 'allday') continue // sun all day = no shade
+          if (cat !== sunFilter) sunPassSectors.add(s.id)
+        }
+      }
+    }
+
+    return routes
+      .filter(r => {
+        // Grade filter
+        if (matchSorts.size > 0 && !matchSorts.has(r.gradeSort)) return false
+        // Rope length filter
+        if (maxRopeLength) {
+          const needed = r.ropeLength ?? (r.lengthM ? r.lengthM * 2 : null)
+          if (needed != null && needed > maxRopeLength) return false
+        }
+        // Sun filter (sector-level)
+        if (sunPassSectors && !sunPassSectors.has(r.sectorId)) return false
+        return true
+      })
+      .sort((a, b) => a.gradeSort - b.gradeSort)
+      .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId)?.name ?? '' }))
+  }, [hasActiveFilters, selectedGrades, maxRopeLength, sunFilter, sunMode, routes, sectors, sectorMap, sectorSunMap])
+
+  // Count routes per sector (for sector list display)
   const routeCounts = new Map<string, number>()
   routes?.forEach((r) => {
     routeCounts.set(r.sectorId, (routeCounts.get(r.sectorId) || 0) + 1)
@@ -118,42 +160,6 @@ export function HomePage() {
       gradeRanges.set(sid, minG === maxG ? minG : `${minG}—${maxG}`)
     }
   }
-
-  // Filter sectors by sun exposure and max rope length
-  const filteredSectors = useMemo(() => {
-    if (!sectors) return []
-    let result = sectors
-    if (sunFilter) {
-      result = result.filter(s => {
-        const cat = sunCategory(s.sunExposure, s.sunFrom, s.sunTo)
-        if (cat === null) return true // mixed sectors (Zamanka) always shown
-        if (sunMode === 'sun') return cat === sunFilter
-        // shade mode: show sectors that DON'T have sun at the requested time
-        if (sunFilter === 'allday') {
-          // "shade all day" = no sector has full shade (all get some sun)
-          return false
-        }
-        if (cat === 'allday') return false // sun all day = no shade ever
-        // morning shade → show afternoon-sun sectors; afternoon shade → show morning-sun sectors
-        return cat !== sunFilter
-      })
-    }
-    if (maxRopeLength && routes) {
-      // Show sectors that have at least one route fitting the rope length
-      // Use ropeLength if available, otherwise estimate from route height (need 2x for lowering)
-      const sectorIdsWithFittingRoutes = new Set<string>()
-      for (const r of routes) {
-        const needed = r.ropeLength ?? (r.lengthM ? r.lengthM * 2 : null)
-        if (needed == null || needed <= maxRopeLength) {
-          sectorIdsWithFittingRoutes.add(r.sectorId)
-        }
-      }
-      result = result.filter(s => sectorIdsWithFittingRoutes.has(s.id))
-    }
-    return result
-  }, [sectors, routes, sunFilter, sunMode, maxRopeLength])
-
-  const hasActiveFilters = sunFilter !== null || maxRopeLength !== null
 
   const handleRefresh = useCallback(async () => {
     try {
@@ -201,16 +207,12 @@ export function HomePage() {
     setInstallPrompt(null)
   }
 
-  const showGradeResults = selectedGrades.size > 0 && !search.trim()
-  const resultsToShow = search.trim() ? searchResults : gradeResults
-
   return (
     <div className="p-4">
       <div className="flex items-baseline justify-between mb-1">
         <h1 className="text-2xl font-bold">{t('home.title')}</h1>
         <Link to="/about" className="text-blue-600 text-xs">{t('home.aboutArea')}</Link>
       </div>
-      {/* subtitle removed — info is on About page */}
 
       {topoLoadProgress && (
         <div className="mb-4 bg-blue-50 rounded-lg p-3">
@@ -279,7 +281,7 @@ export function HomePage() {
       </div>
 
       {/* Grade filter chips */}
-      <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-3 -mx-1 px-1">
+      <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-2 -mx-1 px-1">
         {GRADE_CHIPS.map((g) => (
           <button
             key={g}
@@ -295,42 +297,8 @@ export function HomePage() {
         ))}
       </div>
 
-      {/* Search / grade filter results */}
-      {resultsToShow.length > 0 && (search.trim() || showGradeResults) && (
-        <div className="mb-4">
-          <h2 className="text-sm font-semibold text-gray-500 mb-2">
-            {search.trim() ? t('home.searchResults') : `${t('home.gradeFilterResults')} (${resultsToShow.length})`}
-          </h2>
-          <div className="space-y-1">
-            {resultsToShow.map((r) => (
-              <Link
-                key={r.id}
-                to={`/route/${r.id}`}
-                className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-2.5 hover:border-blue-300 transition-colors"
-              >
-                <span className={`w-11 text-center text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(r.grade)}`}>
-                  {r.grade}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{td(r.name)}</div>
-                  <div className="text-xs text-gray-400">{r.sectorName}</div>
-                </div>
-                {climbedRouteIds?.has(r.id) && (
-                  <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 text-[10px] flex items-center justify-center flex-shrink-0">✓</span>
-                )}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {showGradeResults && resultsToShow.length === 0 && (
-        <p className="text-gray-400 text-sm mb-4">{t('home.noRoutesInRange')}</p>
-      )}
-
-      {/* Sector filters: 3 rows — sun, rope, clear */}
-      <div className="space-y-1.5 mb-2">
-        {/* Row 1: Sun/shade segmented toggle + time filter */}
+      {/* Sun/shade + rope filters */}
+      <div className="space-y-1.5 mb-3">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
           <div className="flex-shrink-0 flex rounded-full border border-gray-200 overflow-hidden">
             <button
@@ -348,7 +316,6 @@ export function HomePage() {
                 sunMode === 'shade' ? 'bg-gray-700 text-white' : 'bg-white text-gray-400'
               }`}
             >
-              ⛅
               {t('home.filterShade')}
             </button>
           </div>
@@ -366,7 +333,6 @@ export function HomePage() {
             </button>
           ))}
         </div>
-        {/* Row 2: Rope length filter */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
           <img src="/icons/rope.png" alt="" className="h-4 w-auto flex-shrink-0" />
           {[40, 50, 60, 80].map(len => (
@@ -377,78 +343,131 @@ export function HomePage() {
                 maxRopeLength === len ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              ≤{len}{t('route.meters')}
+              {'\u2264'}{len}{t('route.meters')}
             </button>
           ))}
           {hasActiveFilters && (
             <button
-              onClick={() => { setSunFilter(null); setMaxRopeLength(null) }}
+              onClick={() => { setSelectedGrades(new Set()); setSunFilter(null); setMaxRopeLength(null) }}
               className="px-2 py-1 rounded-full text-xs text-red-500 hover:bg-red-50 whitespace-nowrap"
             >
-              ✕ {t('home.clearFilters')}
+              {'\u2715'} {t('home.clearFilters')}
             </button>
           )}
         </div>
       </div>
 
-      <h2 className="text-lg font-semibold mb-3">{t('home.sectors')}</h2>
-
-      {!sectors || sectors.length === 0 ? (
-        <p className="text-gray-400 text-sm">{t('home.noData')}</p>
-      ) : filteredSectors.length === 0 ? (
-        <p className="text-gray-400 text-sm">{t('home.noSectorsMatch')}</p>
-      ) : (
-        <div className="space-y-2">
-          {filteredSectors.map((sector) => (
-            <Link
-              key={sector.id}
-              to={`/sector/${sector.id}`}
-              className="flex gap-3 bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors"
-            >
-              {sector.coverImageUrl && (
-                <img
-                  src={sector.coverImageUrl}
-                  alt={sector.name}
-                  className="w-16 h-16 rounded object-cover flex-shrink-0"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium truncate">{td(sector.name)}</span>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {gradeRanges.get(sector.id) && (
-                      <span className="text-xs font-mono text-blue-600 bg-blue-50 rounded px-1.5 py-0.5">
-                        {gradeRanges.get(sector.id)}
-                      </span>
-                    )}
-                    {routeCounts.get(sector.id) && (
-                      <span className="text-xs text-gray-400">
-                        {routeCounts.get(sector.id)} {t('home.routesShort')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {(sector.orientation || sector.sunExposure || sector.sunFrom || sector.approachTimeMin) && (
-                  <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                    {(sector.sunFrom || sector.sunExposure) && (
-                      <span className="inline-flex items-center gap-0.5" title={sector.sunExposure ? td(sector.sunExposure) : ''}>
-                        <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
-                        <span>{sector.sunFrom && sector.sunTo ? `${sector.sunFrom}:00–${sector.sunTo}:00` : sunHours(sector.sunExposure)}</span>
-                      </span>
-                    )}
-                    {sector.approachTimeMin && (
-                      <span className="inline-flex items-center gap-0.5">
-                        <img src="/icons/walking.png" alt="" className="h-3.5 w-3.5 inline opacity-60" />
-                        <span>{sector.approachTimeMin} {t('sector.min')}</span>
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </Link>
-          ))}
+      {/* Search results (text search) */}
+      {search.trim() && searchResults.length > 0 && (
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-gray-500 mb-2">{t('home.searchResults')}</h2>
+          <RouteList routes={searchResults} climbedIds={climbedRouteIds} td={td} />
         </div>
       )}
+
+      {/* Filtered routes (when any filter is active and not searching) */}
+      {!search.trim() && hasActiveFilters && (
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold text-gray-500 mb-2">
+            {t('home.gradeFilterResults')} ({filteredRoutes.length})
+          </h2>
+          {filteredRoutes.length > 0 ? (
+            <RouteList routes={filteredRoutes} climbedIds={climbedRouteIds} td={td} />
+          ) : (
+            <p className="text-gray-400 text-sm">{t('home.noRoutesInRange')}</p>
+          )}
+        </div>
+      )}
+
+      {/* Sector list (when no filters and no search) */}
+      {!search.trim() && !hasActiveFilters && (
+        <>
+          <h2 className="text-lg font-semibold mb-3">{t('home.sectors')}</h2>
+          {!sectors || sectors.length === 0 ? (
+            <p className="text-gray-400 text-sm">{t('home.noData')}</p>
+          ) : (
+            <div className="space-y-2">
+              {sectors.map((sector) => (
+                <Link
+                  key={sector.id}
+                  to={`/sector/${sector.id}`}
+                  className="flex gap-3 bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-300 transition-colors"
+                >
+                  {sector.coverImageUrl && (
+                    <img
+                      src={sector.coverImageUrl}
+                      alt={sector.name}
+                      className="w-16 h-16 rounded object-cover flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium truncate">{td(sector.name)}</span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {gradeRanges.get(sector.id) && (
+                          <span className="text-xs font-mono text-blue-600 bg-blue-50 rounded px-1.5 py-0.5">
+                            {gradeRanges.get(sector.id)}
+                          </span>
+                        )}
+                        {routeCounts.get(sector.id) && (
+                          <span className="text-xs text-gray-400">
+                            {routeCounts.get(sector.id)} {t('home.routesShort')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {(sector.orientation || sector.sunExposure || sector.sunFrom || sector.approachTimeMin) && (
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                        {(sector.sunFrom || sector.sunExposure) && (
+                          <span className="inline-flex items-center gap-0.5" title={sector.sunExposure ? td(sector.sunExposure) : ''}>
+                            <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+                            <span>{sector.sunFrom && sector.sunTo ? `${sector.sunFrom}:00–${sector.sunTo}:00` : sunHours(sector.sunExposure)}</span>
+                          </span>
+                        )}
+                        {sector.approachTimeMin && (
+                          <span className="inline-flex items-center gap-0.5">
+                            <img src="/icons/walking.png" alt="" className="h-3.5 w-3.5 inline opacity-60" />
+                            <span>{sector.approachTimeMin} {t('sector.min')}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function RouteList({ routes, climbedIds, td }: {
+  routes: Array<{ id: string; grade: string; name: string; sectorName: string }>
+  climbedIds?: Set<string>
+  td: (s: string) => string
+}) {
+  return (
+    <div className="space-y-1">
+      {routes.map((r) => (
+        <Link
+          key={r.id}
+          to={`/route/${r.id}`}
+          className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-2.5 hover:border-blue-300 transition-colors"
+        >
+          <span className={`w-11 text-center text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(r.grade)}`}>
+            {r.grade}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">{td(r.name)}</div>
+            <div className="text-xs text-gray-400">{r.sectorName}</div>
+          </div>
+          {climbedIds?.has(r.id) && (
+            <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 text-[10px] flex items-center justify-center flex-shrink-0">✓</span>
+          )}
+        </Link>
+      ))}
     </div>
   )
 }
