@@ -226,7 +226,7 @@ export function SectorPage() {
         <h1 className="text-xl font-bold">{td(sector.name)}</h1>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-400">
           {(sector.sunFrom || sector.sunExposure) && (
-            <span className="inline-flex items-center gap-0.5" title={sector.sunExposure ? td(sector.sunExposure) : ''}>
+            <span className="inline-flex items-center gap-0.5" title={sector.sunExposure ? td(sector.sunExposure, sector, 'sunExposure') : ''}>
               <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
               {sector.sunFrom && sector.sunTo
                 ? `${sector.sunFrom}:00–${sector.sunTo}:00`
@@ -244,7 +244,7 @@ export function SectorPage() {
               {sector.approachTimeMin} {t('sector.min')}
             </span>
           )}
-          {sector.description && <span>· {td(sector.description)}</span>}
+          {sector.description && <span>· {td(sector.description, sector, 'description')}</span>}
         </div>
       </div>
 
@@ -253,7 +253,7 @@ export function SectorPage() {
         <div className="px-4 pt-2 pb-1">
           <h2 className="text-sm font-semibold mb-1">{t('sector.approach')}</h2>
           {sector.approachDescription && (
-            <p className="text-xs text-gray-500 mb-2">{td(sector.approachDescription)}</p>
+            <p className="text-xs text-gray-500 mb-2">{td(sector.approachDescription, sector, 'approachDescription')}</p>
           )}
           <div className="space-y-2">
             {approachPhotos.map((photo) => (

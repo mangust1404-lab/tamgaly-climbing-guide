@@ -124,10 +124,11 @@ export function HomePage() {
       .filter(r => {
         // Grade filter
         if (matchSorts.size > 0 && !matchSorts.has(r.gradeSort)) return false
-        // Rope length filter
+        // Rope length filter — unknown length routes excluded from short rope filters (safety)
         if (maxRopeLength) {
           const needed = r.ropeLength ?? (r.lengthM ? r.lengthM * 2 : null)
-          if (needed != null && needed > maxRopeLength) return false
+          if (needed == null) { if (maxRopeLength <= 50) return false }
+          else if (needed > maxRopeLength) return false
         }
         // Sun filter (sector-level)
         if (sunPassSectors && !sunPassSectors.has(r.sectorId)) return false
@@ -419,7 +420,7 @@ export function HomePage() {
                     {(sector.orientation || sector.sunExposure || sector.sunFrom || sector.approachTimeMin) && (
                       <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                         {(sector.sunFrom || sector.sunExposure) && (
-                          <span className="inline-flex items-center gap-0.5" title={sector.sunExposure ? td(sector.sunExposure) : ''}>
+                          <span className="inline-flex items-center gap-0.5" title={sector.sunExposure ? td(sector.sunExposure, sector, 'sunExposure') : ''}>
                             <img src="/icons/sun.svg" alt="" className="h-3.5 w-3.5 inline opacity-60" />
                             <span>{sector.sunFrom && sector.sunTo ? `${sector.sunFrom}:00–${sector.sunTo}:00` : sunHours(sector.sunExposure)}</span>
                           </span>
@@ -446,7 +447,7 @@ export function HomePage() {
 function RouteList({ routes, climbedIds, td }: {
   routes: Array<{ id: string; grade: string; name: string; sectorName: string }>
   climbedIds?: Set<string>
-  td: (s: string) => string
+  td: (s: string, obj?: Record<string, any>, field?: string) => string
 }) {
   return (
     <div className="space-y-1">

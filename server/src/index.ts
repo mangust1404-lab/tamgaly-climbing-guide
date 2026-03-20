@@ -40,6 +40,54 @@ app.get('/api/topo-data', (c) => {
 })
 
 /**
+ * Auto-translate text from Russian to target language using Google Translate.
+ * Returns original text if translation fails.
+ */
+async function autoTranslate(text: string, targetLang: string): Promise<string> {
+  if (!text || text.length < 3) return text
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`
+    const resp = await fetch(url)
+    if (!resp.ok) return text
+    const data = await resp.json() as any[][]
+    // Response format: [[["translated text","source text",...],...],...
+    return data[0].map((seg: any[]) => seg[0]).join('')
+  } catch {
+    return text
+  }
+}
+
+/**
+ * Auto-translate sector and route descriptions/names to en/kk.
+ * Only translates fields that are missing or whose source text changed.
+ */
+async function autoTranslateSectors(sectors: any[]): Promise<number> {
+  let count = 0
+  const fields = ['description', 'approachDescription', 'sunExposure']
+  for (const sector of sectors) {
+    for (const field of fields) {
+      const ruText = sector[field]
+      if (!ruText) continue
+      const enKey = `${field}En`
+      const kkKey = `${field}Kk`
+      const srcKey = `${field}_src` // track source text to detect changes
+      const needsTranslation = !sector[enKey] || sector[srcKey] !== ruText
+      if (needsTranslation) {
+        const [en, kk] = await Promise.all([
+          autoTranslate(ruText, 'en'),
+          autoTranslate(ruText, 'kk'),
+        ])
+        sector[enKey] = en
+        sector[kkKey] = kk
+        sector[srcKey] = ruText
+        count++
+      }
+    }
+  }
+  return count
+}
+
+/**
  * Extract base64 data URIs into separate image files on disk.
  * Returns the URL path to use in JSON instead of the base64 string.
  */
@@ -116,6 +164,14 @@ app.post('/api/save-topo-data', async (c) => {
     }
     if (extractedCount > 0) {
       console.log(`Extracted ${extractedCount} base64 images to ${imgDir}`)
+    }
+
+    // Auto-translate sector descriptions to en/kk
+    if (body.sectors?.length) {
+      try {
+        const translated = await autoTranslateSectors(body.sectors)
+        if (translated > 0) console.log(`Auto-translated ${translated} sector fields`)
+      } catch (e) { console.error('Auto-translation failed:', e) }
     }
 
     const json = JSON.stringify(body, null, 0)

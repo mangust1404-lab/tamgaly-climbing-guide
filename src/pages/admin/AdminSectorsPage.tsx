@@ -122,6 +122,22 @@ export function AdminSectorsPage() {
     setNeedsSave(true)
   }
 
+  const handleDeleteSector = async (sectorId: string, sectorName: string) => {
+    const routeCount = routeCounts.get(sectorId) || 0
+    const msg = routeCount > 0
+      ? `Удалить сектор "${sectorName}" и все ${routeCount} маршрутов?`
+      : `Удалить сектор "${sectorName}"?`
+    if (!confirm(msg)) return
+    await db.routes.where('sectorId').equals(sectorId).delete()
+    await db.topoRoutes.where('topoId').startsWithAnyOf(
+      (await db.topos.where('sectorId').equals(sectorId).toArray()).map(t => t.id)
+    ).delete()
+    await db.topos.where('sectorId').equals(sectorId).delete()
+    await db.sectors.delete(sectorId)
+    if (editingId === sectorId) setEditingId(null)
+    setNeedsSave(true)
+  }
+
   if (!sectors) return <div className="p-4 text-gray-400">Загрузка...</div>
 
   return (
@@ -190,6 +206,14 @@ export function AdminSectorsPage() {
               <>
                 <SectorEditForm sector={sector} onUpdate={handleUpdate} />
                 <SectorRoutesList sectorId={sector.id} onChanged={() => setNeedsSave(true)} />
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <button
+                    onClick={() => handleDeleteSector(sector.id, sector.name)}
+                    className="px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50"
+                  >
+                    Удалить сектор
+                  </button>
+                </div>
               </>
             )}
           </div>

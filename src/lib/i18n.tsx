@@ -500,7 +500,7 @@ interface I18nContextType {
   lang: Lang
   setLang: (lang: Lang) => void
   t: (key: TranslationKey, params?: Record<string, string | number>) => string
-  td: (text: string) => string
+  td: (text: string, obj?: Record<string, any>, field?: string) => string
 }
 
 const I18nContext = createContext<I18nContextType | null>(null)
@@ -527,8 +527,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return text
   }, [lang])
 
-  const td = useCallback((text: string): string => {
+  const td = useCallback((text: string, obj?: Record<string, any>, field?: string): string => {
     if (lang !== 'ru') {
+      // Check for auto-translated field on the object (e.g. descriptionEn, descriptionKk)
+      if (obj && field) {
+        const suffix = lang === 'en' ? 'En' : 'Kk'
+        const translated = obj[`${field}${suffix}`]
+        if (translated) return translated
+      }
       const dict = dataTranslations[lang]
       if (dict && dict[text]) return dict[text]
     }
