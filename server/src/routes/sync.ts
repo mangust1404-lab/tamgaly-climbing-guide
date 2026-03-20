@@ -53,8 +53,10 @@ syncRouter.post('/ascent', async (c) => {
     }
 
     if (!routeExists) {
-      console.log(`Unknown route_id: ${routeId}`)
-      return c.json({ error: `Unknown route: ${routeId}` }, 400)
+      // Auto-create stub route so FK constraint doesn't fail
+      console.log(`Auto-creating stub route: ${routeId}`)
+      db.prepare('INSERT OR IGNORE INTO route (id, sector_id, name, grade, grade_sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(routeId, 'unknown', 'Unknown Route', '?', 0, 'published', new Date().toISOString(), new Date().toISOString())
     }
 
     const id = crypto.randomUUID()
@@ -144,6 +146,14 @@ syncRouter.post('/review', async (c) => {
     if (!userExists) {
       db.prepare('INSERT OR IGNORE INTO app_user (id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)')
         .run(userId, 'Unknown', new Date().toISOString(), new Date().toISOString())
+    }
+
+    // Auto-create stub route if missing (admin may have created it but not synced yet)
+    const routeExists = db.prepare('SELECT id FROM route WHERE id = ?').get(payload.routeId)
+    if (!routeExists) {
+      console.log(`Auto-creating stub route for review: ${payload.routeId}`)
+      db.prepare('INSERT OR IGNORE INTO route (id, sector_id, name, grade, grade_sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(payload.routeId, 'unknown', 'Unknown Route', '?', 0, 'published', new Date().toISOString(), new Date().toISOString())
     }
 
     const id = crypto.randomUUID()

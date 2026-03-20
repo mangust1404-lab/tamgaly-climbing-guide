@@ -4,7 +4,6 @@ import { NavLink } from 'react-router-dom'
 const ADMIN_PAGES = [
   { to: '/admin/moderation', label: 'Модерация' },
   { to: '/admin/topo', label: 'Топо' },
-  { to: '/admin/photos', label: 'Фото' },
   { to: '/admin/sectors', label: 'Секторы' },
 ]
 

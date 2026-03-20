@@ -51,6 +51,8 @@ try {
   }
 
   // Routes — upsert, preserving quickdraws/rope_length/terrain_tags/hold_types
+  // Deduplicate slugs within each sector to avoid UNIQUE constraint violations
+  const seenSlugs = new Map<string, number>()
   const upsertRoute = db.prepare(`INSERT INTO route (id, sector_id, name, slug, grade, grade_system, grade_sort, length_m, pitches, route_type, number_in_sector, status, quickdraws, rope_length, terrain_tags, hold_types)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET name=excluded.name, slug=excluded.slug, grade=excluded.grade,
@@ -63,8 +65,14 @@ try {
   for (const route of data.routes || []) {
     const terrainTags = route.terrainTags ? JSON.stringify(route.terrainTags) : null
     const holdTypes = route.holdTypes ? JSON.stringify(route.holdTypes) : null
+    // Ensure unique slug per sector
+    let slug = route.slug || route.name.toLowerCase().replace(/[^a-zа-яё0-9]+/gi, '-')
+    const slugKey = `${route.sectorId}:${slug}`
+    const count = seenSlugs.get(slugKey) || 0
+    if (count > 0) slug = `${slug}-${count}`
+    seenSlugs.set(slugKey, count + 1)
     upsertRoute.run(
-      route.id, route.sectorId, route.name, route.slug,
+      route.id, route.sectorId, route.name, slug,
       route.grade, route.gradeSystem || 'french', route.gradeSort || 0,
       route.lengthM || null, route.pitches || 1, route.routeType || 'sport',
       route.numberInSector || null,
@@ -77,5 +85,5 @@ try {
 } catch (err) {
   db.exec('ROLLBACK')
   console.error('Seed failed:', err)
-  process.exit(1)
+  // Don't exit(1) — let the server start with existing data
 }

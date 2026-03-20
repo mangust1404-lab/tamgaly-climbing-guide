@@ -54,6 +54,8 @@ export function AdminSectorsPage() {
   const [needsSave, setNeedsSave] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
+  const [showNewForm, setShowNewForm] = useState(false)
+  const [newName, setNewName] = useState('')
 
   const routeCounts = new Map<string, number>()
   routes?.forEach(r => {
@@ -99,6 +101,27 @@ export function AdminSectorsPage() {
     setTimeout(() => setSaveMsg(''), 3000)
   }
 
+  const handleCreateSector = async () => {
+    if (!newName.trim()) return
+    const slug = newName.trim().toLowerCase().replace(/[^a-zа-яё0-9]+/gi, '-')
+    const id = `sector-${slug}-${Date.now()}`
+    await db.sectors.add({
+      id,
+      areaId: 'tamgaly-tas',
+      name: newName.trim(),
+      slug,
+      latitude: 44.0639,
+      longitude: 76.9959,
+      sortOrder: (sectors?.length ?? 0) + 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as any)
+    setNewName('')
+    setShowNewForm(false)
+    setEditingId(id)
+    setNeedsSave(true)
+  }
+
   if (!sectors) return <div className="p-4 text-gray-400">Загрузка...</div>
 
   return (
@@ -122,6 +145,29 @@ export function AdminSectorsPage() {
         </div>
       </div>
 
+      {/* Create new sector */}
+      {showNewForm ? (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+          <input
+            autoFocus
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCreateSector()}
+            placeholder="Название нового сектора"
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 focus:outline-none"
+          />
+          <button onClick={handleCreateSector} className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">Создать</button>
+          <button onClick={() => { setShowNewForm(false); setNewName('') }} className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm">Отмена</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowNewForm(true)}
+          className="mb-4 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors"
+        >
+          + Добавить сектор
+        </button>
+      )}
+
       <div className="space-y-3">
         {sectors.map(sector => (
           <div key={sector.id} className="bg-white border border-gray-200 rounded-lg p-3">
@@ -141,7 +187,10 @@ export function AdminSectorsPage() {
             </div>
 
             {editingId === sector.id && (
-              <SectorEditForm sector={sector} onUpdate={handleUpdate} />
+              <>
+                <SectorEditForm sector={sector} onUpdate={handleUpdate} />
+                <SectorRoutesList sectorId={sector.id} onChanged={() => setNeedsSave(true)} />
+              </>
             )}
           </div>
         ))}
@@ -248,6 +297,85 @@ function SectorEditForm({
         </div>
       </div>
       {field('Освещение (заметка)', sunExposure, setSunExposure, 'sunExposure')}
+    </div>
+  )
+}
+
+function SectorRoutesList({ sectorId, onChanged }: { sectorId: string; onChanged: () => void }) {
+  const routes = useLiveQuery(
+    () => db.routes.where('sectorId').equals(sectorId).toArray().then(arr =>
+      arr.sort((a, b) => (a.numberInSector ?? 999) - (b.numberInSector ?? 999))
+    ),
+    [sectorId],
+  )
+  const [editId, setEditId] = useState<string | null>(null)
+
+  if (!routes) return null
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <h3 className="text-xs font-semibold text-gray-500 mb-2">Маршруты ({routes.length})</h3>
+      <div className="space-y-1">
+        {routes.map(r => (
+          <div key={r.id}>
+            <div
+              className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5"
+              onClick={() => setEditId(editId === r.id ? null : r.id)}
+            >
+              <span className="text-gray-400 w-5 text-right text-xs">#{r.numberInSector ?? '?'}</span>
+              <span className="font-medium flex-1 truncate">{r.name}</span>
+              <span className="text-xs text-gray-400">{r.grade}</span>
+            </div>
+            {editId === r.id && (
+              <RouteEditRow route={r} onChanged={onChanged} />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RouteEditRow({ route, onChanged }: { route: { id: string; name: string; grade: string; numberInSector?: number }; onChanged: () => void }) {
+  const [name, setName] = useState(route.name)
+  const [grade, setGrade] = useState(route.grade)
+  const [num, setNum] = useState(route.numberInSector?.toString() || '')
+
+  const save = async (field: string, value: string | number | undefined) => {
+    await db.routes.update(route.id, { [field]: value, updatedAt: new Date().toISOString() } as any)
+    onChanged()
+  }
+
+  return (
+    <div className="ml-7 mb-2 p-2 bg-gray-50 rounded-lg grid grid-cols-[1fr_80px_50px] gap-2">
+      <div>
+        <label className="text-[10px] text-gray-400">Название</label>
+        <input
+          value={name}
+          onChange={e => setName(e.target.value)}
+          onBlur={() => save('name', name)}
+          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:border-blue-300 focus:outline-none"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] text-gray-400">Категория</label>
+        <input
+          value={grade}
+          onChange={e => setGrade(e.target.value)}
+          onBlur={() => save('grade', grade)}
+          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:border-blue-300 focus:outline-none"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] text-gray-400">#</label>
+        <input
+          type="number"
+          value={num}
+          onChange={e => setNum(e.target.value)}
+          onBlur={() => save('numberInSector', num ? parseInt(num) : undefined)}
+          className="w-full border border-gray-200 rounded px-2 py-1 text-sm text-center focus:border-blue-300 focus:outline-none"
+        />
+      </div>
     </div>
   )
 }

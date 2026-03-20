@@ -139,10 +139,12 @@ export function HomePage() {
       })
     }
     if (maxRopeLength && routes) {
-      // Only show sectors that have at least one route fitting in the rope length
+      // Show sectors that have at least one route fitting the rope length
+      // Use ropeLength if available, otherwise estimate from route height (need 2x for lowering)
       const sectorIdsWithFittingRoutes = new Set<string>()
       for (const r of routes) {
-        if (r.lengthM && r.lengthM <= maxRopeLength) {
+        const needed = r.ropeLength ?? (r.lengthM ? r.lengthM * 2 : null)
+        if (needed == null || needed <= maxRopeLength) {
           sectorIdsWithFittingRoutes.add(r.sectorId)
         }
       }
