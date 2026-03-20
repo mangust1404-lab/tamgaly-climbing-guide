@@ -575,29 +575,29 @@ export async function loadTopoDataFromFile() {
     }
 
     emitLoadProgress(75, 'Сохранение маршрутов...')
-    // Load routes (with updated grades, names, new routes from admin)
-    if (data.routes && data.routes.length > 0) {
-      await db.routes.bulkPut(data.routes as any[])
-      console.log(`Loaded ${data.routes.length} routes from topo-data.json`)
-    }
-
-    // Load sectors (with updated descriptions etc)
-    if (data.sectors && data.sectors.length > 0) {
-      await db.sectors.bulkPut(data.sectors as any[])
-      console.log(`Loaded ${data.sectors.length} sectors from topo-data.json`)
-    }
-
-    // Load topos
-    if (data.topos && data.topos.length > 0) {
-      await db.topos.bulkPut(data.topos as any[])
-      console.log(`Loaded ${data.topos.length} topos from topo-data.json`)
-    }
-
-    // Load topoRoutes
-    if (data.topoRoutes && data.topoRoutes.length > 0) {
-      await db.topoRoutes.bulkPut(data.topoRoutes as any[])
-      console.log(`Loaded ${data.topoRoutes.length} topoRoutes from topo-data.json`)
-    }
+    // Replace sectors, routes, topos, topoRoutes — clear+bulkAdd ensures deletions propagate
+    await db.transaction('rw', [db.sectors, db.routes, db.topos, db.topoRoutes], async () => {
+      if (data.sectors && data.sectors.length > 0) {
+        await db.sectors.clear()
+        await db.sectors.bulkAdd(data.sectors as any[])
+        console.log(`Synced ${data.sectors.length} sectors from topo-data.json`)
+      }
+      if (data.routes && data.routes.length > 0) {
+        await db.routes.clear()
+        await db.routes.bulkAdd(data.routes as any[])
+        console.log(`Synced ${data.routes.length} routes from topo-data.json`)
+      }
+      if (data.topos && data.topos.length > 0) {
+        await db.topos.clear()
+        await db.topos.bulkAdd(data.topos as any[])
+        console.log(`Synced ${data.topos.length} topos from topo-data.json`)
+      }
+      if (data.topoRoutes && data.topoRoutes.length > 0) {
+        await db.topoRoutes.clear()
+        await db.topoRoutes.bulkAdd(data.topoRoutes as any[])
+        console.log(`Synced ${data.topoRoutes.length} topoRoutes from topo-data.json`)
+      }
+    })
 
     // Apply sector covers
     if (data.sectorCovers) {
