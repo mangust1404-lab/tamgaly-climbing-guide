@@ -115,15 +115,28 @@ export async function pullAscents(currentUserId?: string): Promise<number> {
     // Build set of server local_ids for cleanup
     const serverLocalIds = new Set(ascents.map(a => a.local_id))
 
-    // Save new ascents to local DB
+    // Save new ascents to local DB and update points from server
     let added = 0
     for (const a of ascents) {
       const existing = await db.ascents.get(a.id)
-      if (existing) continue
+      if (existing) {
+        // Update points if server has different value (e.g. scoring recalculation)
+        if (existing.points !== a.points) {
+          await db.ascents.update(a.id, { points: a.points })
+        }
+        continue
+      }
       const byLocal = await db.ascents.where('localId').equals(a.local_id).first()
       if (byLocal) {
-        if (byLocal.id !== a.id) {
-          await db.ascents.update(byLocal.id, { syncStatus: 'synced' })
+        // Always mark as synced when server confirms it exists, update points
+        const updates: Record<string, unknown> = {}
+        if (byLocal.syncStatus !== 'synced') {
+          updates.syncStatus = 'synced'
+          updates.syncedAt = a.created_at
+        }
+        if (byLocal.points !== a.points) updates.points = a.points
+        if (Object.keys(updates).length > 0) {
+          await db.ascents.update(byLocal.id, updates)
         }
         continue
       }
@@ -199,8 +212,8 @@ export async function pullReviews(currentUserId?: string): Promise<number> {
       if (existing) continue
       const byLocal = await db.reviews.where('localId').equals(r.local_id).first()
       if (byLocal) {
-        if (byLocal.id !== r.id) {
-          await db.reviews.update(byLocal.id, { syncStatus: 'synced' })
+        if (byLocal.syncStatus !== 'synced') {
+          await db.reviews.update(byLocal.id, { syncStatus: 'synced', syncedAt: r.created_at })
         }
         continue
       }

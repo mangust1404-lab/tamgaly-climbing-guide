@@ -19,5 +19,23 @@ export function getDb(): Database.Database {
   if (!colNames.has('terrain_tags')) db.exec('ALTER TABLE route ADD COLUMN terrain_tags TEXT')
   if (!colNames.has('hold_types')) db.exec('ALTER TABLE route ADD COLUMN hold_types TEXT')
 
+  // Auto-migrate: create suggestion table if missing
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS suggestion (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      user_name TEXT,
+      sector_id TEXT,
+      type TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      data TEXT,
+      comment TEXT,
+      reviewed_by TEXT,
+      reviewed_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_suggestion_status ON suggestion(status);
+  `)
+
   return db
 }

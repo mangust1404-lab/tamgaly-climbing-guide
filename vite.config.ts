@@ -122,6 +122,14 @@ export default defineConfig({
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 90 },
             },
           },
+          {
+            urlPattern: /\/topo-images\/.+\.(jpg|jpeg|png|webp)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'topo-photos',
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
+          },
         ],
       },
     }),

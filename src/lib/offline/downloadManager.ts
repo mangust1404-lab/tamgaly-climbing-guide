@@ -91,14 +91,34 @@ export async function downloadArea(
       },
     )
 
-    onProgress({ stage: 'saving', message: 'Закрепление хранилища...', percent: 85 })
+    // Prefetch topo images into service worker cache
+    onProgress({ stage: 'saving', message: 'Кеширование фото...', percent: 70 })
+    const topoImages = bundle.topos
+      .map(t => toCamel(t) as any)
+      .filter((t: any) => t.imageUrl && !t.imageUrl.startsWith('data:'))
+      .map((t: any) => t.imageUrl as string)
+    const sectorCovers = bundle.sectors
+      .map(s => toCamel(s) as any)
+      .filter((s: any) => s.coverImageUrl && !s.coverImageUrl.startsWith('data:'))
+      .map((s: any) => s.coverImageUrl as string)
+    const allImages = [...new Set([...topoImages, ...sectorCovers])]
+    let cached = 0
+    for (const url of allImages) {
+      try {
+        await fetch(url, { cache: 'reload' })
+        cached++
+      } catch { /* skip failed images */ }
+    }
+    console.log(`Prefetched ${cached}/${allImages.length} images for offline`)
+
+    onProgress({ stage: 'saving', message: 'Закрепление хранилища...', percent: 90 })
 
     // Request persistent storage so the browser doesn't evict our data
     if (navigator.storage?.persist) {
       await navigator.storage.persist()
     }
 
-    onProgress({ stage: 'done', message: 'Район загружен для офлайн-доступа!', percent: 100 })
+    onProgress({ stage: 'done', message: `Загружено: ${cached} фото для офлайн`, percent: 100 })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Неизвестная ошибка'
     onProgress({ stage: 'error', message, percent: 0 })
@@ -166,14 +186,40 @@ export async function refreshTopoData(
 
     await db.syncMeta.put({ key: 'topoDataVersion', value: String(data.version || 0) })
 
+    // Prefetch topo images into service worker cache
+    onProgress({ stage: 'saving', message: 'Кеширование фото...', percent: 70 })
+    const imageUrls: string[] = []
+    if (data.topos) {
+      for (const t of data.topos) {
+        const url = (t as any).imageUrl
+        if (url && typeof url === 'string' && !url.startsWith('data:')) imageUrls.push(url)
+      }
+    }
+    if (data.sectorCovers) {
+      for (const url of Object.values(data.sectorCovers)) {
+        if (url && !url.startsWith('data:')) imageUrls.push(url)
+      }
+    }
+    if (data.sectors) {
+      for (const s of data.sectors) {
+        const url = (s as any).coverImageUrl
+        if (url && typeof url === 'string' && !url.startsWith('data:')) imageUrls.push(url)
+      }
+    }
+    const uniqueUrls = [...new Set(imageUrls)]
+    let cached = 0
+    for (const url of uniqueUrls) {
+      try { await fetch(url, { cache: 'reload' }); cached++ } catch {}
+    }
+    console.log(`Prefetched ${cached}/${uniqueUrls.length} images for offline`)
+
     // Request persistent storage
     if (navigator.storage?.persist) {
       await navigator.storage.persist()
     }
 
     const routeCount = data.routes?.length || 0
-    const lineCount = data.topoRoutes?.length || 0
-    onProgress({ stage: 'done', message: `Обновлено: ${routeCount} маршрутов, ${lineCount} линий`, percent: 100 })
+    onProgress({ stage: 'done', message: `Обновлено: ${routeCount} маршрутов, ${cached} фото`, percent: 100 })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Ошибка обновления'
     onProgress({ stage: 'error', message, percent: 0 })

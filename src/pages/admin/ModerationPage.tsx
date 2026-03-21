@@ -15,7 +15,8 @@ async function saveTopoData() {
     for (const s of sectors) { if (s.coverImageUrl) sectorCovers[s.id] = s.coverImageUrl }
     const meta = await db.syncMeta.get('topoDataVersion')
     const version = (parseInt(meta?.value || '0') || 0) + 1
-    const data = { version, exportedAt: new Date().toISOString(), topos, topoRoutes, sectorCovers }
+    const routes = await db.routes.toArray()
+    const data = { version, exportedAt: new Date().toISOString(), topos, topoRoutes, routes, sectors, sectorCovers }
     const resp = await fetch('/api/save-topo-data', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
     })
