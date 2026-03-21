@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { useUser } from '../lib/userContext'
-import { fullSync } from '../lib/offline/syncService'
+import { fullSync, pullAscents, pullReviews } from '../lib/offline/syncService'
 
 const SYNC_INTERVAL = 5 * 60 * 1000 // 5 minutes
 
@@ -12,6 +12,7 @@ export function useAutoSync() {
   const [lastResult, setLastResult] = useState<{ pushed: number; pulled: number; failed: number } | null>(null)
   const [lastError, setLastError] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined)
+  const guestPulledRef = useRef(false)
 
   const pendingCount = useLiveQuery(() => db.syncQueue.count(), []) ?? 0
 
@@ -41,6 +42,20 @@ export function useAutoSync() {
       syncingRef.current = false
       setSyncing(false)
     }
+  }, [user])
+
+  // Pull community data even for anonymous users (leaderboard, activity feed)
+  useEffect(() => {
+    if (user || guestPulledRef.current) return
+    guestPulledRef.current = true
+    const pull = async () => {
+      try {
+        await pullAscents()
+        await pullReviews()
+        console.log('Guest pull: loaded community data')
+      } catch { /* offline */ }
+    }
+    setTimeout(pull, 2000)
   }, [user])
 
   // Auto-sync on mount and periodically

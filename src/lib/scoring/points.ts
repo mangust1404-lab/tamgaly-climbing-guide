@@ -1,12 +1,14 @@
 /**
- * Система очков за пролазы (вдохновлено 12Climb).
+ * Система очков за пролазы.
  *
  * Базовые очки привязаны к категории по французской системе.
- * Множитель зависит от стиля пролаза.
+ * Стиль даёт небольшой бонус (5% онсайт, 2% флеш), но НИКОГДА
+ * не делает более лёгкий маршрут дороже более сложного.
+ * Жёсткий потолок по категории: 4-5→100, 6→200, 7→300, 8→400, 9→500.
  */
 
 const GRADE_BASE_POINTS: Record<string, number> = {
-  // 4-5 grades: 10–100 (each category min > previous max)
+  // 4-5 grades: 10–100
   '4a': 10, '4b': 15, '4c': 20,
   '5a': 30, '5a+': 40, '5b': 50, '5b+': 60, '5c': 80, '5c+': 100,
   // 6 grades: 101–200
@@ -19,9 +21,19 @@ const GRADE_BASE_POINTS: Record<string, number> = {
   '9a': 420, '9a+': 450, '9b': 500,
 }
 
+/** Max points per grade category (hard cap regardless of style) */
+function gradeCap(grade: string): number {
+  const g = grade.toLowerCase().trim()
+  if (g.startsWith('4') || g.startsWith('5')) return 100
+  if (g.startsWith('6')) return 200
+  if (g.startsWith('7')) return 300
+  if (g.startsWith('8')) return 400
+  return 500
+}
+
 const STYLE_MULTIPLIER: Record<string, number> = {
-  onsight: 1.5,
-  flash: 1.3,
+  onsight: 1.05,
+  flash: 1.02,
   redpoint: 1.0,
   toprope: 0,
   attempt: 0,
@@ -41,6 +53,8 @@ export function gradeToSortValue(grade: string): number {
 
 /**
  * Calculate points for an ascent based on grade and style.
+ * Capped by grade category: 4-5→100, 6→200, 7→300, 8→400, 9→500.
+ * Style multipliers are small (5%/2%) to prevent inversions between grades.
  */
 export function calculatePoints(
   grade: string,
@@ -48,7 +62,8 @@ export function calculatePoints(
 ): number {
   const base = gradeToSortValue(grade)
   const multiplier = STYLE_MULTIPLIER[style] ?? 0
-  return Math.round(base * multiplier)
+  const raw = Math.round(base * multiplier)
+  return Math.min(raw, gradeCap(grade))
 }
 
 /**
