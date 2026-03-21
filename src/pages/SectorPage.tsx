@@ -452,7 +452,7 @@ export function SectorPage() {
                         {route.lengthM && ` · ${route.lengthM}${t('route.meters')}`}
                         {route.pitches > 1 && ` · ${route.pitches} ${t('route.pitchesCount')}`}
                         {route.quickdraws && <> · <span title={t('route.quickdraws')} className="inline-flex items-center gap-0.5"><img src="/icons/quickdraw.png" alt="" className="inline h-4 w-auto" />{route.quickdraws}</span></>}
-                        {route.ropeLength && <> · <span title={t('route.ropeLength')} className="inline-flex items-center gap-0.5"><img src="/icons/rope.png" alt="" className="inline h-3 w-auto opacity-70" />{route.ropeLength}{t('route.meters')}</span></>}
+                        {route.ropeLength && <> · <span title={t('route.ropeLength')} className="inline-flex items-center gap-0.5"><img src="/icons/height-arrow.svg" alt="" className="inline h-3.5 w-auto opacity-70" />{route.ropeLength}{t('route.meters')}</span></>}
                       </div>
                       {(route.terrainTags?.length || route.holdTypes?.length) ? (
                         <div className="flex flex-wrap gap-0.5 mt-0.5">

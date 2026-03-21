@@ -141,6 +141,26 @@ export async function pullAscents(currentUserId?: string): Promise<number> {
         continue
       }
 
+      // Fallback: match by userId + routeId + style + date (handles ID mismatches)
+      const byMatch = await db.ascents
+        .where('routeId').equals(a.route_id)
+        .and(x => x.userId === a.user_id && x.style === a.style && x.date === a.date)
+        .first()
+      if (byMatch) {
+        const updates: Record<string, unknown> = {}
+        if (byMatch.syncStatus !== 'synced') {
+          updates.syncStatus = 'synced'
+          updates.syncedAt = a.created_at
+        }
+        if (byMatch.points !== a.points) updates.points = a.points
+        if (byMatch.localId !== a.local_id) updates.localId = a.local_id
+        if (Object.keys(updates).length > 0) {
+          await db.ascents.update(byMatch.id, updates)
+          console.log(`Sync: matched ascent by content ${a.route_id} ${a.style} ${a.date}, updated points ${byMatch.points}->${a.points}`)
+        }
+        continue
+      }
+
       await db.ascents.put({
         id: a.id,
         localId: a.local_id,
@@ -157,6 +177,69 @@ export async function pullAscents(currentUserId?: string): Promise<number> {
         syncedAt: a.created_at,
       })
       added++
+    }
+
+    // Fix stuck pending ascents: aggressive matching
+    if (currentUserId) {
+      const pendingLocal = await db.ascents
+        .where('syncStatus').equals('pending')
+        .and(a => a.userId === currentUserId)
+        .toArray()
+
+      if (pendingLocal.length > 0) {
+        console.log(`Fix pending: found ${pendingLocal.length} stuck ascents`)
+        // Build multiple lookup maps for this user's server ascents
+        const serverByLocalId = new Map<string, typeof ascents[0]>()
+        const serverByKey = new Map<string, typeof ascents[0]>()
+        const serverByStyleDate = new Map<string, typeof ascents[0]>()
+        for (const a of ascents) {
+          if (a.user_id === currentUserId) {
+            serverByLocalId.set(a.local_id, a)
+            serverByKey.set(`${a.route_id}|${a.style}|${a.date}`, a)
+            serverByStyleDate.set(`${a.style}|${a.date}`, a)
+          }
+        }
+
+        for (const local of pendingLocal) {
+          // Try matching: by localId, by routeId+style+date, by style+date
+          const match =
+            serverByLocalId.get(local.localId) ||
+            serverByLocalId.get(local.id) ||
+            serverByKey.get(`${local.routeId}|${local.style}|${local.date}`) ||
+            serverByStyleDate.get(`${local.style}|${local.date}`)
+
+          if (match) {
+            console.log(`Fix pending: ${local.id} matched server ${match.local_id} via aggressive match`)
+            await db.ascents.update(local.id, {
+              syncStatus: 'synced',
+              syncedAt: match.created_at,
+              points: match.points,
+            })
+            // Clean orphaned syncQueue entries
+            const queueItem = await db.syncQueue.where('localId').equals(local.localId).first()
+            if (queueItem) await db.syncQueue.delete(queueItem.id!)
+          } else {
+            // No server match: re-queue for push (reset retries)
+            console.log(`Fix pending: ${local.id} no server match, re-queuing for push`)
+            const inQueue = await db.syncQueue.where('localId').equals(local.localId).first()
+            if (inQueue) {
+              await db.syncQueue.update(inQueue.id!, { retryCount: 0 })
+            } else {
+              await db.syncQueue.add({
+                entity: 'ascent',
+                localId: local.localId,
+                action: 'create',
+                payload: {
+                  userId: local.userId, routeId: local.routeId, date: local.date,
+                  style: local.style, rating: local.rating, notes: local.notes, points: local.points,
+                },
+                createdAt: Date.now(),
+                retryCount: 0,
+              })
+            }
+          }
+        }
+      }
     }
 
     // Cleanup: remove locally pulled ascents from OTHER users that no longer exist on server
@@ -424,6 +507,28 @@ export async function fullSync(user: { id: string; displayName: string }): Promi
 
   // 5. Pull updated route details (quickdraws, rope length, etc.)
   await pullRouteDetails()
+
+  // 6. Cleanup: remove sync queue items for ascents/reviews that are now synced
+  try {
+    const queueItems = await db.syncQueue.toArray()
+    for (const item of queueItems) {
+      if (item.entity === 'ascent') {
+        const ascent = await db.ascents.where('localId').equals(item.localId).first()
+        if (ascent?.syncStatus === 'synced') {
+          console.log(`Cleanup: removing stale queue item for synced ascent ${item.localId}`)
+          await db.syncQueue.delete(item.id!)
+        }
+      } else if (item.entity === 'review') {
+        const review = await db.reviews.where('localId').equals(item.localId).first()
+        if (review?.syncStatus === 'synced') {
+          console.log(`Cleanup: removing stale queue item for synced review ${item.localId}`)
+          await db.syncQueue.delete(item.id!)
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Queue cleanup failed:', err)
+  }
 
   return { pushed, pulled: pulledAscents + pulledReviews, failed }
 }

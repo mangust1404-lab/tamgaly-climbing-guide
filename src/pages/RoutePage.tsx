@@ -22,6 +22,9 @@ export function RoutePage() {
   const [sugTerrain, setSugTerrain] = useState<Set<string>>(new Set())
   const [sugHolds, setSugHolds] = useState<Set<string>>(new Set())
   const [sugComment, setSugComment] = useState('')
+  const [showCommentForm, setShowCommentForm] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [commentSent, setCommentSent] = useState(false)
 
   const route = useLiveQuery(
     () => (routeId ? db.routes.get(routeId) : undefined),
@@ -78,6 +81,19 @@ export function RoutePage() {
     if (rated.length === 0) return 0
     return Math.round(rated.reduce((s, a) => s + (a.rating || 0), 0) / rated.length * 10) / 10
   })()
+
+  // Public reviews/comments
+  const routeReviews = useLiveQuery(
+    () => routeId ? db.reviews.where('routeId').equals(routeId).toArray() : [],
+    [routeId],
+  )
+  // Fetch user names for reviews
+  const reviewUserIds = [...new Set((routeReviews ?? []).map(r => r.userId))]
+  const reviewUsers = useLiveQuery(
+    () => reviewUserIds.length > 0 ? db.users.where('id').anyOf(reviewUserIds).toArray() : [],
+    [reviewUserIds.join(',')],
+  )
+  const userNameMap = new Map((reviewUsers ?? []).map(u => [u.id, u.displayName]))
 
   // Private notes (local only)
   const myNote = useLiveQuery(
@@ -144,7 +160,7 @@ export function RoutePage() {
               )}
               {route.ropeLength && (
                 <span className="inline-flex items-center gap-1 text-gray-700">
-                  <img src="/icons/rope.png" alt="" className="h-3.5 w-auto opacity-70" />
+                  <img src="/icons/height-arrow.svg" alt="" className="h-5 w-auto opacity-70" />
                   {t('route.ropeLength')}: {route.ropeLength}{t('route.meters')}
                 </span>
               )}
@@ -310,6 +326,113 @@ export function RoutePage() {
             <div className="bg-yellow-50 rounded-lg px-3 py-2 text-center flex-1">
               <div className="text-lg font-bold text-yellow-700">{'★'.repeat(Math.round(avgRating))} <span className="text-xs font-normal">{avgRating}</span></div>
               <div className="text-[10px] text-yellow-600">{t('ascent.rating')}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Public comments */}
+      {(() => {
+        const commentsWithText = (routeReviews ?? []).filter(r => r.comment && r.comment.trim())
+        return commentsWithText.length > 0 ? (
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-gray-500 mb-2">{t('route.comments')} ({commentsWithText.length})</h2>
+            <div className="space-y-2">
+              {commentsWithText
+                .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                .map(r => (
+                <div key={r.id} className="bg-gray-50 rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-gray-700">
+                      {userNameMap.get(r.userId) || t('activity.unknownUser')}
+                    </span>
+                    <span className="text-[10px] text-gray-400">
+                      {new Date(r.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {r.rating > 0 && (
+                    <div className="text-xs text-yellow-600 mb-0.5">{'★'.repeat(r.rating)}</div>
+                  )}
+                  {r.gradeOpinion && (
+                    <span className="text-[10px] bg-blue-50 text-blue-600 rounded px-1.5 py-0.5 mr-1">
+                      {t(`review.gradeOpinion.${r.gradeOpinion}` as any)}
+                    </span>
+                  )}
+                  <p className="text-sm text-gray-700 mt-1">{r.comment}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null
+      })()}
+
+      {/* Leave a comment form */}
+      {user && (
+        <div className="mb-4">
+          {commentSent ? (
+            <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 text-center">{t('route.commentSent')}</p>
+          ) : !showCommentForm ? (
+            <button
+              onClick={() => setShowCommentForm(true)}
+              className="w-full text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg py-2 font-medium"
+            >
+              {t('route.leaveComment')}
+            </button>
+          ) : (
+            <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+              <textarea
+                value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                placeholder={t('route.commentPlaceholder')}
+                rows={3}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowCommentForm(false); setCommentText('') }}
+                  className="flex-1 text-sm text-gray-500 border border-gray-200 rounded-lg py-2"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!commentText.trim() || !routeId || !user?.id) return
+                    const review = {
+                      id: crypto.randomUUID(),
+                      localId: crypto.randomUUID(),
+                      userId: user.id,
+                      routeId,
+                      rating: 0,
+                      comment: commentText.trim(),
+                      syncStatus: 'pending' as const,
+                      createdAt: new Date().toISOString(),
+                    }
+                    await db.reviews.add(review)
+                    await db.syncQueue.add({
+                      entity: 'review',
+                      action: 'create',
+                      localId: review.localId,
+                      payload: {
+                        userId: user.id,
+                        routeId,
+                        rating: 0,
+                        comment: commentText.trim(),
+                      },
+                      createdAt: Date.now(),
+                      retryCount: 0,
+                    })
+                    setCommentText('')
+                    setShowCommentForm(false)
+                    setCommentSent(true)
+                    setTimeout(() => setCommentSent(false), 3000)
+                  }}
+                  disabled={!commentText.trim()}
+                  className="flex-1 text-sm text-white bg-blue-600 rounded-lg py-2 font-medium disabled:opacity-40"
+                >
+                  {t('route.sendComment')}
+                </button>
+              </div>
             </div>
           )}
         </div>

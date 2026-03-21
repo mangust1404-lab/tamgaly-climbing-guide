@@ -18,11 +18,12 @@ const GRADES = [
 export function SuggestPanel({ sectorId }: SuggestPanelProps) {
   const { t } = useI18n()
   const { user } = useUser()
-  const [mode, setMode] = useState<'menu' | 'photo' | 'route' | null>(null)
+  const [mode, setMode] = useState<'menu' | 'photo' | 'route' | 'sector-info' | null>(null)
   const [sent, setSent] = useState(false)
   const [routeName, setRouteName] = useState('')
   const [routeGrade, setRouteGrade] = useState('6a')
   const [comment, setComment] = useState('')
+  const [sectorDesc, setSectorDesc] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   if (!user) {
@@ -136,6 +137,12 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
           >
             🧗 {t('suggest.route')}
           </button>
+          <button
+            onClick={() => setMode('sector-info')}
+            className="text-left text-sm bg-white rounded-lg px-3 py-2 border border-gray-200"
+          >
+            📝 {t('suggest.sectorInfo')}
+          </button>
         </div>
         <input
           ref={fileRef}
@@ -188,6 +195,43 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
         <button
           onClick={handleRouteSubmit}
           disabled={!routeName.trim()}
+          className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-40"
+        >
+          {t('suggest.send')}
+        </button>
+      </div>
+    )
+  }
+
+  if (mode === 'sector-info') {
+    return (
+      <div className="bg-blue-50 rounded-lg p-3 space-y-2">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">{t('suggest.sectorInfo')}</span>
+          <button onClick={() => setMode('menu')} className="text-gray-400 text-xs">&larr;</button>
+        </div>
+        <textarea
+          value={sectorDesc}
+          onChange={e => setSectorDesc(e.target.value)}
+          placeholder={t('suggest.sectorDescPlaceholder')}
+          rows={4}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+        />
+        <textarea
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          placeholder={t('suggest.comment')}
+          rows={2}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+        />
+        <button
+          onClick={async () => {
+            if (!sectorDesc.trim()) return
+            const data = JSON.stringify({ description: sectorDesc.trim() })
+            await submitSuggestion('sector-info' as any, data)
+            setSectorDesc('')
+          }}
+          disabled={!sectorDesc.trim()}
           className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-40"
         >
           {t('suggest.send')}

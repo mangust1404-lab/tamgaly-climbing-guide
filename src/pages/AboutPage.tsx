@@ -53,6 +53,8 @@ export function AboutPage() {
           <p>{t('about.approachText')}</p>
         </div>
       </div>
+
+      <p className="mt-6 text-[10px] text-gray-300 text-center">v{__BUILD_TIME__}</p>
     </div>
   )
 }

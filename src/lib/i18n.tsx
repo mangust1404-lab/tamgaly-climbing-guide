@@ -173,7 +173,7 @@ const translations = {
   'route.myNotes': { ru: 'Мои заметки', en: 'My notes', kk: 'Менің жазбаларым' },
   'route.notesPlaceholder': { ru: 'Бета, условия, впечатления...', en: 'Beta, conditions, impressions...', kk: 'Бета, жағдайлар, әсерлер...' },
   'route.quickdraws': { ru: 'Оттяжек', en: 'Quickdraws', kk: 'Оттяжка' },
-  'route.ropeLength': { ru: 'Верёвка', en: 'Rope', kk: 'Арқан' },
+  'route.ropeLength': { ru: 'Длина', en: 'Length', kk: 'Ұзындық' },
   'terrain.slab': { ru: 'Положилово', en: 'Slab', kk: 'Тақта' },
   'terrain.vertical': { ru: 'Вертикаль', en: 'Vertical', kk: 'Тік' },
   'terrain.overhang': { ru: 'Нависание', en: 'Overhang', kk: 'Асу' },
@@ -254,6 +254,18 @@ const translations = {
   'suggest.pending': { ru: 'На проверке', en: 'Pending review', kk: 'Тексерілуде' },
   'suggest.loginFirst': { ru: 'Сначала укажи имя в Профиле', en: 'Set your name in Profile first', kk: 'Алдымен Профильде атыңызды көрсетіңіз' },
   'suggest.drawHint': { ru: 'Нарисуй линию маршрута на фото', en: 'Draw route line on the photo', kk: 'Фотода маршрут сызығын сызыңыз' },
+  'suggest.sectorInfo': { ru: 'Описание сектора', en: 'Sector description', kk: 'Сектор сипаттамасы' },
+  'suggest.newSector': { ru: 'Предложить новый сектор', en: 'Suggest new sector', kk: 'Жаңа сектор ұсыну' },
+  'suggest.sectorName': { ru: 'Название сектора', en: 'Sector name', kk: 'Сектор атауы' },
+  'suggest.sectorDescPlaceholder': { ru: 'Предложите описание или дополнение к сектору...', en: 'Suggest a description or addition for the sector...', kk: 'Секторға сипаттама немесе толықтыру ұсыныңыз...' },
+
+  // Public comments
+  'route.comments': { ru: 'Комментарии', en: 'Comments', kk: 'Пікірлер' },
+  'route.noComments': { ru: 'Пока нет комментариев', en: 'No comments yet', kk: 'Әзірге пікірлер жоқ' },
+  'route.leaveComment': { ru: 'Оставить комментарий', en: 'Leave a comment', kk: 'Пікір қалдыру' },
+  'route.commentPlaceholder': { ru: 'Условия, рекомендации, бета...', en: 'Conditions, tips, beta...', kk: 'Жағдайлар, кеңестер, бета...' },
+  'route.sendComment': { ru: 'Отправить', en: 'Send', kk: 'Жіберу' },
+  'route.commentSent': { ru: 'Комментарий отправлен!', en: 'Comment sent!', kk: 'Пікір жіберілді!' },
 
   // Admin moderation
   'admin.moderation': { ru: 'Модерация', en: 'Moderation', kk: 'Модерация' },

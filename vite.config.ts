@@ -56,6 +56,9 @@ function topoSavePlugin(): Plugin {
 const base = process.env.VITE_BASE ?? '/tamgaly-climbing-guide/'
 
 export default defineConfig({
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ')),
+  },
   base,
   plugins: [
     react(),

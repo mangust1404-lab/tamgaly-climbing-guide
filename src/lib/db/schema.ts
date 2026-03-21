@@ -160,7 +160,7 @@ export interface Suggestion {
   userId: string
   userName: string
   sectorId: string
-  type: 'photo' | 'route' | 'topo-line'
+  type: 'photo' | 'route' | 'topo-line' | 'sector-info'
   status: 'pending' | 'approved' | 'rejected'
   /** For 'photo': base64 data URL. For 'route': JSON with name/grade/type. For 'topo-line': JSON with topoId + svgPath etc. */
   data: string

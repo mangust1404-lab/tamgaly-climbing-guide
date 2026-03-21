@@ -6,6 +6,7 @@ import { refreshTopoData, type DownloadProgress } from '../lib/offline/downloadM
 import { gradeColor, sunHours } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
+import { SuggestNewSector } from '../components/suggest/SuggestNewSector'
 
 const GRADE_SORT: Record<string, number> = {
   '4': 30, '4a': 40, '4b': 50, '4c': 60,
@@ -91,7 +92,8 @@ export function HomePage() {
   }, [search, routes, sectors, sectorMap])
 
   // Combined filter: grade + rope + sun — all applied to routes with AND logic
-  const hasActiveFilters = selectedGrades.size > 0 || sunFilter !== null || maxRopeLength !== null
+  const hasRouteFilters = selectedGrades.size > 0 || maxRopeLength !== null
+  const hasActiveFilters = hasRouteFilters || sunFilter !== null
 
   const filteredRoutes = useMemo(() => {
     if (!hasActiveFilters || !routes || !sectors) return []
@@ -137,6 +139,20 @@ export function HomePage() {
       .sort((a, b) => a.gradeSort - b.gradeSort)
       .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId)?.name ?? '' }))
   }, [hasActiveFilters, selectedGrades, maxRopeLength, sunFilter, sunMode, routes, sectors, sectorMap, sectorSunMap])
+
+  // Filtered sectors (when only sun/shade filter active, no grade/rope filters)
+  const filteredSectors = useMemo(() => {
+    if (!sunFilter || hasRouteFilters || !sectors) return sectors ?? []
+    return sectors.filter(s => {
+      const cat = sectorSunMap.get(s.id)
+      if (cat === null) return true // mixed sectors always pass
+      if (sunMode === 'sun') return cat === sunFilter
+      // shade mode
+      if (sunFilter === 'allday') return false
+      if (cat === 'allday') return false
+      return cat !== sunFilter
+    })
+  }, [sunFilter, hasRouteFilters, sectors, sectorSunMap, sunMode])
 
   // Count routes per sector (for sector list display)
   const routeCounts = new Map<string, number>()
@@ -366,8 +382,8 @@ export function HomePage() {
         </div>
       )}
 
-      {/* Filtered routes (when any filter is active and not searching) */}
-      {!search.trim() && hasActiveFilters && (
+      {/* Filtered routes (when grade/rope filters active and not searching) */}
+      {!search.trim() && hasRouteFilters && (
         <div className="mb-4">
           <h2 className="text-sm font-semibold text-gray-500 mb-2">
             {t('home.gradeFilterResults')} ({filteredRoutes.length})
@@ -380,15 +396,18 @@ export function HomePage() {
         </div>
       )}
 
-      {/* Sector list (when no filters and no search) */}
-      {!search.trim() && !hasActiveFilters && (
+      {/* Sector list (when no route filters — shows all sectors or sun-filtered sectors) */}
+      {!search.trim() && !hasRouteFilters && (
         <>
-          <h2 className="text-lg font-semibold mb-3">{t('home.sectors')}</h2>
-          {!sectors || sectors.length === 0 ? (
+          <h2 className="text-lg font-semibold mb-3">
+            {t('home.sectors')}
+            {sunFilter && ` (${filteredSectors.length})`}
+          </h2>
+          {filteredSectors.length === 0 ? (
             <p className="text-gray-400 text-sm">{t('home.noData')}</p>
           ) : (
             <div className="space-y-2">
-              {sectors.map((sector) => (
+              {filteredSectors.map((sector) => (
                 <Link
                   key={sector.id}
                   to={`/sector/${sector.id}`}
@@ -438,6 +457,11 @@ export function HomePage() {
               ))}
             </div>
           )}
+
+          {/* Suggest new sector */}
+          <div className="mt-4">
+            <SuggestNewSector />
+          </div>
         </>
       )}
     </div>

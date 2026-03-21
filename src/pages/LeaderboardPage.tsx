@@ -39,20 +39,33 @@ export function LeaderboardPage() {
       byUser.set(a.userId, arr)
     }
 
+    const routeMap = new Map(routes?.map(r => [r.id, r]) ?? [])
+
     const entries = Array.from(byUser.entries()).map(([userId, userAscents]) => {
-      const points = userAscents.map((a) => a.points)
+      // Recalculate points locally from route grades (authoritative)
+      const points = userAscents.map((a) => {
+        const route = routeMap.get(a.routeId)
+        return route ? calculatePoints(route.grade, a.style as any) : a.points
+      })
       const totalScore = calculateTotalScore(points)
       const user = users?.find((u) => u.id === userId)
 
       // Best ascent
-      const best = userAscents.reduce((b, a) => (a.points > b.points ? a : b), userAscents[0])
+      const best = userAscents.reduce((b, a) => {
+        const bRoute = routeMap.get(b.routeId)
+        const aRoute = routeMap.get(a.routeId)
+        const bPts = bRoute ? calculatePoints(bRoute.grade, b.style as any) : b.points
+        const aPts = aRoute ? calculatePoints(aRoute.grade, a.style as any) : a.points
+        return aPts > bPts ? a : b
+      }, userAscents[0])
       const bestRoute = routes?.find((r) => r.id === best.routeId)
 
       // Ascent details for expanded view
       const details = userAscents
         .map(a => {
-          const route = routes?.find(r => r.id === a.routeId)
-          return { routeName: route ? td(route.name) : a.routeId, grade: route?.grade || '?', style: a.style, points: a.points }
+          const route = routeMap.get(a.routeId)
+          const pts = route ? calculatePoints(route.grade, a.style as any) : a.points
+          return { routeName: route ? td(route.name) : a.routeId, grade: route?.grade || '?', style: a.style, points: pts }
         })
         .sort((a, b) => b.points - a.points)
 

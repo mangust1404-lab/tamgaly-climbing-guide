@@ -146,6 +146,30 @@ export function ModerationPage() {
             updatedAt: new Date().toISOString(),
           })
         }
+      } else if (s.type === 'sector-info') {
+        const info = JSON.parse(s.data) as { name?: string; description?: string }
+        if (info.name) {
+          // New sector
+          const sectorCount = await db.sectors.count()
+          const newSector = {
+            id: `sector-${Date.now()}`,
+            areaId: 'tamgaly',
+            name: info.name,
+            slug: info.name.toLowerCase().replace(/\s+/g, '-'),
+            description: info.description || undefined,
+            latitude: 44.064,
+            longitude: 76.996,
+            sortOrder: sectorCount + 1,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }
+          await db.sectors.add(newSector)
+          setNeedsSave(true)
+        } else if (info.description && s.sectorId && s.sectorId !== 'new') {
+          // Update existing sector description
+          await db.sectors.update(s.sectorId, { description: info.description, updatedAt: new Date().toISOString() })
+          setNeedsSave(true)
+        }
       }
 
       // Update status on server
@@ -161,7 +185,7 @@ export function ModerationPage() {
 
       // Remove from list immediately
       setServerSuggestions(prev => prev.filter(x => x.id !== s.id))
-      if (s.type === 'photo') setNeedsSave(true)
+      if (s.type === 'photo' || s.type === 'sector-info') setNeedsSave(true)
     } finally {
       setProcessing(null)
     }
@@ -239,6 +263,7 @@ function SuggestionCard({ suggestion: s, onApprove, onReject, processing, t, td 
   const typeConfig = {
     photo: { label: 'Фото', color: 'bg-purple-100 text-purple-700', icon: '📷' },
     route: { label: 'Маршрут', color: 'bg-blue-100 text-blue-700', icon: '🧗' },
+    'sector-info': { label: 'Сектор', color: 'bg-green-100 text-green-700', icon: '📝' },
   }
   const cfg = typeConfig[s.type as keyof typeof typeConfig] || { label: s.type, color: 'bg-gray-100 text-gray-700', icon: '📝' }
 
@@ -267,6 +292,22 @@ function SuggestionCard({ suggestion: s, onApprove, onReject, processing, t, td 
 
         {/* Route suggestion */}
         {s.type === 'route' && <RouteInfoBlock data={s.data} t={t} td={td} />}
+
+        {/* Sector info suggestion */}
+        {s.type === 'sector-info' && (() => {
+          try {
+            const info = JSON.parse(s.data) as { name?: string; description?: string }
+            return (
+              <div className="bg-green-50 border border-green-100 rounded-lg p-3 mb-3">
+                <span className="text-[10px] text-green-600 font-bold block mb-1">
+                  {info.name ? 'НОВЫЙ СЕКТОР' : 'ОПИСАНИЕ СЕКТОРА'}
+                </span>
+                {info.name && <div className="font-medium text-gray-800 mb-1">{info.name}</div>}
+                {info.description && <p className="text-sm text-gray-700">{info.description}</p>}
+              </div>
+            )
+          } catch { return null }
+        })()}
 
         {/* User comment */}
         {s.comment && (
@@ -336,7 +377,7 @@ function RouteInfoBlock({ data, t, td }: { data: string; t: (key: any) => string
             {info.ropeLength && (
               <div className="bg-gray-50 rounded-lg p-2">
                 <span className="text-[10px] text-gray-400 block">{t('route.ropeLength')}</span>
-                <span className="text-sm font-bold text-gray-800 inline-flex items-center gap-1"><img src="/icons/rope.png" alt="" className="h-4 w-auto opacity-70" />{info.ropeLength}м</span>
+                <span className="text-sm font-bold text-gray-800 inline-flex items-center gap-1"><img src="/icons/height-arrow.svg" alt="" className="h-4 w-auto opacity-70" />{info.ropeLength}м</span>
               </div>
             )}
             {info.terrainTags?.length > 0 && (
