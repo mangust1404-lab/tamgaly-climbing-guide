@@ -309,15 +309,23 @@ export function HomePage() {
         </button>
       )}
 
-      {/* Search */}
-      <div className="mb-2">
+      {/* Search + clear */}
+      <div className="flex gap-2 mb-2">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('home.searchPlaceholder')}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:bg-white focus:border-blue-300 focus:outline-none transition-colors"
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:bg-white focus:border-blue-300 focus:outline-none transition-colors"
         />
+        {(hasActiveFilters || sunFilter) && (
+          <button
+            onClick={() => { setSelectedGrades(new Set()); setSunFilter(null); setMaxRopeLength(null); setRouteTypeFilter(null); setSearch('') }}
+            className="px-3 py-2 rounded-lg text-xs text-red-500 bg-red-50 hover:bg-red-100 whitespace-nowrap font-medium"
+          >
+            {'\u2715'} {t('home.clearFilters')}
+          </button>
+        )}
       </div>
 
       {/* Grade filter chips */}
@@ -397,14 +405,6 @@ export function HomePage() {
               {t(type === 'multi-pitch' ? 'home.filterMultipitch' : 'home.filterTrad')}
             </button>
           ))}
-          {hasActiveFilters && (
-            <button
-              onClick={() => { setSelectedGrades(new Set()); setSunFilter(null); setMaxRopeLength(null); setRouteTypeFilter(null); setSearch('') }}
-              className="px-2 py-1 rounded-full text-xs text-red-500 hover:bg-red-50 whitespace-nowrap"
-            >
-              {'\u2715'} {t('home.clearFilters')}
-            </button>
-          )}
         </div>
       </div>
 
