@@ -80,9 +80,10 @@ export function HomePage() {
     return m
   }, [sectors])
 
-  // Combined filter: search + grade + rope + sun + route type — all applied with AND logic
+  // Combined filter: search + grade + rope + route type — all applied with AND logic
+  // Sun filter works at sector level (filters sectors, not routes directly)
   const hasRouteFilters = selectedGrades.size > 0 || maxRopeLength !== null || routeTypeFilter !== null
-  const hasActiveFilters = hasRouteFilters || sunFilter !== null || search.trim().length > 0
+  const hasActiveFilters = hasRouteFilters || search.trim().length > 0
 
   const filteredRoutes = useMemo(() => {
     if (!hasActiveFilters || !routes || !sectors) return []
@@ -150,10 +151,10 @@ export function HomePage() {
     return counts
   }, [ascents, routes])
 
-  // Filtered sectors (when only sun/shade filter active, no route-level filters)
+  // Filtered sectors (sun/shade filter applies at sector level)
   const filteredSectors = useMemo(() => {
     let list = sectors ?? []
-    if (sunFilter && !hasRouteFilters && !search.trim()) {
+    if (sunFilter) {
       list = list.filter(s => {
         const cat = sectorSunMap.get(s.id)
         if (sunMode === 'sun') {
@@ -174,7 +175,7 @@ export function HomePage() {
       if (bCount !== aCount) return bCount - aCount
       return (a.sortOrder || 0) - (b.sortOrder || 0)
     })
-  }, [sunFilter, hasRouteFilters, search, sectors, sectorSunMap, sunMode, sectorAscentCounts])
+  }, [sunFilter, sectors, sectorSunMap, sunMode, sectorAscentCounts])
 
   // Count routes per sector (for sector list display)
   const routeCounts = new Map<string, number>()
