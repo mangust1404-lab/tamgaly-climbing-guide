@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { calculateTotalScore, calculatePoints } from '../lib/scoring/points'
@@ -83,7 +84,7 @@ export function LeaderboardPage() {
         .map(a => {
           const route = routeMap.get(a.routeId)
           const pts = route ? calculatePoints(route.grade, a.style as any) : a.points
-          return { routeName: route ? td(route.name) : a.routeId, grade: route?.grade || '?', gradeSort: route?.gradeSort ?? 0, style: a.style, points: pts }
+          return { routeId: a.routeId, routeName: route ? td(route.name) : a.routeId, grade: route?.grade || '?', gradeSort: route?.gradeSort ?? 0, style: a.style, points: pts }
         })
         .sort((a, b) => b.points - a.points)
 
@@ -211,12 +212,12 @@ export function LeaderboardPage() {
                 {isExpanded && (
                   <div className="ml-11 mt-1 space-y-1">
                     {entry.details.map((d, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs py-1 px-2 bg-gray-50 rounded">
+                      <Link key={i} to={`/route/${d.routeId}`} className="flex items-center gap-2 text-xs py-1 px-2 bg-gray-50 rounded hover:bg-blue-50 active:bg-blue-100">
                         <span className={`font-mono font-bold rounded px-1 py-0.5 ${gradeColor(d.grade)}`}>{d.grade}</span>
                         <span className="flex-1 truncate text-gray-700">{d.routeName}</span>
                         <span className="text-gray-400">{d.style}</span>
                         <span className="font-medium text-blue-600">+{d.points}</span>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 )}

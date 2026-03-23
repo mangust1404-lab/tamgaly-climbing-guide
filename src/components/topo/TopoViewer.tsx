@@ -61,13 +61,14 @@ export function TopoViewer({
   const selectedRouteIdRef = useRef(selectedRouteId)
   selectedRouteIdRef.current = selectedRouteId
 
-  // UI scale factor: compensate for aspect ratio so lines look the same on portrait & landscape
-  // Container is 4:3 aspect. A portrait image in a landscape container is displayed narrower,
-  // so its SVG pixels are effectively smaller. Scale up proportionally.
-  const containerAspect = 4 / 3
-  const imageAspect = (imageWidth || 1) / (imageHeight || 1)
-  const aspectCorrection = imageAspect < containerAspect ? containerAspect / imageAspect : 1
-  const ui = Math.max(1, (imageWidth || 1) / 500 * aspectCorrection)
+  // UI scale factor: ensure route circles/lines appear the same physical size (~10px)
+  // regardless of image resolution or aspect ratio.
+  // OSD fits image inside container (w-full × 60dvh ≈ 0.77 aspect on phones).
+  // Scale = min(containerW/imgW, containerH/imgH). For consistent visual size,
+  // ui must be proportional to the "dominant" image dimension after accounting
+  // for container shape.
+  const phoneContainerAR = 0.77 // screen width / (60dvh), stable across phone sizes
+  const ui = Math.max(1, Math.max(imageWidth || 1, (imageHeight || 1) * phoneContainerAR) / 290)
 
   // Initialize OpenSeadragon viewer
   useEffect(() => {
@@ -101,15 +102,15 @@ export function TopoViewer({
       panVertical: false,
     })
 
-    // Enable pan only when zoomed in (so single-finger scroll works at default zoom)
+    // Track zoom state for OSD internal settings
     viewer.addHandler('zoom', () => {
       const zoom = viewer.viewport.getZoom()
       const minZoom = viewer.viewport.getMinZoom()
-      const isZoomed = zoom > minZoom * 1.05
-      viewer.panHorizontal = isZoomed
-      viewer.panVertical = isZoomed
+      const zoomed = zoom > minZoom * 1.05
+      viewer.panHorizontal = zoomed
+      viewer.panVertical = zoomed
       // @ts-ignore — runtime property update
-      viewer.gestureSettingsTouch.dragToPan = isZoomed
+      viewer.gestureSettingsTouch.dragToPan = zoomed
     })
 
     viewer.addHandler('open', () => {
@@ -238,14 +239,14 @@ export function TopoViewer({
       const isDimmed = hasSelection && !isSelected
       const color = tr.route ? gradeToTopoColor(tr.route.grade) : (tr.color || '#FF4444')
       const group = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-      if (isDimmed) group.setAttribute('opacity', '0.2')
+      if (isDimmed) group.setAttribute('opacity', '0.4')
 
       // Route line (white border + colored line)
       const borderPath = document.createElementNS('http://www.w3.org/2000/svg', 'path')
       borderPath.setAttribute('d', tr.svgPath)
       borderPath.setAttribute('fill', 'none')
       borderPath.setAttribute('stroke', 'white')
-      borderPath.setAttribute('stroke-width', String((isSelected ? 6 : 3) * ui))
+      borderPath.setAttribute('stroke-width', String((isSelected ? 4 : 3) * ui))
       borderPath.setAttribute('stroke-linecap', 'round')
       borderPath.setAttribute('stroke-linejoin', 'round')
       group.appendChild(borderPath)
@@ -254,7 +255,7 @@ export function TopoViewer({
       path.setAttribute('d', tr.svgPath)
       path.setAttribute('fill', 'none')
       path.setAttribute('stroke', color)
-      path.setAttribute('stroke-width', String((isSelected ? 4 : 2) * ui))
+      path.setAttribute('stroke-width', String((isSelected ? 3 : 2) * ui))
       path.setAttribute('stroke-linecap', 'round')
       path.setAttribute('stroke-linejoin', 'round')
       group.appendChild(path)
@@ -264,7 +265,7 @@ export function TopoViewer({
         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
         circle.setAttribute('cx', String(tr.startX))
         circle.setAttribute('cy', String(tr.startY))
-        circle.setAttribute('r', String((isSelected ? 12 : 8) * ui))
+        circle.setAttribute('r', String((isSelected ? 10 : 8) * ui))
         circle.setAttribute('fill', color)
         circle.setAttribute('stroke', 'white')
         circle.setAttribute('stroke-width', String(1.5 * ui))
@@ -277,7 +278,7 @@ export function TopoViewer({
           text.setAttribute('text-anchor', 'middle')
           text.setAttribute('dominant-baseline', 'central')
           text.setAttribute('fill', 'white')
-          text.setAttribute('font-size', String((isSelected ? 11 : 8) * ui))
+          text.setAttribute('font-size', String((isSelected ? 9 : 8) * ui))
           text.setAttribute('font-weight', 'bold')
           text.textContent = String(tr.routeNumber)
           group.appendChild(text)
@@ -337,37 +338,68 @@ export function TopoViewer({
     if (canvas) canvas.style.pointerEvents = 'none'
 
     let isTap = true
+    let tapStartX = 0
+    let tapStartY = 0
     let pinchStartDist = 0
     let pinchStartZoom = 0
+    // Pinch midpoint tracking for pan-while-zooming
+    let pinchMidX = 0
+    let pinchMidY = 0
+    let pinchStartCenter: OpenSeadragon.Point | null = null
 
     const dist = (t: TouchList) =>
       Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY)
 
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length >= 2 && viewerRef.current) {
-        // Start pinch-zoom
+        // Start pinch-zoom + pan
         e.preventDefault()
+        isTap = false
         pinchStartDist = dist(e.touches)
         pinchStartZoom = viewerRef.current.viewport.getZoom()
-      } else {
+        pinchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2
+        pinchMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2
+        pinchStartCenter = viewerRef.current.viewport.getCenter()
+      } else if (e.touches.length === 1) {
         isTap = true
+        tapStartX = e.touches[0].clientX
+        tapStartY = e.touches[0].clientY
       }
     }
 
     const onTouchMove = (e: TouchEvent) => {
-      isTap = false
-      if (e.touches.length >= 2 && viewerRef.current && pinchStartDist > 0) {
-        // Pinch-zoom: compute scale ratio and apply to OSD
+      if (e.touches.length >= 2 && viewerRef.current && pinchStartDist > 0 && pinchStartCenter) {
+        // Pinch: zoom via distance ratio + pan via midpoint movement
         e.preventDefault()
+        isTap = false
         const curDist = dist(e.touches)
         const scale = curDist / pinchStartDist
         viewerRef.current.viewport.zoomTo(pinchStartZoom * scale)
+
+        // Pan based on midpoint delta
+        const curMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2
+        const curMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2
+        const dx = curMidX - pinchMidX
+        const dy = curMidY - pinchMidY
+        const cw = containerRef.current?.clientWidth || 1
+        const zoom = viewerRef.current.viewport.getZoom()
+        const vpPerPx = 1 / (zoom * cw)
+        viewerRef.current.viewport.panTo(new OpenSeadragon.Point(
+          pinchStartCenter.x - dx * vpPerPx,
+          pinchStartCenter.y - dy * vpPerPx,
+        ), true)
+      } else if (e.touches.length === 1 && isTap) {
+        // Cancel tap only if finger moved more than 10px (jitter tolerance)
+        const dx = e.touches[0].clientX - tapStartX
+        const dy = e.touches[0].clientY - tapStartY
+        if (Math.hypot(dx, dy) > 10) isTap = false
       }
     }
 
     const onTouchEnd = (e: TouchEvent) => {
       if (e.touches.length === 0) {
         pinchStartDist = 0
+        pinchStartCenter = null
 
         // Tap → hit-test route selection
         if (isTap && viewerRef.current) {

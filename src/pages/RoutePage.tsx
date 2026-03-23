@@ -4,7 +4,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { TopoViewer } from '../components/topo/TopoViewer'
 import { GradeVoting } from '../components/route/GradeVoting'
-import { gradeColor, gradeToTopoColor, safeTags } from '../lib/utils'
+import { AscentForm } from '../components/route/AscentForm'
+import { gradeColor, safeTags } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 
@@ -25,6 +26,7 @@ export function RoutePage() {
   const [showCommentForm, setShowCommentForm] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [commentSent, setCommentSent] = useState(false)
+  const [showAscentForm, setShowAscentForm] = useState(false)
 
   const route = useLiveQuery(
     () => (routeId ? db.routes.get(routeId) : undefined),
@@ -33,14 +35,6 @@ export function RoutePage() {
 
   const sector = useLiveQuery(
     () => (route?.sectorId ? db.sectors.get(route.sectorId) : undefined),
-    [route?.sectorId],
-  )
-
-  // All routes in the same sector for navigation
-  const sectorRoutes = useLiveQuery(
-    () => route?.sectorId
-      ? db.routes.where('sectorId').equals(route.sectorId).sortBy('gradeSort')
-      : [],
     [route?.sectorId],
   )
 
@@ -123,34 +117,60 @@ export function RoutePage() {
 
   return (
     <div className="p-4">
-      {sector && (
-        <Link
-          to={`/sector/${sector.id}`}
-          className="text-blue-600 text-sm mb-2 inline-block"
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          onClick={() => navigate(-1)}
+          className="text-blue-600 text-sm"
         >
-          &larr; {td(sector.name)}
-        </Link>
-      )}
+          &larr; {t('back')}
+        </button>
+        {sector && (
+          <Link to={`/sector/${sector.id}`} className="text-gray-400 text-xs">
+            {td(sector.name)}
+          </Link>
+        )}
+      </div>
 
-      <div className="flex items-start gap-3 mb-4">
+      <div className="flex items-start gap-3 mb-2">
         <span className={`text-xl font-mono font-bold rounded px-3 py-1 ${gradeColor(route.grade)}`}>
           {route.grade}
         </span>
-        <div>
-          <h1 className="text-2xl font-bold">{td(route.name)}</h1>
-          <div className="flex items-center gap-2 text-gray-500 text-sm">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold truncate">{td(route.name)}</h1>
+          {(avgRating > 0 || successCount > 0) && (
+            <div className="flex items-center gap-2 mt-0.5">
+              {avgRating > 0 && (
+                <span className="text-sm text-yellow-500">
+                  {'★'.repeat(Math.round(avgRating))}
+                </span>
+              )}
+              {successCount > 0 && (
+                <span className="text-xs text-green-600">
+                  {successCount} {t('route.successfulAscents')}
+                </span>
+              )}
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-gray-500 text-sm mt-0.5">
             <span>{t(`routeType.${route.routeType}` as any)}</span>
-            {route.lengthM && <span>· {route.lengthM}{t('route.meters')}</span>}
             {route.pitches > 1 && <span>· {route.pitches} {t('route.pitchesCount')}</span>}
+            {user && (
+              <button
+                onClick={() => setShowAscentForm(true)}
+                className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-600/20 text-green-700 active:bg-green-600/40"
+              >
+                + {t('route.logAscent')}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Extra route info: quickdraws, rope, terrain, holds */}
-      {(route.quickdraws || route.ropeLength || safeTags(route.terrainTags).length > 0 || safeTags(route.holdTypes).length > 0) && (
+      {(route.quickdraws || route.lengthM || route.ropeLength || safeTags(route.terrainTags).length > 0 || safeTags(route.holdTypes).length > 0) && (
         <div className="space-y-1.5 mb-3 text-xs">
           {/* Equipment line */}
-          {(route.quickdraws || route.ropeLength) && (
+          {(route.quickdraws || route.lengthM || route.ropeLength) && (
             <div className="flex items-center gap-3">
               {route.quickdraws && (
                 <span className="inline-flex items-center gap-1 text-gray-700">
@@ -158,10 +178,10 @@ export function RoutePage() {
                   {t('route.quickdraws')}: {route.quickdraws}
                 </span>
               )}
-              {route.ropeLength && (
+              {(route.lengthM || route.ropeLength) && (
                 <span className="inline-flex items-center gap-1 text-gray-700">
                   <img src="/icons/height-arrow.svg" alt="" className="h-5 w-auto opacity-70" />
-                  {t('route.ropeLength')}: {route.ropeLength}{t('route.meters')}
+                  {t('route.ropeLength')}: {route.lengthM || route.ropeLength}{t('route.meters')}
                 </span>
               )}
             </div>
@@ -315,21 +335,6 @@ export function RoutePage() {
         </div>
       )}
 
-      {/* Public stats */}
-      {successCount > 0 && (
-        <div className="flex gap-3 mb-4">
-          <div className="bg-green-50 rounded-lg px-3 py-2 text-center flex-1">
-            <div className="text-lg font-bold text-green-700">{successCount}</div>
-            <div className="text-[10px] text-green-600">{t('route.successfulAscents')}</div>
-          </div>
-          {avgRating > 0 && (
-            <div className="bg-yellow-50 rounded-lg px-3 py-2 text-center flex-1">
-              <div className="text-lg font-bold text-yellow-700">{'★'.repeat(Math.round(avgRating))} <span className="text-xs font-normal">{avgRating}</span></div>
-              <div className="text-[10px] text-yellow-600">{t('ascent.rating')}</div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Public comments */}
       {(() => {
@@ -453,38 +458,10 @@ export function RoutePage() {
         </div>
       )}
 
-      {/* Other routes in this sector */}
-      {sectorRoutes && sectorRoutes.length > 1 && (
-        <div className="mt-2">
-          <h2 className="text-sm font-semibold text-gray-500 mb-2">{t('sector.routes')}</h2>
-          <div className="space-y-1">
-            {sectorRoutes.map((r) => {
-              const isCurrent = r.id === routeId
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => !isCurrent && navigate(`/route/${r.id}`)}
-                  className={`w-full flex items-center gap-2 rounded-lg p-2 text-left transition-colors ${
-                    isCurrent
-                      ? 'bg-blue-50 border border-blue-300'
-                      : 'bg-white border border-gray-200'
-                  }`}
-                >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: gradeToTopoColor(r.grade) }}
-                  />
-                  <span className={`text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(r.grade)}`}>
-                    {r.grade}
-                  </span>
-                  <span className={`text-sm truncate ${isCurrent ? 'font-semibold' : ''}`}>
-                    {td(r.name)}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+
+      {/* Ascent form modal */}
+      {showAscentForm && (
+        <AscentForm route={route} onClose={() => setShowAscentForm(false)} />
       )}
     </div>
   )

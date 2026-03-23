@@ -1,6 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
 import type { Route, TopoRoute } from '../../lib/db/schema'
-import { GradeVoting } from '../route/GradeVoting'
 import { gradeColor } from '../../lib/utils'
 
 interface RouteListProps {
@@ -46,8 +45,6 @@ export function RouteList({ topoRoutes, selectedRouteId, onSelect }: RouteListPr
             {selectedRoute.name}
           </Link>
         </div>
-        {/* Grade voting */}
-        <GradeVoting route={selectedRoute} compact />
       </div>
     )
   }

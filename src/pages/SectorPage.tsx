@@ -333,16 +333,13 @@ export function SectorPage() {
               onClick={() => { if (zoom === 1) zoomIn() }}
               draggable={false}
             />
-            {/* Zoom controls */}
-            <div className="absolute top-2 right-2 flex flex-col gap-1" style={{ zIndex: 10 }}>
-              <button onClick={zoomIn} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">+</button>
-              {zoom > 1 && (
-                <>
-                  <button onClick={resetZoom} className="w-8 h-8 bg-black/60 text-white rounded-full text-[10px] leading-none">{Math.round(zoom * 100)}%</button>
-                  <button onClick={zoomOut} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">-</button>
-                </>
-              )}
-            </div>
+            {/* Zoom controls — only show when already zoomed in */}
+            {zoom > 1 && (
+              <div className="absolute top-2 right-2 flex flex-col gap-1" style={{ zIndex: 10 }}>
+                <button onClick={resetZoom} className="w-8 h-8 bg-black/60 text-white rounded-full text-[10px] leading-none">{Math.round(zoom * 100)}%</button>
+                <button onClick={zoomOut} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">−</button>
+              </div>
+            )}
           </div>
           {/* Thumbnails + mark button */}
           <div className="flex items-center justify-between px-2 py-1">
@@ -372,40 +369,31 @@ export function SectorPage() {
         </div>
       )}
 
-      {/* Routes list */}
+      {/* Routes list — hidden when a route is selected on topo (shown in RouteList above) */}
+      {!selectedRouteId && (
       <div className="px-4 pt-1 pb-4">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold">
             {t('sector.routes')} {sortedRoutes ? `(${sortedRoutes.length})` : ''}
           </h2>
-          {selectedRouteId && (
-            <button
-              onClick={() => setSelectedRouteId(null)}
-              className="text-xs text-blue-600 hover:underline"
-            >
-              {t('sector.all')} ({sortedRoutes?.length})
-            </button>
-          )}
         </div>
 
-        {/* Grade filter chips — hide when a route is selected */}
-        {!selectedRouteId && (
-          <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-            {GRADE_FILTERS.map((f) => (
-              <button
-                key={f}
-                onClick={() => setGradeFilter(f)}
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                  gradeFilter === f
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {gradeFilterLabel(f)}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Grade filter chips */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+          {GRADE_FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setGradeFilter(f)}
+              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                gradeFilter === f
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {gradeFilterLabel(f)}
+            </button>
+          ))}
+        </div>
 
         {filteredRoutes.length === 0 ? (
           <p className="text-gray-400 text-sm">
@@ -413,7 +401,7 @@ export function SectorPage() {
           </p>
         ) : (
           <div className="space-y-1">
-            {(selectedRouteId ? filteredRoutes.filter(r => r.id === selectedRouteId) : filteredRoutes).map((route) => {
+            {filteredRoutes.map((route) => {
               const tr = topoRoutes?.find((tp) => tp.routeId === route.id)
               const isSelected = route.id === selectedRouteId
               const avgRating = routeRatings?.get(route.id)
@@ -486,6 +474,7 @@ export function SectorPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* User suggestions */}
       <div className="px-4 pb-4">
