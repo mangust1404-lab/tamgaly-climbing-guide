@@ -80,6 +80,8 @@ const translations = {
   'home.ropeFilter': { ru: 'Верёвка ≤', en: 'Rope ≤', kk: 'Арқан ≤' },
   'home.noSectorsMatch': { ru: 'Нет секторов по фильтру', en: 'No sectors match', kk: 'Сүзгіге сәйкес жоқ' },
   'home.clearFilters': { ru: 'Сбросить', en: 'Clear', kk: 'Тазалау' },
+  'home.filterMultipitch': { ru: 'Мультипитч', en: 'Multi-pitch', kk: 'Мультипитч' },
+  'home.filterTrad': { ru: 'Трэд', en: 'Trad', kk: 'Трэд' },
 
   // About page
   'about.location': { ru: 'Расположение', en: 'Location', kk: 'Орналасуы' },

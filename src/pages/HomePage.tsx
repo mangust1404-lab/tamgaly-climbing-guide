@@ -57,6 +57,7 @@ export function HomePage() {
   const [sunFilter, setSunFilter] = useState<SunFilter | null>(null)
   const [sunMode, setSunMode] = useState<'sun' | 'shade'>('sun') // sun = where sun IS, shade = where sun ISN'T
   const [maxRopeLength, setMaxRopeLength] = useState<number | null>(null)
+  const [routeTypeFilter, setRouteTypeFilter] = useState<string | null>(null) // 'multi-pitch' | 'trad' | null
 
   const toggleGrade = (g: string) => {
     setSelectedGrades(prev => {
@@ -79,22 +80,14 @@ export function HomePage() {
     return m
   }, [sectors])
 
-  // Search results (text search only, no other filters)
-  const searchResults = useMemo(() => {
-    if (!search.trim() || !routes || !sectors) return []
-    const q = search.toLowerCase()
-    return routes
-      .filter(r => r.name.toLowerCase().includes(q) || r.grade.toLowerCase().includes(q))
-      .slice(0, 15)
-      .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId)?.name ?? '' }))
-  }, [search, routes, sectors, sectorMap])
-
-  // Combined filter: grade + rope + sun — all applied to routes with AND logic
-  const hasRouteFilters = selectedGrades.size > 0 || maxRopeLength !== null
-  const hasActiveFilters = hasRouteFilters || sunFilter !== null
+  // Combined filter: search + grade + rope + sun + route type — all applied with AND logic
+  const hasRouteFilters = selectedGrades.size > 0 || maxRopeLength !== null || routeTypeFilter !== null
+  const hasActiveFilters = hasRouteFilters || sunFilter !== null || search.trim().length > 0
 
   const filteredRoutes = useMemo(() => {
     if (!hasActiveFilters || !routes || !sectors) return []
+
+    const q = search.trim().toLowerCase()
 
     // Build grade filter set
     const matchSorts = new Set<number>()
@@ -110,26 +103,29 @@ export function HomePage() {
       for (const s of sectors) {
         const cat = sectorSunMap.get(s.id)
         if (sunMode === 'sun') {
-          if (cat === null) continue // unknown sun = exclude from sun filter
+          if (cat === null) continue
           if (cat === sunFilter) sunPassSectors.add(s.id)
         } else {
-          // Shade mode: null = unknown, show in "allday shade" (might be shady)
           if (cat === null) { if (sunFilter === 'allday') sunPassSectors.add(s.id); continue }
-          if (cat === 'allday') continue // sun all day = no shade ever
-          if (sunFilter === 'allday') continue // shade all day = only unknown sectors qualify
-          if (cat !== sunFilter) sunPassSectors.add(s.id) // morning sun = afternoon shade, etc.
+          if (cat === 'allday') continue
+          if (sunFilter === 'allday') continue
+          if (cat !== sunFilter) sunPassSectors.add(s.id)
         }
       }
     }
 
     return routes
       .filter(r => {
+        // Text search
+        if (q && !r.name.toLowerCase().includes(q) && !r.grade.toLowerCase().includes(q)) return false
         // Grade filter
         if (matchSorts.size > 0 && !matchSorts.has(r.gradeSort)) return false
-        // Rope length filter — route height × 2 + 2m (knots) = rope needed to lower off
+        // Route type filter
+        if (routeTypeFilter && r.routeType !== routeTypeFilter) return false
+        // Rope length filter
         if (maxRopeLength) {
           const height = r.ropeLength ?? r.lengthM ?? null
-          if (height == null) return false // unknown length = unsafe, always exclude
+          if (height == null) return false
           if (height * 2 + 2 > maxRopeLength) return false
         }
         // Sun filter (sector-level)
@@ -137,8 +133,9 @@ export function HomePage() {
         return true
       })
       .sort((a, b) => a.gradeSort - b.gradeSort)
+      .slice(0, q ? 30 : 999)
       .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId)?.name ?? '' }))
-  }, [hasActiveFilters, selectedGrades, maxRopeLength, sunFilter, sunMode, routes, sectors, sectorMap, sectorSunMap])
+  }, [hasActiveFilters, search, selectedGrades, routeTypeFilter, maxRopeLength, sunFilter, sunMode, routes, sectors, sectorMap, sectorSunMap])
 
   // Count ascents per sector for sorting
   const ascents = useLiveQuery(() => db.ascents.toArray())
@@ -153,10 +150,10 @@ export function HomePage() {
     return counts
   }, [ascents, routes])
 
-  // Filtered sectors (when only sun/shade filter active, no grade/rope filters)
+  // Filtered sectors (when only sun/shade filter active, no route-level filters)
   const filteredSectors = useMemo(() => {
     let list = sectors ?? []
-    if (sunFilter && !hasRouteFilters) {
+    if (sunFilter && !hasRouteFilters && !search.trim()) {
       list = list.filter(s => {
         const cat = sectorSunMap.get(s.id)
         if (sunMode === 'sun') {
@@ -177,7 +174,7 @@ export function HomePage() {
       if (bCount !== aCount) return bCount - aCount
       return (a.sortOrder || 0) - (b.sortOrder || 0)
     })
-  }, [sunFilter, hasRouteFilters, sectors, sectorSunMap, sunMode, sectorAscentCounts])
+  }, [sunFilter, hasRouteFilters, search, sectors, sectorSunMap, sunMode, sectorAscentCounts])
 
   // Count routes per sector (for sector list display)
   const routeCounts = new Map<string, number>()
@@ -388,9 +385,20 @@ export function HomePage() {
               {'\u2264'}{len}{t('route.meters')}
             </button>
           ))}
+          {(['multi-pitch', 'trad'] as const).map(type => (
+            <button
+              key={type}
+              onClick={() => setRouteTypeFilter(prev => prev === type ? null : type)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                routeTypeFilter === type ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {t(type === 'multi-pitch' ? 'home.filterMultipitch' : 'home.filterTrad')}
+            </button>
+          ))}
           {hasActiveFilters && (
             <button
-              onClick={() => { setSelectedGrades(new Set()); setSunFilter(null); setMaxRopeLength(null) }}
+              onClick={() => { setSelectedGrades(new Set()); setSunFilter(null); setMaxRopeLength(null); setRouteTypeFilter(null); setSearch('') }}
               className="px-2 py-1 rounded-full text-xs text-red-500 hover:bg-red-50 whitespace-nowrap"
             >
               {'\u2715'} {t('home.clearFilters')}
@@ -399,16 +407,8 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Search results (text search) */}
-      {search.trim() && searchResults.length > 0 && (
-        <div className="mb-4">
-          <h2 className="text-sm font-semibold text-gray-500 mb-2">{t('home.searchResults')}</h2>
-          <RouteList routes={searchResults} climbedIds={climbedRouteIds} td={td} />
-        </div>
-      )}
-
-      {/* Filtered routes (when grade/rope filters active and not searching) */}
-      {!search.trim() && hasRouteFilters && (
+      {/* Filtered routes (when any filter or search is active) */}
+      {hasActiveFilters && (
         <div className="mb-4">
           <h2 className="text-sm font-semibold text-gray-500 mb-2">
             {t('home.gradeFilterResults')} ({filteredRoutes.length})
@@ -421,8 +421,8 @@ export function HomePage() {
         </div>
       )}
 
-      {/* Sector list (when no route filters — shows all sectors or sun-filtered sectors) */}
-      {!search.trim() && !hasRouteFilters && (
+      {/* Sector list (when no filters active) */}
+      {!hasActiveFilters && (
         <>
           <h2 className="text-lg font-semibold mb-3">
             {t('home.sectors')}
