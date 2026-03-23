@@ -2,6 +2,21 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 
 export type Lang = 'ru' | 'en' | 'kk'
 
+const TRANSLIT: Record<string, string> = {
+  'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh','з':'z','и':'i',
+  'й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t',
+  'у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'shch','ъ':'','ы':'y',
+  'ь':'','э':'e','ю':'yu','я':'ya',
+}
+function transliterate(text: string): string {
+  return text.split('').map(c => {
+    const lower = c.toLowerCase()
+    const lat = TRANSLIT[lower]
+    if (lat === undefined) return c
+    return c === lower ? lat : lat.charAt(0).toUpperCase() + lat.slice(1)
+  }).join('')
+}
+
 const LANG_FLAGS: Record<Lang, string> = {
   ru: '\u{1F1F7}\u{1F1FA}',
   en: '\u{1F1EC}\u{1F1E7}',
@@ -549,6 +564,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       }
       const dict = dataTranslations[lang]
       if (dict && dict[text]) return dict[text]
+      // For English: transliterate Cyrillic names so they're readable
+      if (lang === 'en' && /[а-яА-ЯёЁ]/.test(text)) {
+        return transliterate(text)
+      }
     }
     return text
   }, [lang])

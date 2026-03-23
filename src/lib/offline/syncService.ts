@@ -459,10 +459,16 @@ async function pullRouteDetails(): Promise<number> {
       if (r.quickdraws) updates.quickdraws = r.quickdraws
       if (r.rope_length) updates.ropeLength = r.rope_length
       if (r.terrain_tags) {
-        try { updates.terrainTags = JSON.parse(r.terrain_tags as string) } catch { updates.terrainTags = r.terrain_tags }
+        try {
+          const parsed = typeof r.terrain_tags === 'string' ? JSON.parse(r.terrain_tags) : r.terrain_tags
+          updates.terrainTags = Array.isArray(parsed) ? parsed : []
+        } catch { updates.terrainTags = [] }
       }
       if (r.hold_types) {
-        try { updates.holdTypes = JSON.parse(r.hold_types as string) } catch { updates.holdTypes = r.hold_types }
+        try {
+          const parsed = typeof r.hold_types === 'string' ? JSON.parse(r.hold_types) : r.hold_types
+          updates.holdTypes = Array.isArray(parsed) ? parsed : []
+        } catch { updates.holdTypes = [] }
       }
       if (Object.keys(updates).length > 0) {
         await db.routes.update(r.id as string, updates)

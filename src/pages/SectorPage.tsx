@@ -454,12 +454,12 @@ export function SectorPage() {
                         {route.quickdraws && <> · <span title={t('route.quickdraws')} className="inline-flex items-center gap-0.5"><img src="/icons/quickdraw.png" alt="" className="inline h-4 w-auto" />{route.quickdraws}</span></>}
                         {route.ropeLength && <> · <span title={t('route.ropeLength')} className="inline-flex items-center gap-0.5"><img src="/icons/height-arrow.svg" alt="" className="inline h-3.5 w-auto opacity-70" />{route.ropeLength}{t('route.meters')}</span></>}
                       </div>
-                      {(route.terrainTags?.length || route.holdTypes?.length) ? (
+                      {(Array.isArray(route.terrainTags) && route.terrainTags.length > 0) || (Array.isArray(route.holdTypes) && route.holdTypes.length > 0) ? (
                         <div className="flex flex-wrap gap-0.5 mt-0.5">
-                          {route.terrainTags?.map(tag => (
+                          {Array.isArray(route.terrainTags) && route.terrainTags.map(tag => (
                             <span key={tag} className="bg-blue-50 text-blue-600 rounded px-1 py-0 text-[9px]">{t(`terrain.${tag}` as any)}</span>
                           ))}
-                          {route.holdTypes?.map(h => (
+                          {Array.isArray(route.holdTypes) && route.holdTypes.map(h => (
                             <span key={h} className="bg-orange-50 text-orange-600 rounded px-1 py-0 text-[9px]">{t(`hold.${h}` as any)}</span>
                           ))}
                         </div>

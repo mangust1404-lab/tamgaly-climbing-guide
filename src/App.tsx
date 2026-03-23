@@ -1,5 +1,5 @@
 import { lazy, Suspense, Component, type ReactNode } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { I18nProvider } from './lib/i18n'
 import { UserProvider } from './lib/userContext'
 import { Layout } from './components/ui/Layout'
@@ -33,16 +33,20 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 20, color: 'red', fontFamily: 'monospace', fontSize: 14 }}>
-          <h2>Error:</h2>
-          <pre style={{ whiteSpace: 'pre-wrap' }}>{this.state.error.message}</pre>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, color: '#666' }}>
-            {this.state.error.stack}
-          </pre>
+        <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif', maxWidth: 400, margin: '40px auto', textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>:(</div>
+          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Что-то пошло не так</h2>
+          <p style={{ fontSize: 14, color: '#666', marginBottom: 20 }}>Попробуйте перезагрузить страницу</p>
           <button onClick={() => { this.setState({ error: null }); window.location.href = '/' }}
-            style={{ marginTop: 10, padding: '8px 16px', background: '#333', color: '#fff', border: 'none', borderRadius: 4 }}>
-            Reload
+            style={{ padding: '10px 24px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, cursor: 'pointer' }}>
+            На главную
           </button>
+          <details style={{ marginTop: 24, textAlign: 'left' }}>
+            <summary style={{ fontSize: 12, color: '#999', cursor: 'pointer' }}>Подробности для разработчика</summary>
+            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 10, color: '#999', marginTop: 8, background: '#f5f5f5', padding: 8, borderRadius: 4 }}>
+              {this.state.error.message}
+            </pre>
+          </details>
         </div>
       )
     }
@@ -70,6 +74,7 @@ function App() {
             <Route path="/admin/photos" element={<Suspense fallback={<Loading />}><AdminPhotoTagger /></Suspense>} />
             <Route path="/admin/moderation" element={<Suspense fallback={<Loading />}><ModerationPage /></Suspense>} />
             <Route path="/admin/sectors" element={<Suspense fallback={<Loading />}><AdminSectorsPage /></Suspense>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

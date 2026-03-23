@@ -147,7 +147,7 @@ export function RoutePage() {
       </div>
 
       {/* Extra route info: quickdraws, rope, terrain, holds */}
-      {(route.quickdraws || route.ropeLength || route.terrainTags?.length || route.holdTypes?.length) && (
+      {(route.quickdraws || route.ropeLength || (Array.isArray(route.terrainTags) && route.terrainTags.length > 0) || (Array.isArray(route.holdTypes) && route.holdTypes.length > 0)) && (
         <div className="space-y-1.5 mb-3 text-xs">
           {/* Equipment line */}
           {(route.quickdraws || route.ropeLength) && (
@@ -167,7 +167,7 @@ export function RoutePage() {
             </div>
           )}
           {/* Terrain line */}
-          {route.terrainTags && route.terrainTags.length > 0 && (
+          {Array.isArray(route.terrainTags) && route.terrainTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
               {route.terrainTags.map(tag => (
                 <span key={tag} className="bg-blue-50 text-blue-700 rounded-full px-2 py-0.5">
@@ -177,7 +177,7 @@ export function RoutePage() {
             </div>
           )}
           {/* Holds line */}
-          {route.holdTypes && route.holdTypes.length > 0 && (
+          {Array.isArray(route.holdTypes) && route.holdTypes.length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
               {route.holdTypes.map(hold => (
                 <span key={hold} className="bg-orange-50 text-orange-700 rounded-full px-2 py-0.5">

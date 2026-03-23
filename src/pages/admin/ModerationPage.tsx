@@ -366,7 +366,7 @@ function RouteInfoBlock({ data, t, td }: { data: string; t: (key: any) => string
         )}
 
         {/* Details grid */}
-        {(info.quickdraws || info.ropeLength || info.terrainTags?.length || info.holdTypes?.length) && (
+        {(info.quickdraws || info.ropeLength || (Array.isArray(info.terrainTags) && info.terrainTags.length > 0) || (Array.isArray(info.holdTypes) && info.holdTypes.length > 0)) && (
           <div className="grid grid-cols-2 gap-2">
             {info.quickdraws && (
               <div className="bg-gray-50 rounded-lg p-2">
@@ -380,7 +380,7 @@ function RouteInfoBlock({ data, t, td }: { data: string; t: (key: any) => string
                 <span className="text-sm font-bold text-gray-800 inline-flex items-center gap-1"><img src="/icons/height-arrow.svg" alt="" className="h-4 w-auto opacity-70" />{info.ropeLength}м</span>
               </div>
             )}
-            {info.terrainTags?.length > 0 && (
+            {Array.isArray(info.terrainTags) && info.terrainTags.length > 0 && (
               <div className="bg-gray-50 rounded-lg p-2 col-span-2">
                 <span className="text-[10px] text-gray-400 block mb-1">{t('route.terrain')}</span>
                 <div className="flex flex-wrap gap-1">
@@ -390,7 +390,7 @@ function RouteInfoBlock({ data, t, td }: { data: string; t: (key: any) => string
                 </div>
               </div>
             )}
-            {info.holdTypes?.length > 0 && (
+            {Array.isArray(info.holdTypes) && info.holdTypes.length > 0 && (
               <div className="bg-gray-50 rounded-lg p-2 col-span-2">
                 <span className="text-[10px] text-gray-400 block mb-1">{t('route.holds')}</span>
                 <div className="flex flex-wrap gap-1">
