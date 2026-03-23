@@ -55,8 +55,10 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
 
   const grades = nearbyGrades(route.grade)
 
+  const isAnon = !user
+
   const handleVote = async (grade: string) => {
-    if (saving) return
+    if (saving || isAnon) return
     setSaving(true)
     try {
       const existing = reviews?.find(r => r.userId === userId)
@@ -145,8 +147,8 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
             <button
               key={g}
               onClick={() => handleVote(g)}
-              disabled={saving}
-              className="flex flex-col items-center flex-1 min-w-0"
+              disabled={saving || isAnon}
+              className={`flex flex-col items-center flex-1 min-w-0 ${isAnon ? 'opacity-60' : ''}`}
             >
               {/* Vote count bar */}
               {count > 0 && (
@@ -185,6 +187,9 @@ export function GradeVoting({ route, compact }: GradeVotingProps) {
           )
         })}
       </div>
+      {isAnon && (
+        <p className="text-[10px] text-gray-400 mt-1 text-center">{t('suggest.loginFirst')}</p>
+      )}
     </div>
   )
 }

@@ -10,7 +10,7 @@ import type { Area, Route, Sector } from '../../lib/db/schema'
 
 // Tamgaly-Tas center coordinates
 const DEFAULT_CENTER: [number, number] = [44.0630, 76.9960] // [lat, lng] for Leaflet
-const DEFAULT_ZOOM = 16
+const DEFAULT_ZOOM = 17
 
 interface OfflineMapProps {
   sectors: Sector[]
@@ -128,7 +128,7 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
       markersRef.current.push(entranceMarker)
     }
 
-    sectors.forEach((sector) => {
+    sectors.filter(s => s.latitude && s.longitude).forEach((sector) => {
       const gradient = sectorGradients[sector.id] || '#2563eb'
       const isGradient = gradient.startsWith('linear-gradient')
       const icon = L.divIcon({
@@ -172,8 +172,9 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
 
     // Fit map to show all markers
     if (sectors.length > 0) {
-      const lats = sectors.map(s => s.latitude)
-      const lngs = sectors.map(s => s.longitude)
+      const validSectors = sectors.filter(s => s.latitude && s.longitude)
+      const lats = validSectors.map(s => s.latitude)
+      const lngs = validSectors.map(s => s.longitude)
       if (area) { lats.push(area.latitude); lngs.push(area.longitude) }
       const bounds = L.latLngBounds(
         [Math.min(...lats) - 0.001, Math.min(...lngs) - 0.001],

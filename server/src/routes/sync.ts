@@ -53,10 +53,13 @@ syncRouter.post('/ascent', async (c) => {
     }
 
     if (!routeExists) {
-      // Auto-create stub route so FK constraint doesn't fail
+      // Auto-create stub sector + route so FK constraints don't fail
       console.log(`Auto-creating stub route: ${routeId}`)
+      const now = new Date().toISOString()
+      db.prepare('INSERT OR IGNORE INTO sector (id, area_id, name, slug, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run('unknown', 'tamgaly-tas', 'Unknown', 'unknown', 999, now, now)
       db.prepare('INSERT OR IGNORE INTO route (id, sector_id, name, grade, grade_sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(routeId, 'unknown', 'Unknown Route', '?', 0, 'published', new Date().toISOString(), new Date().toISOString())
+        .run(routeId, 'unknown', 'Unknown Route', '?', 0, 'published', now, now)
     }
 
     const id = crypto.randomUUID()
@@ -152,8 +155,11 @@ syncRouter.post('/review', async (c) => {
     const routeExists = db.prepare('SELECT id FROM route WHERE id = ?').get(payload.routeId)
     if (!routeExists) {
       console.log(`Auto-creating stub route for review: ${payload.routeId}`)
+      const now = new Date().toISOString()
+      db.prepare('INSERT OR IGNORE INTO sector (id, area_id, name, slug, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run('unknown', 'tamgaly-tas', 'Unknown', 'unknown', 999, now, now)
       db.prepare('INSERT OR IGNORE INTO route (id, sector_id, name, grade, grade_sort, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(payload.routeId, 'unknown', 'Unknown Route', '?', 0, 'published', new Date().toISOString(), new Date().toISOString())
+        .run(payload.routeId, 'unknown', 'Unknown Route', '?', 0, 'published', now, now)
     }
 
     const id = crypto.randomUUID()

@@ -295,6 +295,12 @@ export function ProfilePage() {
                   <span className="float-right text-green-600 text-xs font-medium">{t('profile.restore')}</span>
                 </button>
               ))}
+              <button
+                onClick={() => { register(nameInput) }}
+                className="w-full text-center text-xs text-gray-400 py-1 underline"
+              >
+                {t('profile.createAnyway')}
+              </button>
             </div>
           )}
 
@@ -309,7 +315,16 @@ export function ProfilePage() {
             </button>
             <button
               type="button"
-              onClick={() => { if (nameInput.trim()) register(nameInput) }}
+              onClick={async () => {
+                if (!nameInput.trim()) return
+                // Check for existing accounts with this name before registering
+                const existing = await lookupByName(nameInput)
+                if (existing.length > 0) {
+                  setFoundUsers(existing)
+                  return // Show found accounts instead of creating duplicate
+                }
+                register(nameInput)
+              }}
               disabled={!nameInput.trim()}
               className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-40"
             >

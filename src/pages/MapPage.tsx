@@ -3,21 +3,14 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { OfflineMap } from '../components/map/OfflineMap'
 
-// Only sectors with field-verified GPS coordinates
-const VERIFIED_SECTORS = new Set([
-  'sector-prigorod',
-  'sector-gorod',
-  'sector-serpy',
-  'sector-zamanka',
-])
-
 export function MapPage() {
   const allSectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
   const area = useLiveQuery(() => db.areas.get('tamgaly-tas'))
   const routes = useLiveQuery(() => db.routes.toArray())
 
+  // Show all sectors that have GPS coordinates
   const sectors = useMemo(
-    () => (allSectors ?? []).filter(s => VERIFIED_SECTORS.has(s.id)),
+    () => (allSectors ?? []).filter(s => s.latitude && s.longitude),
     [allSectors],
   )
 

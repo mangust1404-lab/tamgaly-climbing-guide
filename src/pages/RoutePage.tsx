@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { TopoViewer } from '../components/topo/TopoViewer'
 import { GradeVoting } from '../components/route/GradeVoting'
-import { gradeColor, gradeToTopoColor } from '../lib/utils'
+import { gradeColor, gradeToTopoColor, safeTags } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 
@@ -147,7 +147,7 @@ export function RoutePage() {
       </div>
 
       {/* Extra route info: quickdraws, rope, terrain, holds */}
-      {(route.quickdraws || route.ropeLength || (Array.isArray(route.terrainTags) && route.terrainTags.length > 0) || (Array.isArray(route.holdTypes) && route.holdTypes.length > 0)) && (
+      {(route.quickdraws || route.ropeLength || safeTags(route.terrainTags).length > 0 || safeTags(route.holdTypes).length > 0) && (
         <div className="space-y-1.5 mb-3 text-xs">
           {/* Equipment line */}
           {(route.quickdraws || route.ropeLength) && (
@@ -167,9 +167,9 @@ export function RoutePage() {
             </div>
           )}
           {/* Terrain line */}
-          {Array.isArray(route.terrainTags) && route.terrainTags.length > 0 && (
+          {safeTags(route.terrainTags).length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
-              {route.terrainTags.map(tag => (
+              {safeTags(route.terrainTags).map(tag => (
                 <span key={tag} className="bg-blue-50 text-blue-700 rounded-full px-2 py-0.5">
                   {t(`terrain.${tag}` as any)}
                 </span>
@@ -177,9 +177,9 @@ export function RoutePage() {
             </div>
           )}
           {/* Holds line */}
-          {Array.isArray(route.holdTypes) && route.holdTypes.length > 0 && (
+          {safeTags(route.holdTypes).length > 0 && (
             <div className="flex flex-wrap items-center gap-1">
-              {route.holdTypes.map(hold => (
+              {safeTags(route.holdTypes).map(hold => (
                 <span key={hold} className="bg-orange-50 text-orange-700 rounded-full px-2 py-0.5">
                   {t(`hold.${hold}` as any)}
                 </span>

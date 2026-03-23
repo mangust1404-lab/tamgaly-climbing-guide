@@ -68,6 +68,9 @@ export function AdminSectorsPage() {
   }
 
   const handleSaveToServer = async () => {
+    // Force blur to save any pending input values to IndexedDB
+    ;(document.activeElement as HTMLElement)?.blur()
+    await new Promise(r => setTimeout(r, 150))
     setSaving(true)
     setSaveMsg('')
     try {

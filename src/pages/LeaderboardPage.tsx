@@ -42,30 +42,48 @@ export function LeaderboardPage() {
     const routeMap = new Map(routes?.map(r => [r.id, r]) ?? [])
 
     const entries = Array.from(byUser.entries()).map(([userId, userAscents]) => {
+      // Deduplicate: keep only best ascent per route name (highest points)
+      // Use route name as key because same route may have different IDs across syncs
+      const bestPerRoute = new Map<string, typeof userAscents[number]>()
+      for (const a of userAscents) {
+        const route = routeMap.get(a.routeId)
+        const routeKey = route?.name || a.routeId
+        const pts = route ? calculatePoints(route.grade, a.style as any) : a.points
+        const existing = bestPerRoute.get(routeKey)
+        if (!existing) {
+          bestPerRoute.set(routeKey, a)
+        } else {
+          const existingRoute = routeMap.get(existing.routeId)
+          const existingPts = existingRoute ? calculatePoints(existingRoute.grade, existing.style as any) : existing.points
+          if (pts > existingPts) bestPerRoute.set(routeKey, a)
+        }
+      }
+      const uniqueAscents = [...bestPerRoute.values()]
+
       // Recalculate points locally from route grades (authoritative)
-      const points = userAscents.map((a) => {
+      const points = uniqueAscents.map((a) => {
         const route = routeMap.get(a.routeId)
         return route ? calculatePoints(route.grade, a.style as any) : a.points
       })
       const totalScore = calculateTotalScore(points)
       const user = users?.find((u) => u.id === userId)
 
-      // Best ascent
-      const best = userAscents.reduce((b, a) => {
+      // Best grade (highest gradeSort among ascents)
+      const bestGradeAscent = uniqueAscents.reduce((b, a) => {
         const bRoute = routeMap.get(b.routeId)
         const aRoute = routeMap.get(a.routeId)
-        const bPts = bRoute ? calculatePoints(bRoute.grade, b.style as any) : b.points
-        const aPts = aRoute ? calculatePoints(aRoute.grade, a.style as any) : a.points
-        return aPts > bPts ? a : b
-      }, userAscents[0])
-      const bestRoute = routes?.find((r) => r.id === best.routeId)
+        const bSort = bRoute?.gradeSort ?? 0
+        const aSort = aRoute?.gradeSort ?? 0
+        return aSort > bSort ? a : b
+      }, uniqueAscents[0])
+      const bestRoute = routeMap.get(bestGradeAscent.routeId)
 
       // Ascent details for expanded view
-      const details = userAscents
+      const details = uniqueAscents
         .map(a => {
           const route = routeMap.get(a.routeId)
           const pts = route ? calculatePoints(route.grade, a.style as any) : a.points
-          return { routeName: route ? td(route.name) : a.routeId, grade: route?.grade || '?', style: a.style, points: pts }
+          return { routeName: route ? td(route.name) : a.routeId, grade: route?.grade || '?', gradeSort: route?.gradeSort ?? 0, style: a.style, points: pts }
         })
         .sort((a, b) => b.points - a.points)
 
@@ -73,22 +91,34 @@ export function LeaderboardPage() {
         userId,
         displayName: user?.displayName || t('leaderboard.climber'),
         totalScore,
-        ascentCount: userAscents.length,
+        ascentCount: uniqueAscents.length,
         bestGrade: bestRoute?.grade || '?',
-        bestStyle: best.style,
+        bestStyle: bestGradeAscent.style,
         details,
       }
     })
 
     // Merge entries with the same displayName (same person, different devices)
+    // Also deduplicate across devices: same route from different userIds counts once
     const merged = new Map<string, typeof entries[number]>()
     for (const e of entries) {
       const existing = merged.get(e.displayName)
       if (existing) {
-        existing.totalScore += e.totalScore
-        existing.ascentCount += e.ascentCount
-        existing.details.push(...e.details)
+        // Merge details, deduplicating by route (keep best points)
+        for (const d of e.details) {
+          const dup = existing.details.find(x => x.routeName === d.routeName)
+          if (dup) {
+            if (d.points > dup.points) Object.assign(dup, d)
+          } else {
+            existing.details.push(d)
+          }
+        }
         existing.details.sort((a, b) => b.points - a.points)
+        existing.totalScore = calculateTotalScore(existing.details.map(d => d.points))
+        existing.ascentCount = existing.details.length
+        // Recalculate bestGrade from merged details (highest gradeSort)
+        const hardest = existing.details.reduce((best, d) => d.gradeSort > best.gradeSort ? d : best, existing.details[0])
+        existing.bestGrade = hardest?.grade || '?'
       } else {
         merged.set(e.displayName, { ...e })
       }

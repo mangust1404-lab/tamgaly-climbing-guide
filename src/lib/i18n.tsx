@@ -244,6 +244,7 @@ const translations = {
   'swipe.removedFromProjects': { ru: 'Убрано из проектов', en: 'Removed from projects', kk: 'Жобалардан алынды' },
   'profile.confirmDelete': { ru: 'Удалить этот пролаз?', en: 'Delete this ascent?', kk: 'Бұл өрмелеуді жою керек пе?' },
   'profile.editProfile': { ru: 'Редактировать профиль', en: 'Edit profile', kk: 'Профильді өзгерту' },
+  'profile.createAnyway': { ru: 'Создать новый аккаунт с этим именем', en: 'Create new account with this name', kk: 'Осы атпен жаңа аккаунт құру' },
 
   // Review form
   'review.title': { ru: 'Оставить отзыв', en: 'Leave a review', kk: 'Пікір қалдыру' },
@@ -307,9 +308,11 @@ const translations = {
 const dataTranslations: Record<Lang, Record<string, string>> = {
   ru: {}, // Russian is the source language, no translation needed
   en: {
-    // Area description
+    // Area description (both long and short versions used in topo-data.json)
     'Скалолазный район на берегу реки Или, 120 км от Алматы. Туф (вулканическая порода), ~200 маршрутов от 4 до 8a+. Сезон: март—май, сентябрь—ноябрь.':
       'Climbing area on the banks of the Ili River, 120 km from Almaty. Tuff (volcanic rock), ~200 routes from 4 to 8a+. Season: March–May, September–November.',
+    'Скалолазный район на берегу реки Или, 120 км от Алматы':
+      'Climbing area on the banks of the Ili River, 120 km from Almaty',
     // Orientations
     'Запад': 'West',
     'Восток': 'East',
@@ -346,20 +349,26 @@ const dataTranslations: Record<Lang, Record<string, string>> = {
     '4 свежих маршрута на крепкой породе (2019).': '4 new routes on solid rock (2019).',
     // Sector names
     'Бастион': 'Bastion',
+    'Бастион и Карнизы': 'Bastion and Cornices',
     'Библиотека': 'Library',
-    'Енбек': 'Enbek',
+    'Вечерний': 'Evening',
+    'Винни-Пух': 'Winnie the Pooh',
+    'Винни-Пух и все-все-все': 'Winnie the Pooh and Friends',
+    'Висячий Камень': 'Hanging Stone',
     'Город': 'City',
+    'Енбек': 'Enbek',
+    'За Висячим камнем': 'Behind the Hanging Stone',
+    'Заманка': 'Zamanka',
+    'Зуб': 'Tooth',
+    'Каньон': 'Canyon',
     'Карнизы': 'Cornices',
     'Лаборатория': 'Laboratory',
     'Лев': 'Lion',
     'Пригород': 'Suburb',
     'Ребро Жёсткости': 'Stiffening Rib',
     'Серпы': 'Sickles',
-    'Винни-Пух': 'Winnie the Pooh',
-    'Висячий Камень': 'Hanging Stone',
+    'Утренний': 'Morning',
     'Яблоки': 'Apples',
-    'Заманка': 'Zamanka',
-    'Зуб': 'Tooth',
     // Route names
     'Неправильные пчёлы': 'Wrong Bees',
     'Пятачок': 'Piglet',
@@ -463,11 +472,92 @@ const dataTranslations: Record<Lang, Record<string, string>> = {
     'От винта': 'Full Throttle',
     'Пляши в огне!': 'Dance in Fire!',
     'Пашкина щель': 'Pashka\'s Crack',
+    'Шляпа': 'Hat',
+    'Кроличья нора': 'Rabbit Hole',
+    'Трусливый лев': 'Cowardly Lion',
+    'Симба': 'Simba',
+    'Сараби': 'Sarabi',
+    // Missing route names
+    'Аид': 'Hades',
+    'Батарея': 'Battery',
+    'Бесимся': 'Going Wild',
+    'Бесогон': 'Exorcist',
+    'Вечная весна': 'Eternal Spring',
+    'Винтовка': 'Rifle',
+    'Государство': 'The State',
+    'Детский мир': 'Children\'s World',
+    'Зов Ктулху': 'Call of Cthulhu',
+    'Золото': 'Gold',
+    'Зоопарк': 'Zoo',
+    'Испытатель боли': 'Pain Tester',
+    'Коперник': 'Copernicus',
+    'Кукольщик': 'Puppeteer',
+    'Лета': 'Lethe',
+    'Липовый мёд': 'Linden Honey',
+    'Малиновая девочка': 'Raspberry Girl',
+    'Маргарита': 'Margarita',
+    'Мельница': 'Windmill',
+    'Мессия': 'Messiah',
+    'Мимикрия': 'Mimicry',
+    'Молодой пожарный': 'Young Firefighter',
+    'Мы': 'We',
+    'Надька': 'Nadka',
+    'Не ищи сову!': 'Don\'t Look for Owl!',
+    'Найди сову!': 'Find the Owl!',
+    'Напугай сову!': 'Scare the Owl!',
+    'Немейский лев': 'Nemean Lion',
+    'Непохожая на сны': 'Unlike Dreams',
+    'Одноразовые герои': 'Disposable Heroes',
+    'Орион': 'Orion',
+    'Осень': 'Autumn',
+    'Офелия': 'Ophelia',
+    'Перекур': 'Smoke Break',
+    'Песочник': 'Sandpiper',
+    'Печенька': 'Cookie',
+    'Планета людей': 'Planet of People',
+    'Плесень': 'Mold',
+    'Поломай, Ко': 'Break It, Ko',
+    'Посошок': 'One for the Road',
+    'Пятнистый Щасвирнус': 'Spotted Shchasvirnus',
+    'Разгар сезона': 'Peak Season',
+    'Санаторий': 'Sanatorium',
+    'Свистопляс': 'Pandemonium',
+    'Семя': 'Seed',
+    'Серп': 'Sickle',
+    'Сияние': 'The Shining',
+    'Солнечный зайчик': 'Sunbeam',
+    'Старые раны': 'Old Wounds',
+    'Сфинкс': 'Sphinx',
+    'То, чего не может быть': 'That Which Cannot Be',
+    'Топливо': 'Fuel',
+    'Хозяйка': 'Hostess',
+    'Хорошо': 'Good',
+    'Цербер': 'Cerberus',
+    'Экстремальная атлетика': 'Extreme Athletics',
+    'УЗПА': 'UZPA',
+    // Kazakh route names
+    'Аю көктамыры': 'Bear Root',
+    'Балық дауысы': 'Fish Voice',
+    'Жарқұс': 'Bright Bird',
+    'Кекілік': 'Partridge',
+    'Мысықтын қадамы': 'Cat\'s Step',
+    'Тасбақа': 'Turtle',
+    'Тау тамыры': 'Mountain Root',
+    'Түлкі': 'Fox',
+    'Қарлығаш': 'Swallow',
+    'Қорқау': 'Coward',
+    'Құмтышқан': 'Sand Mouse',
+    'Құс сілекейі': 'Bird Saliva',
+    'Үкі': 'Eagle Owl',
+    'Әйел сақалы': 'Woman\'s Beard',
+    'Салқын': 'Cool',
   },
   kk: {
-    // Area description
+    // Area description (both long and short versions used in topo-data.json)
     'Скалолазный район на берегу реки Или, 120 км от Алматы. Туф (вулканическая порода), ~200 маршрутов от 4 до 8a+. Сезон: март—май, сентябрь—ноябрь.':
       'Іле өзенінің жағасындағы жартасқа өрмелеу ауданы, Алматыдан 120 км. Туф (вулкандық жыныс), 4-тен 8a+-ге дейін ~200 маршрут. Маусым: наурыз—мамыр, қыркүйек—қараша.',
+    'Скалолазный район на берегу реки Или, 120 км от Алматы':
+      'Іле өзенінің жағасындағы жартасқа өрмелеу ауданы, Алматыдан 120 км',
     // Orientations
     'Запад': 'Батыс',
     'Восток': 'Шығыс',
@@ -518,6 +608,12 @@ const dataTranslations: Record<Lang, Record<string, string>> = {
     'Яблоки': 'Алмалар',
     'Заманка': 'Заманка',
     'Зуб': 'Тіс',
+    // Route names
+    'Шляпа': 'Қалпақ',
+    'Кроличья нора': 'Қоян інi',
+    'Трусливый лев': 'Қорқақ арыстан',
+    'Симба': 'Симба',
+    'Сараби': 'Сараби',
   },
 }
 
@@ -563,9 +659,28 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         if (translated) return translated
       }
       const dict = dataTranslations[lang]
-      if (dict && dict[text]) return dict[text]
-      // For English: transliterate Cyrillic names so they're readable
-      if (lang === 'en' && /[а-яА-ЯёЁ]/.test(text)) {
+      const translation = dict?.[text]
+
+      // For names (no obj+field): transliterate Cyrillic + show translation in parentheses
+      if (!obj && !field && /[а-яА-ЯёЁ]/.test(text)) {
+        const translit = transliterate(text)
+        // Try exact match first, then strip P1/P2/P3 suffix
+        let trans = translation
+        if (!trans) {
+          const m = text.match(/^(.+?)\s+(P[123])$/)
+          if (m) trans = dict?.[m[1]] ? `${dict[m[1]]} ${m[2]}` : undefined
+        }
+        if (trans && trans.toLowerCase() !== translit.toLowerCase()) {
+          return `${translit} (${trans})`
+        }
+        return translit
+      }
+
+      // For descriptions (obj+field provided): use translation directly
+      if (translation) return translation
+
+      // Fallback: transliterate remaining Cyrillic
+      if (/[а-яА-ЯёЁ]/.test(text)) {
         return transliterate(text)
       }
     }

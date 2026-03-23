@@ -1,3 +1,12 @@
+/** Safely parse terrainTags/holdTypes which may be stored as JSON string instead of array */
+export function safeTags(val: unknown): string[] {
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string' && val.length > 0) {
+    try { const p = JSON.parse(val); return Array.isArray(p) ? p : [] } catch { return [] }
+  }
+  return []
+}
+
 /** Grade → topo line color (traffic light by difficulty) */
 export function gradeToTopoColor(grade: string): string {
   const g = grade.toLowerCase()

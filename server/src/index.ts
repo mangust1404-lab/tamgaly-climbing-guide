@@ -19,18 +19,15 @@ app.use('/*', bodyLimit({ maxSize: 200 * 1024 * 1024 })) // 200MB limit (topo-da
 // Health check
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
-// Serve topo-data.json (proxied by nginx from /data/topo-data.json)
+// Serve topo-data.json — prefer nginx-served copy (most up-to-date from admin saves)
 app.get('/api/topo-data', (c) => {
-  const dataPath = join(process.cwd(), 'server', 'data', 'topo-data.json')
-  if (!existsSync(dataPath)) {
-    // Fallback to built-in copy
-    const fallback = join(process.cwd(), 'data', 'topo-data.json')
-    if (existsSync(fallback)) {
-      const data = readFileSync(fallback, 'utf-8')
-      c.header('Content-Type', 'application/json')
-      c.header('Cache-Control', 'no-cache')
-      return c.body(data)
-    }
+  const candidates = [
+    '/var/www/tamgaly/data/topo-data.json',
+    join(process.cwd(), 'data', 'topo-data.json'),
+    join(process.cwd(), 'server', 'data', 'topo-data.json'),
+  ]
+  const dataPath = candidates.find(p => existsSync(p))
+  if (!dataPath) {
     return c.json({ error: 'Not found' }, 404)
   }
   const data = readFileSync(dataPath, 'utf-8')
@@ -172,6 +169,45 @@ app.post('/api/save-topo-data', async (c) => {
         const translated = await autoTranslateSectors(body.sectors)
         if (translated > 0) console.log(`Auto-translated ${translated} sector fields`)
       } catch (e) { console.error('Auto-translation failed:', e) }
+    }
+
+    // Sync sectors + routes into SQLite so FK constraints work for ascents/reviews
+    try {
+      const sdb = getDb()
+      // Ensure area exists
+      sdb.prepare(`INSERT OR IGNORE INTO area (id, name, slug, latitude, longitude) VALUES (?, ?, ?, ?, ?)`)
+        .run('tamgaly-tas', 'Тамгалы-Тас', 'tamgaly-tas', 44.063, 76.997)
+      // Upsert sectors
+      const upsertSector = sdb.prepare(`INSERT INTO sector (id, area_id, name, slug, latitude, longitude, orientation, sun_exposure, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET name=excluded.name, latitude=excluded.latitude, longitude=excluded.longitude,
+        orientation=excluded.orientation, sun_exposure=excluded.sun_exposure, sort_order=excluded.sort_order`)
+      for (const s of body.sectors || []) {
+        upsertSector.run(s.id, s.areaId || 'tamgaly-tas', s.name, s.slug || s.id, s.latitude || 0, s.longitude || 0,
+          s.orientation || null, s.sunExposure || null, s.sortOrder || 0)
+      }
+      // Upsert routes
+      const upsertRoute = sdb.prepare(`INSERT INTO route (id, sector_id, name, slug, grade, grade_sort, route_type, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'published')
+        ON CONFLICT(id) DO UPDATE SET name=excluded.name, sector_id=excluded.sector_id, grade=excluded.grade, grade_sort=excluded.grade_sort`)
+      const seenSlugs = new Map<string, number>()
+      for (const r of body.routes || []) {
+        let slug = r.slug || r.name.toLowerCase().replace(/[^a-zа-яё0-9]+/gi, '-')
+        const slugKey = `${r.sectorId}:${slug}`
+        const count = seenSlugs.get(slugKey) || 0
+        if (count > 0) slug = `${slug}-${count}`
+        seenSlugs.set(slugKey, count + 1)
+        upsertRoute.run(r.id, r.sectorId, r.name, slug, r.grade, r.gradeSort || 0, r.routeType || 'sport')
+      }
+      console.log(`Synced ${(body.sectors || []).length} sectors + ${(body.routes || []).length} routes to SQLite`)
+    } catch (e) { console.error('SQLite sync failed:', e) }
+
+    // Ensure areas array always present (admin UI doesn't include it)
+    if (!body.areas || body.areas.length === 0) {
+      body.areas = [
+        { id: 'tamgaly-tas', name: 'Тамгалы-Тас', slug: 'tamgaly-tas', description: 'Скалолазный район на берегу реки Или, 120 км от Алматы', latitude: 44.063, longitude: 76.996 },
+        { id: 'tamgaly', name: 'Тамгалы-Тас', slug: 'tamgaly', description: 'Скалолазный район на берегу реки Или, 120 км от Алматы', latitude: 44.063, longitude: 76.996 },
+      ]
     }
 
     const json = JSON.stringify(body, null, 0)

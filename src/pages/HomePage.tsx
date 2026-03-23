@@ -20,20 +20,18 @@ const GRADE_CHIPS = ['4', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+
 
 type SunFilter = 'morning' | 'afternoon' | 'allday'
 
-function sunCategory(sunExposure?: string, sunFrom?: number, sunTo?: number): SunFilter | null {
-  // Numeric fields: morning = ends by 12, afternoon = starts at 13+, allday = spans 6–18
+function sunCategory(_sunExposure?: string, sunFrom?: number, sunTo?: number): SunFilter | null {
+  // Only use numeric sunFrom/sunTo — ignore text
+  if (sunFrom == null && sunTo == null) return null
   const from = sunFrom ?? 0
   const to = sunTo ?? 24
-  if (sunFrom != null || sunTo != null) {
-    if (to <= 12) return 'morning'
-    if (from >= 13) return 'afternoon'
-    return 'allday'
-  }
-  if (!sunExposure) return null
-  if (sunExposure.includes('Утром') || sunExposure.includes('Первое солнце')) return 'morning'
-  if (sunExposure.includes('После обеда')) return 'afternoon'
-  if (sunExposure.includes('Весь день') || sunExposure.includes('Днём')) return 'allday'
-  return null
+  const morningH = Math.max(0, Math.min(12, to) - from)
+  const afternoonH = Math.max(0, to - Math.max(12, from))
+  if (afternoonH === 0) return 'morning'
+  if (morningH === 0) return 'afternoon'
+  if (afternoonH > morningH * 2) return 'afternoon'
+  if (morningH > afternoonH * 2) return 'morning'
+  return 'allday'
 }
 
 export function HomePage() {
@@ -111,13 +109,15 @@ export function HomePage() {
       sunPassSectors = new Set<string>()
       for (const s of sectors) {
         const cat = sectorSunMap.get(s.id)
-        if (cat === null) { sunPassSectors.add(s.id); continue } // mixed sectors always pass
         if (sunMode === 'sun') {
+          if (cat === null) continue // unknown sun = exclude from sun filter
           if (cat === sunFilter) sunPassSectors.add(s.id)
         } else {
-          if (sunFilter === 'allday') continue // no full-shade sectors
-          if (cat === 'allday') continue // sun all day = no shade
-          if (cat !== sunFilter) sunPassSectors.add(s.id)
+          // Shade mode: null = unknown, show in "allday shade" (might be shady)
+          if (cat === null) { if (sunFilter === 'allday') sunPassSectors.add(s.id); continue }
+          if (cat === 'allday') continue // sun all day = no shade ever
+          if (sunFilter === 'allday') continue // shade all day = only unknown sectors qualify
+          if (cat !== sunFilter) sunPassSectors.add(s.id) // morning sun = afternoon shade, etc.
         }
       }
     }
@@ -126,11 +126,11 @@ export function HomePage() {
       .filter(r => {
         // Grade filter
         if (matchSorts.size > 0 && !matchSorts.has(r.gradeSort)) return false
-        // Rope length filter — unknown length routes excluded from short rope filters (safety)
+        // Rope length filter — route height × 2 + 2m (knots) = rope needed to lower off
         if (maxRopeLength) {
-          const needed = r.ropeLength ?? (r.lengthM ? r.lengthM * 2 : null)
-          if (needed == null) { if (maxRopeLength <= 50) return false }
-          else if (needed > maxRopeLength) return false
+          const height = r.ropeLength ?? r.lengthM ?? null
+          if (height == null) return false // unknown length = unsafe, always exclude
+          if (height * 2 + 2 > maxRopeLength) return false
         }
         // Sun filter (sector-level)
         if (sunPassSectors && !sunPassSectors.has(r.sectorId)) return false
@@ -140,19 +140,44 @@ export function HomePage() {
       .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId)?.name ?? '' }))
   }, [hasActiveFilters, selectedGrades, maxRopeLength, sunFilter, sunMode, routes, sectors, sectorMap, sectorSunMap])
 
+  // Count ascents per sector for sorting
+  const ascents = useLiveQuery(() => db.ascents.toArray())
+  const sectorAscentCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    if (!ascents || !routes) return counts
+    const routeSector = new Map(routes.map(r => [r.id, r.sectorId]))
+    for (const a of ascents) {
+      const sid = routeSector.get(a.routeId)
+      if (sid) counts.set(sid, (counts.get(sid) || 0) + 1)
+    }
+    return counts
+  }, [ascents, routes])
+
   // Filtered sectors (when only sun/shade filter active, no grade/rope filters)
   const filteredSectors = useMemo(() => {
-    if (!sunFilter || hasRouteFilters || !sectors) return sectors ?? []
-    return sectors.filter(s => {
-      const cat = sectorSunMap.get(s.id)
-      if (cat === null) return true // mixed sectors always pass
-      if (sunMode === 'sun') return cat === sunFilter
-      // shade mode
-      if (sunFilter === 'allday') return false
-      if (cat === 'allday') return false
-      return cat !== sunFilter
+    let list = sectors ?? []
+    if (sunFilter && !hasRouteFilters) {
+      list = list.filter(s => {
+        const cat = sectorSunMap.get(s.id)
+        if (sunMode === 'sun') {
+          if (cat === null) return false // unknown sun = exclude
+          return cat === sunFilter
+        }
+        // shade mode
+        if (cat === null) return sunFilter === 'allday' // unknown = show only for "shade allday"
+        if (cat === 'allday') return false // sun all day = no shade
+        if (sunFilter === 'allday') return false // shade all day = only unknown sectors qualify
+        return cat !== sunFilter // morning sun = afternoon shade, etc.
+      })
+    }
+    // Sort by ascent count (most popular first), then by sortOrder
+    return [...list].sort((a, b) => {
+      const aCount = sectorAscentCounts.get(a.id) || 0
+      const bCount = sectorAscentCounts.get(b.id) || 0
+      if (bCount !== aCount) return bCount - aCount
+      return (a.sortOrder || 0) - (b.sortOrder || 0)
     })
-  }, [sunFilter, hasRouteFilters, sectors, sectorSunMap, sunMode])
+  }, [sunFilter, hasRouteFilters, sectors, sectorSunMap, sunMode, sectorAscentCounts])
 
   // Count routes per sector (for sector list display)
   const routeCounts = new Map<string, number>()

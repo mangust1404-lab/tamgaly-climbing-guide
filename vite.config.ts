@@ -99,6 +99,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         skipWaiting: true,
         clientsClaim: true,
+        cleanupOutdatedCaches: true,
         navigateFallback: 'index.html',
         runtimeCaching: [
           {

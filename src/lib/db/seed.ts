@@ -116,7 +116,7 @@ export async function seedDemoData() {
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
     { id: 'sector-visyachiy', areaId: 'tamgaly-tas', name: 'Висячий Камень', slug: 'visyachiy-kamen',
       description: 'Большая скала с валуном наверху. Три мультипитча.',
-      latitude: 44.0647, longitude: 76.9932,
+      latitude: 0, longitude: 0,
       approachDescription: 'Дальше по ущелью от Заманки.', approachTimeMin: 10,
       orientation: 'Запад', sunExposure: 'После обеда', sortOrder: 3,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
@@ -140,7 +140,7 @@ export async function seedDemoData() {
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
     { id: 'sector-zub', areaId: 'tamgaly-tas', name: 'Зуб', slug: 'zub',
       description: '4 свежих маршрута на крепкой породе (2019).',
-      latitude: 44.0652, longitude: 76.9922,
+      latitude: 0, longitude: 0,
       approachDescription: 'Рядом с Яблоками.', approachTimeMin: 11,
       orientation: 'Восток', sunExposure: 'Утром солнце', sortOrder: 7,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
@@ -656,4 +656,29 @@ export async function updateGpsCoordinates() {
     console.log('Added sector: Енбек')
   }
   console.log('GPS coordinates updated from KMZ waypoints')
+}
+
+/** Fix terrainTags/holdTypes stored as JSON strings instead of arrays */
+export async function fixRouteArrayFields() {
+  const routes = await db.routes.toArray()
+  let fixed = 0
+  for (const route of routes) {
+    const updates: Record<string, any> = {}
+    for (const field of ['terrainTags', 'holdTypes'] as const) {
+      const val = route[field]
+      if (val && !Array.isArray(val)) {
+        try {
+          const parsed = typeof val === 'string' ? JSON.parse(val) : val
+          updates[field] = Array.isArray(parsed) ? parsed : []
+        } catch {
+          updates[field] = []
+        }
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      await db.routes.update(route.id, updates)
+      fixed++
+    }
+  }
+  if (fixed > 0) console.log(`Fixed terrainTags/holdTypes on ${fixed} routes`)
 }

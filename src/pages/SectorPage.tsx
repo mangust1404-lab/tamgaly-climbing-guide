@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Route as RouteType } from '../lib/db/schema'
@@ -6,7 +6,7 @@ import { TopoViewer } from '../components/topo/TopoViewer'
 import { RouteList } from '../components/topo/RouteList'
 import { AscentForm } from '../components/route/AscentForm'
 import { SwipeableRouteRow } from '../components/route/SwipeableRouteRow'
-import { gradeColor, sunHours } from '../lib/utils'
+import { gradeColor, sunHours, safeTags } from '../lib/utils'
 import { useGps } from '../hooks/useGps'
 import { distanceMeters, formatDistance, bearing } from '../lib/map/geo'
 import { useI18n } from '../lib/i18n'
@@ -33,6 +33,12 @@ export function SectorPage() {
   const { sectorId } = useParams<{ sectorId: string }>()
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [gradeFilter, setGradeFilter] = useState('all')
+  // Delay TopoViewer mount to let iOS Safari clean up previous page (Leaflet map) resources
+  const [topoMountReady, setTopoMountReady] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setTopoMountReady(true), 150)
+    return () => clearTimeout(timer)
+  }, [])
   const [ascentRoute, setAscentRoute] = useState<RouteType | null>(null)
   const [swipeToast, setSwipeToast] = useState('')
 
@@ -273,7 +279,7 @@ export function SectorPage() {
       )}
 
       {/* Topo viewer with route overlays (OpenSeadragon) */}
-      {activeTopo && activeTopoRoutes.length > 0 && (
+      {topoMountReady && activeTopo && activeTopoRoutes.length > 0 && (
         <div className="mb-2">
           <TopoViewer
             imageUrl={activeTopo.imageUrl}
@@ -449,17 +455,16 @@ export function SectorPage() {
                       </div>
                       <div className="text-[10px] text-gray-400">
                         {t(`routeType.${route.routeType}` as any)}
-                        {route.lengthM && ` · ${route.lengthM}${t('route.meters')}`}
                         {route.pitches > 1 && ` · ${route.pitches} ${t('route.pitchesCount')}`}
                         {route.quickdraws && <> · <span title={t('route.quickdraws')} className="inline-flex items-center gap-0.5"><img src="/icons/quickdraw.png" alt="" className="inline h-4 w-auto" />{route.quickdraws}</span></>}
-                        {route.ropeLength && <> · <span title={t('route.ropeLength')} className="inline-flex items-center gap-0.5"><img src="/icons/height-arrow.svg" alt="" className="inline h-3.5 w-auto opacity-70" />{route.ropeLength}{t('route.meters')}</span></>}
+                        {route.lengthM && <> · <span title={t('route.ropeLength')} className="inline-flex items-center gap-0.5"><img src="/icons/height-arrow.svg" alt="" className="inline h-3.5 w-auto opacity-70" />{route.lengthM}{t('route.meters')}</span></>}
                       </div>
-                      {(Array.isArray(route.terrainTags) && route.terrainTags.length > 0) || (Array.isArray(route.holdTypes) && route.holdTypes.length > 0) ? (
+                      {(safeTags(route.terrainTags).length > 0 || safeTags(route.holdTypes).length > 0) ? (
                         <div className="flex flex-wrap gap-0.5 mt-0.5">
-                          {Array.isArray(route.terrainTags) && route.terrainTags.map(tag => (
+                          {safeTags(route.terrainTags).map(tag => (
                             <span key={tag} className="bg-blue-50 text-blue-600 rounded px-1 py-0 text-[9px]">{t(`terrain.${tag}` as any)}</span>
                           ))}
-                          {Array.isArray(route.holdTypes) && route.holdTypes.map(h => (
+                          {safeTags(route.holdTypes).map(h => (
                             <span key={h} className="bg-orange-50 text-orange-600 rounded px-1 py-0 text-[9px]">{t(`hold.${h}` as any)}</span>
                           ))}
                         </div>

@@ -16,7 +16,7 @@ export function AboutPage() {
       <h1 className="text-2xl font-bold mt-2 mb-3">{t('home.title')}</h1>
 
       <p className="text-sm text-gray-700 mb-4 leading-relaxed">
-        {area?.description ? td(area.description) : t('home.subtitle')}
+        {area?.description ? td(area.description, area, 'description') : t('home.subtitle')}
       </p>
 
       {/* Stats */}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Suggestion } from '../../lib/db/schema'
 import { useI18n } from '../../lib/i18n'
+import { safeTags } from '../../lib/utils'
 import { AdminNav } from '../../components/admin/AdminNav'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -366,7 +367,7 @@ function RouteInfoBlock({ data, t, td }: { data: string; t: (key: any) => string
         )}
 
         {/* Details grid */}
-        {(info.quickdraws || info.ropeLength || (Array.isArray(info.terrainTags) && info.terrainTags.length > 0) || (Array.isArray(info.holdTypes) && info.holdTypes.length > 0)) && (
+        {(info.quickdraws || info.ropeLength || safeTags(info.terrainTags).length > 0 || safeTags(info.holdTypes).length > 0) && (
           <div className="grid grid-cols-2 gap-2">
             {info.quickdraws && (
               <div className="bg-gray-50 rounded-lg p-2">
@@ -380,21 +381,21 @@ function RouteInfoBlock({ data, t, td }: { data: string; t: (key: any) => string
                 <span className="text-sm font-bold text-gray-800 inline-flex items-center gap-1"><img src="/icons/height-arrow.svg" alt="" className="h-4 w-auto opacity-70" />{info.ropeLength}м</span>
               </div>
             )}
-            {Array.isArray(info.terrainTags) && info.terrainTags.length > 0 && (
+            {safeTags(info.terrainTags).length > 0 && (
               <div className="bg-gray-50 rounded-lg p-2 col-span-2">
                 <span className="text-[10px] text-gray-400 block mb-1">{t('route.terrain')}</span>
                 <div className="flex flex-wrap gap-1">
-                  {info.terrainTags.map((tag: string) => (
+                  {safeTags(info.terrainTags).map((tag: string) => (
                     <span key={tag} className="bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 text-xs">{t(`terrain.${tag}`)}</span>
                   ))}
                 </div>
               </div>
             )}
-            {Array.isArray(info.holdTypes) && info.holdTypes.length > 0 && (
+            {safeTags(info.holdTypes).length > 0 && (
               <div className="bg-gray-50 rounded-lg p-2 col-span-2">
                 <span className="text-[10px] text-gray-400 block mb-1">{t('route.holds')}</span>
                 <div className="flex flex-wrap gap-1">
-                  {info.holdTypes.map((h: string) => (
+                  {safeTags(info.holdTypes).map((h: string) => (
                     <span key={h} className="bg-orange-100 text-orange-700 rounded-full px-2 py-0.5 text-xs">{t(`hold.${h}`)}</span>
                   ))}
                 </div>

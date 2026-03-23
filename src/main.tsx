@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
-import { seedDemoData, updateGpsCoordinates, restoreToposFromTags, loadTopoDataFromFile } from './lib/db/seed'
+import { seedDemoData, updateGpsCoordinates, restoreToposFromTags, loadTopoDataFromFile, fixRouteArrayFields } from './lib/db/seed'
 
 // Auto-reload when new service worker takes control
 if ('serviceWorker' in navigator) {
@@ -28,6 +28,16 @@ async function initData() {
   try { await updateGpsCoordinates() } catch (e) { console.error('updateGpsCoordinates failed:', e) }
   try { await loadTopoDataFromFile() } catch (e) { console.error('loadTopoDataFromFile failed:', e) }
   try { await restoreToposFromTags() } catch (e) { console.error('restoreToposFromTags failed:', e) }
-  console.log('Data init complete (build 2026-03-21)')
+  try { await fixRouteArrayFields() } catch (e) { console.error('fixRouteArrayFields failed:', e) }
+  console.log('Data init complete (build 2026-03-23c)')
 }
 initData()
+
+// Re-check topo data when app becomes visible (tab switch, screen unlock)
+let lastTopoCheck = Date.now()
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Date.now() - lastTopoCheck > 60_000) {
+    lastTopoCheck = Date.now()
+    loadTopoDataFromFile().catch(e => console.error('Topo re-check failed:', e))
+  }
+})

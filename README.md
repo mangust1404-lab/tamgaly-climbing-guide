@@ -1,17 +1,19 @@
 # Tamgaly Climbing Guide
 
-Offline-first электронный гайд по скалолазному району **Тамгалы-Тас** (Алматы, Казахстан).
+Offline-first электронный гайд по скалолазному району **Тамгалы-Тас** (берег реки Или, Казахстан).
 
 ## Возможности
 
-- **Полный офлайн** — работает без интернета после загрузки данных
-- **Офлайн-карта** с GPS-навигацией к секторам (Leaflet + PMTiles)
-- **Интерактивные топо** — зумируемые фото скал с SVG-маршрутами (OpenSeadragon)
-- **Логирование пролазов** — офлайн с синхронизацией при появлении сети
-- **Таблица лидеров** — геймификация с очками за пролазы
-- **Фильтр солнце/тень** — выбор сектора по времени дня
-- **Админ-панель** — редактор топо, разметка маршрутов, модерация предложений
+- **Полный офлайн** — работает без интернета после первой загрузки
+- **Карта секторов** — Leaflet с GPS-навигацией, маркеры секторов с цветовым градиентом по категориям трасс
+- **Интерактивные топо** — зумируемые фото скал с линиями маршрутов (OpenSeadragon)
+- **Логирование пролазов** — onsight/flash/redpoint/toprope/attempt, офлайн очередь с синхронизацией
+- **Таблица лидеров** — рейтинг по топ-10 лучших маршрутов, дедупликация по имени трассы
+- **Профиль** — личная статистика, история пролазов
+- **Фильтр солнце/тень** — выбор сектора по времени дня (sunFrom/sunTo)
+- **Админ-панель** — редактор секторов, маршрутов, топо-фото, загрузка на сервер
 - **i18n** — русский, английский, казахский
+- **Auto-refresh** — topo-data.json обновляется при возврате в приложение (visibilitychange)
 
 ## Стек технологий
 
@@ -20,7 +22,7 @@ Offline-first электронный гайд по скалолазному ра
 | Frontend | React 19 + TypeScript + Vite 7 |
 | PWA | Workbox (vite-plugin-pwa) |
 | UI | Tailwind CSS 4 |
-| Карты | Leaflet + PMTiles |
+| Карты | Leaflet |
 | Топо-вьювер | OpenSeadragon + SVG Overlay |
 | Клиентская БД | Dexie.js (IndexedDB) |
 | Backend | Node.js + Hono |
@@ -31,8 +33,13 @@ Offline-first электронный гайд по скалолазному ра
 
 ```bash
 npm install
-npm run dev          # Frontend (Vite dev server)
-npm run server:dev   # Backend (Hono на порту 3001)
+npm run dev          # Frontend (Vite dev server, порт 5173)
+npm run server:dev   # Backend (Hono, порт 3001)
+
+# Build & проверка
+VITE_BASE=/ npx vite build
+./node_modules/.bin/tsc --noEmit
+npm test
 ```
 
 ## Деплой
@@ -45,14 +52,16 @@ npm run server:dev   # Backend (Hono на порту 3001)
 
 **VPS:** 89.167.90.248
 **Продакшн:** https://tamgalyclimb.alexanderlobanov.de/
-**Админка:** http://89.167.90.248/admin/topo
+**Админка:** https://tamgalyclimb.alexanderlobanov.de/admin
 
 ### Важно
 
-- `data/topo-data.json` (15MB) — исходные данные топо. **НЕ** часть Vite-сборки, копируется в `dist/data/` скриптом `npm run build` или `deploy.sh`.
-- При ручном деплое ВСЕГДА копировать topo-data.json: `mkdir -p dist/data && cp data/topo-data.json dist/data/`
-- Никогда не удалять `/var/www/tamgaly/data/` на сервере — только `/var/www/tamgaly/assets/`
-- Nginx конфиги в `deploy/` — актуальные копии с сервера. Всегда `client_max_body_size 20m` в `/api/`.
+- `data/topo-data.json` — source of truth для секторов, маршрутов, топо. Редактируется через админку, сохраняется на сервер через `/api/save-topo-data`
+- При сохранении topo-data.json на сервер секторы и маршруты автоматически upsert-ятся в SQLite (FK constraints)
+- `seed-from-topo.ts` ищет topo-data.json в порядке: `/var/www/tamgaly/data/` (актуальный от админки) → `data/` (из Docker image) → `server/data/` (volume, может быть устаревшим)
+- Seed всегда создаёт area `tamgaly-tas` если её нет, пропускает секторы/маршруты с невалидными FK (не ломается на ошибках)
+- `deploy.sh` удаляет только `/var/www/tamgaly/assets/` — **никогда** не трогает `data/` и `topo-images/`
+- Nginx конфиги в `deploy/` — актуальные копии с сервера. Всегда `client_max_body_size 20m` в `/api/`
 - `sites-enabled` на сервере — **симлинки** на `sites-available`, не копии!
 
 ## Структура проекта
@@ -71,7 +80,7 @@ src/
     db/             # Dexie.js схема, seed, загрузка topo-data.json
     sync/           # Синхронизация офлайн → сервер
     offline/        # Управление офлайн-загрузкой
-    map/            # PMTiles, GeoJSON утилиты
+    map/            # Geo утилиты (расстояние, форматирование)
     scoring/        # Расчёт очков и достижений
     api/            # API-клиент
     i18n.tsx        # Переводы (ru/en/kk)
@@ -85,7 +94,7 @@ server/
     db/             # SQLite: connection, migrate, seed
     services/       # Бизнес-логика
 data/
-  topo-data.json    # 15MB — маршруты, топо-фото (base64), SVG оверлеи
+  topo-data.json    # Маршруты, секторы, топо-фото (base64), оверлеи маршрутов
 deploy/
   tamgaly-ssl-nginx.conf   # HTTPS (tamgalyclimb.alexanderlobanov.de)
   tamgaly-nginx.conf       # HTTP (IP + альтернативные домены)
@@ -115,10 +124,24 @@ scripts/            # Утилиты импорта данных (CSV, KML, сж
 | GET | /api/routes | Список маршрутов |
 | POST | /api/sync/* | Синхронизация пролазов и предложений |
 
+## Система очков
+
+| Стиль | Множитель | Описание |
+|-------|-----------|----------|
+| Onsight | максимальный | Первый пролаз без информации о маршруте |
+| Flash | средний | Первый пролаз после просмотра/с подсказками |
+| Redpoint | базовый | Пролаз после попыток |
+| Toprope | 0 | Верхняя страховка |
+| Attempt | 0 | Попытка без прохождения |
+
+За каждую трассу засчитывается **только один scored пролаз** (onsight/flash/redpoint). Toprope и attempt можно логировать неограниченно.
+
+Рейтинг: сумма **10 лучших** результатов climber-а.
+
 ## Район Тамгалы-Тас
 
-- ~200 маршрутов, спорт/трад/мультипитч, 4 — 8a+
-- 16 секторов: Гавань (9) + Ривёрсайд (7)
+- ~156 маршрутов, спорт/трэд/мультипитч, 4 — 8a+
+- 18 секторов
 - Порода: туф (вулканическая)
 - Сезон: март — май, сентябрь — ноябрь
 - 120 км от Алматы, ~1.5–2 часа на машине

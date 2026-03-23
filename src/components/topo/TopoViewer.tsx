@@ -113,7 +113,29 @@ export function TopoViewer({
     })
 
     viewer.addHandler('open', () => {
-      setReady(true)
+      // On iOS Safari, navigating from heavy pages (Leaflet map) can leave the
+      // viewport in a bad state. Multiple delayed goHome calls ensure the image
+      // is properly positioned and the SVG overlay aligns correctly.
+      const settle = () => {
+        try { viewer.viewport.goHome(true) } catch { /* viewer may be destroyed */ }
+      }
+      requestAnimationFrame(() => {
+        settle()
+        setReady(true)
+        // Extra settle after iOS Safari finishes layout (URL bar animation etc.)
+        setTimeout(settle, 300)
+        setTimeout(settle, 1000)
+      })
+    })
+
+    // If image fails to load (e.g. memory pressure on iOS), retry once
+    viewer.addHandler('open-failed', () => {
+      console.warn('OSD: open-failed, retrying...', imageUrl)
+      setTimeout(() => {
+        try {
+          viewer.open({ type: 'image', url: imageUrl, buildPyramid: false } as any)
+        } catch { /* ignore */ }
+      }, 500)
     })
 
     // Route selection via tap — convert click to image coords and hit-test
@@ -164,7 +186,17 @@ export function TopoViewer({
 
     viewerRef.current = viewer
 
+    // On iOS Safari, container may resize after initial layout (URL bar hide/show).
+    // Force OSD to recalculate when that happens.
+    const ro = new ResizeObserver(() => {
+      if (viewerRef.current) {
+        viewerRef.current.viewport.goHome(true)
+      }
+    })
+    ro.observe(containerRef.current)
+
     return () => {
+      ro.disconnect()
       viewer.destroy()
       viewerRef.current = null
       setReady(false)
@@ -283,7 +315,14 @@ export function TopoViewer({
 
   useEffect(() => {
     updateOverlay()
-  }, [updateOverlay])
+    // On iOS Safari (especially after map→sector navigation), the first overlay
+    // may render before OSD viewport is fully stabilized. Redraw after a delay.
+    if (ready && topoRoutes.length > 0) {
+      const t1 = setTimeout(updateOverlay, 500)
+      const t2 = setTimeout(updateOverlay, 1500)
+      return () => { clearTimeout(t1); clearTimeout(t2) }
+    }
+  }, [updateOverlay, ready, topoRoutes.length])
 
   // Shield: always on top, OSD never receives touch events directly.
   // Shield handles: scroll (native pan-y), taps (hit-test), pinch-zoom (programmatic OSD zoom).
