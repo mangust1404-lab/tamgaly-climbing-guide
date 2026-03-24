@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Route as RouteType } from '../lib/db/schema'
 import { TopoViewer } from '../components/topo/TopoViewer'
@@ -31,6 +31,7 @@ function matchesGradeFilter(gradeSort: number, filter: string): boolean {
 export function SectorPage() {
   const { t, td } = useI18n()
   const { user } = useUser()
+  const navigate = useNavigate()
   const { sectorId } = useParams<{ sectorId: string }>()
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [gradeFilter, setGradeFilter] = useState('all')
@@ -221,7 +222,7 @@ export function SectorPage() {
       {/* Compact header */}
       <div className="px-4 pt-3 pb-1">
         <div className="flex items-center justify-between mb-1">
-          <Link to="/" className="text-blue-600 text-xs">&larr; {t('back')}</Link>
+          <button onClick={() => navigate(-1)} className="text-blue-600 text-xs">&larr; {t('back')}</button>
           {approachInfo && (
             <span className={`text-xs px-2 py-0.5 rounded-full ${
               approachInfo.raw < 100 ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'
