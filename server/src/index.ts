@@ -172,7 +172,8 @@ app.post('/api/save-topo-data', async (c) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           name=excluded.name, slug=excluded.slug, description=excluded.description,
-          latitude=excluded.latitude, longitude=excluded.longitude,
+          latitude=CASE WHEN excluded.latitude != 0 THEN excluded.latitude ELSE sector.latitude END,
+          longitude=CASE WHEN excluded.longitude != 0 THEN excluded.longitude ELSE sector.longitude END,
           approach_description=excluded.approach_description, approach_time_min=excluded.approach_time_min,
           approach_gps_track=excluded.approach_gps_track,
           orientation=excluded.orientation, sun_exposure=excluded.sun_exposure, sort_order=excluded.sort_order,
