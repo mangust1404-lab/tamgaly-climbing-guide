@@ -232,7 +232,24 @@ app.post('/api/save-topo-data', async (c) => {
           hold_types=COALESCE(excluded.hold_types, route.hold_types),
           updated_at=datetime('now')`)
 
+      // Clear slugs of routes being upserted to avoid UNIQUE(sector_id, slug) conflicts
+      const routeIdsInBatch = new Set((body.routes || []).map((r: any) => r.id))
+      const existingRoutes = sdb.prepare('SELECT id, sector_id, slug FROM route').all() as any[]
+      const clearSlug = sdb.prepare('UPDATE route SET slug = ? WHERE id = ?')
+      for (const er of existingRoutes) {
+        if (routeIdsInBatch.has(er.id)) {
+          clearSlug.run(`__tmp__${er.id}`, er.id)
+        }
+      }
+
       const seenSlugs = new Map<string, number>()
+      // Count slugs of routes NOT in this batch
+      for (const er of existingRoutes) {
+        if (!routeIdsInBatch.has(er.id)) {
+          const key = `${er.sector_id}:${er.slug}`
+          seenSlugs.set(key, (seenSlugs.get(key) || 0) + 1)
+        }
+      }
       for (const r of body.routes || []) {
         let slug = r.slug || r.name.toLowerCase().replace(/[^a-zа-яё0-9]+/gi, '-')
         const slugKey = `${r.sectorId}:${slug}`
