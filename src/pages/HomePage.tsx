@@ -7,6 +7,7 @@ import { gradeColor, sunHours } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 import { SuggestNewSector } from '../components/suggest/SuggestNewSector'
+import { TranslatedName } from '../components/ui/TranslatedName'
 
 const GRADE_SORT: Record<string, number> = {
   '4': 30, '4a': 40, '4b': 50, '4c': 60,
@@ -448,7 +449,7 @@ export function HomePage() {
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium truncate">{td(sector.name)}</span>
+                      <TranslatedName name={td(sector.name)} className="font-medium truncate" />
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {gradeRanges.get(sector.id) && (
                           <span className="text-xs font-mono text-blue-600 bg-blue-50 rounded px-1.5 py-0.5">
@@ -511,7 +512,7 @@ function RouteList({ routes, climbedIds, td }: {
             {r.grade}
           </span>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate">{td(r.name)}</div>
+            <TranslatedName name={td(r.name)} className="text-sm font-medium truncate" />
             <div className="text-xs text-gray-400">{r.sectorName}</div>
           </div>
           {climbedIds?.has(r.id) && (

@@ -8,6 +8,7 @@ import { AscentForm } from '../components/route/AscentForm'
 import { gradeColor, safeTags } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
+import { TranslatedName } from '../components/ui/TranslatedName'
 
 export function RoutePage() {
   const { t, td } = useI18n()
@@ -136,7 +137,7 @@ export function RoutePage() {
           {route.grade}
         </span>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold truncate">{td(route.name)}</h1>
+          <h1 className="text-2xl font-bold truncate"><TranslatedName name={td(route.name)} /></h1>
           {(avgRating > 0 || successCount > 0) && (
             <div className="flex items-center gap-2 mt-0.5">
               {avgRating > 0 && (

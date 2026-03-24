@@ -1,6 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
 import type { Route, TopoRoute } from '../../lib/db/schema'
 import { gradeColor } from '../../lib/utils'
+import { useI18n } from '../../lib/i18n'
+import { TranslatedName } from '../ui/TranslatedName'
 
 interface RouteListProps {
   topoRoutes: (TopoRoute & { route?: Route })[]
@@ -9,6 +11,7 @@ interface RouteListProps {
 }
 
 export function RouteList({ topoRoutes, selectedRouteId, onSelect }: RouteListProps) {
+  const { td } = useI18n()
   const navigate = useNavigate()
 
   const selectedTr = selectedRouteId
@@ -42,7 +45,7 @@ export function RouteList({ topoRoutes, selectedRouteId, onSelect }: RouteListPr
             to={`/route/${selectedRoute.id}`}
             className="text-sm font-medium truncate text-blue-700"
           >
-            {selectedRoute.name}
+            <TranslatedName name={td(selectedRoute.name)} />
           </Link>
         </div>
       </div>

@@ -12,6 +12,7 @@ import { distanceMeters, formatDistance, bearing } from '../lib/map/geo'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 import { SuggestPanel } from '../components/suggest/SuggestPanel'
+import { TranslatedName } from '../components/ui/TranslatedName'
 
 const GRADE_FILTERS = ['all', '4-5a', '5b-5c', '6a-6b', '6b+-6c+', '7a+'] as const
 
@@ -229,7 +230,7 @@ export function SectorPage() {
             </span>
           )}
         </div>
-        <h1 className="text-xl font-bold">{td(sector.name)}</h1>
+        <h1 className="text-xl font-bold"><TranslatedName name={td(sector.name)} /></h1>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-400">
           {(sector.sunFrom || sector.sunExposure) && (
             <span className="inline-flex items-center gap-0.5" title={sector.sunExposure ? td(sector.sunExposure, sector, 'sunExposure') : ''}>
@@ -434,7 +435,7 @@ export function SectorPage() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
-                        <span className="text-sm font-medium truncate">{td(route.name)}</span>
+                        <TranslatedName name={td(route.name)} className="text-sm font-medium truncate" />
                         {avgRating != null && avgRating >= 4 && (
                           <span className="flex-shrink-0 text-[10px] text-yellow-500">
                             ★{avgRating % 1 === 0 ? avgRating : avgRating.toFixed(1)}

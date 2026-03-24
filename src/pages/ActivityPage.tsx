@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { db, type Route as RouteType, type User as UserType } from '../lib/db/schema'
 import { gradeColor } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
+import { TranslatedName } from '../components/ui/TranslatedName'
 
 const STYLE_EMOJI: Record<string, string> = {
   onsight: '\uD83D\uDC41\uFE0F',
@@ -224,7 +225,7 @@ export function ActivityPage() {
                     {/* Route info */}
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-medium truncate">
-                        {route ? td(route.name) : t('activity.unknownRoute')}
+                        {route ? <TranslatedName name={td(route.name)} /> : t('activity.unknownRoute')}
                       </span>
                       {route && (
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${gradeColor(route.grade)}`}>

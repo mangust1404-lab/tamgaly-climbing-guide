@@ -6,6 +6,7 @@ import { calculatePoints, calculateTotalScore } from '../lib/scoring/points'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 import { gradeColor } from '../lib/utils'
+import { TranslatedName } from '../components/ui/TranslatedName'
 
 const STYLE_COLORS: Record<string, string> = {
   onsight: 'bg-green-100 text-green-700',
@@ -426,7 +427,7 @@ export function ProfilePage() {
                 <span className={`text-sm font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(selectedRoute.grade)}`}>
                   {selectedRoute.grade}
                 </span>
-                <span className="text-sm font-medium">{td(selectedRoute.name)}</span>
+                <TranslatedName name={td(selectedRoute.name)} className="text-sm font-medium" />
                 <span className="text-xs text-gray-400 ml-auto">+{calculatePoints(selectedRoute.grade, style as any)} {t('route.points')}</span>
               </div>
 
@@ -543,7 +544,7 @@ export function ProfilePage() {
                       {route.grade}
                     </span>
                   )}
-                  <span className="text-sm font-medium truncate flex-1">{route ? td(route.name) : item.routeId}</span>
+                  <span className="text-sm font-medium truncate flex-1">{route ? <TranslatedName name={td(route.name)} /> : item.routeId}</span>
                   <button
                     onClick={async (e) => { e.preventDefault(); e.stopPropagation(); await db.wishlist.delete(item.id) }}
                     className="text-gray-400 hover:text-red-500 p-1 text-xs flex-shrink-0"
@@ -678,7 +679,7 @@ export function ProfilePage() {
                           {route.grade}
                         </span>
                       )}
-                      <span className="text-sm font-medium truncate">{route ? td(route.name) : ascent.routeId}</span>
+                      <span className="text-sm font-medium truncate">{route ? <TranslatedName name={td(route.name)} /> : ascent.routeId}</span>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                       <span>{ascent.date}</span>

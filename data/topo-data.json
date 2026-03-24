@@ -6031,7 +6031,9 @@
       "slug": "каньон",
       "sortOrder": 13,
       "createdAt": "2026-03-21T18:08:25.503Z",
-      "updatedAt": "2026-03-21T18:08:25.503Z"
+      "updatedAt": "2026-03-21T18:08:25.503Z",
+      "latitude": 44.0647647,
+      "longitude": 76.9974084
     },
     {
       "id": "sector-bastion",
@@ -6087,7 +6089,9 @@
       "sunExposureKk": "Түстен кейін",
       "sunExposure_src": "После обеда",
       "sunFrom": 10,
-      "sunTo": 17
+      "sunTo": 17,
+      "latitude": 44.0618793,
+      "longitude": 76.9991204
     },
     {
       "id": "sector-enbek",
@@ -6234,7 +6238,9 @@
       "createdAt": "2026-03-23T08:00:00.000Z",
       "updatedAt": "2026-03-23T08:30:50.683Z",
       "sunFrom": 7,
-      "sunTo": 11
+      "sunTo": 11,
+      "latitude": 44.0619491,
+      "longitude": 76.9971971
     },
     {
       "id": "sector-vinni",
@@ -6258,7 +6264,9 @@
       "sunExposureKk": "Күні бойы күн",
       "sunExposure_src": "Весь день солнце",
       "sunFrom": 7,
-      "sunTo": 17
+      "sunTo": 17,
+      "latitude": 44.0641132,
+      "longitude": 76.9973099
     },
     {
       "id": "sector-visyachiy",
@@ -6307,7 +6315,9 @@
       "sunExposureKk": "Таңертеңгі алғашқы күн",
       "sunExposure_src": "Первое солнце утром",
       "sunFrom": 7,
-      "sunTo": 12
+      "sunTo": 12,
+      "latitude": 44.0627743,
+      "longitude": 76.9971515
     },
     {
       "id": "sector-zamanka",
@@ -6354,7 +6364,9 @@
       "sunExposureKk": "Таңертеңгі күн",
       "sunExposure_src": "Утром солнце",
       "sunFrom": 8,
-      "sunTo": 16
+      "sunTo": 16,
+      "latitude": 44.0624938,
+      "longitude": 76.9979672
     },
     {
       "id": "sector-салкын-1774250457214",
@@ -6363,7 +6375,9 @@
       "slug": "салкын",
       "sortOrder": 14,
       "createdAt": "2026-03-23T07:20:57.214Z",
-      "updatedAt": "2026-03-23T09:14:49.316Z"
+      "updatedAt": "2026-03-23T09:14:49.316Z",
+      "latitude": 44.0614668,
+      "longitude": 76.9989222
     },
     {
       "id": "sector-vecherniy",
