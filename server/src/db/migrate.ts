@@ -188,5 +188,51 @@ if (!colNames.has('terrain_tags')) {
 if (!colNames.has('hold_types')) {
   db.exec('ALTER TABLE route ADD COLUMN hold_types TEXT')
 }
+if (!colNames.has('grade_alt')) {
+  db.exec('ALTER TABLE route ADD COLUMN grade_alt TEXT')
+}
+if (!colNames.has('pitch_grades')) {
+  db.exec('ALTER TABLE route ADD COLUMN pitch_grades TEXT')
+}
+
+// Sector column migrations
+const sectorCols = db.prepare("PRAGMA table_info(sector)").all() as { name: string }[]
+const sectorColNames = new Set(sectorCols.map(c => c.name))
+
+if (!sectorColNames.has('sun_from')) {
+  db.exec('ALTER TABLE sector ADD COLUMN sun_from INTEGER')
+}
+if (!sectorColNames.has('sun_to')) {
+  db.exec('ALTER TABLE sector ADD COLUMN sun_to INTEGER')
+}
+if (!sectorColNames.has('cover_image_url')) {
+  db.exec('ALTER TABLE sector ADD COLUMN cover_image_url TEXT')
+}
+if (!sectorColNames.has('description_en')) {
+  db.exec('ALTER TABLE sector ADD COLUMN description_en TEXT')
+}
+if (!sectorColNames.has('description_kk')) {
+  db.exec('ALTER TABLE sector ADD COLUMN description_kk TEXT')
+}
+if (!sectorColNames.has('approach_description_en')) {
+  db.exec('ALTER TABLE sector ADD COLUMN approach_description_en TEXT')
+}
+if (!sectorColNames.has('approach_description_kk')) {
+  db.exec('ALTER TABLE sector ADD COLUMN approach_description_kk TEXT')
+}
+if (!sectorColNames.has('sun_exposure_en')) {
+  db.exec('ALTER TABLE sector ADD COLUMN sun_exposure_en TEXT')
+}
+if (!sectorColNames.has('sun_exposure_kk')) {
+  db.exec('ALTER TABLE sector ADD COLUMN sun_exposure_kk TEXT')
+}
+
+// Topo column migrations
+const topoCols = db.prepare("PRAGMA table_info(topo)").all() as { name: string }[]
+const topoColNames = new Set(topoCols.map(c => c.name))
+
+if (!topoColNames.has('type')) {
+  db.exec("ALTER TABLE topo ADD COLUMN type TEXT DEFAULT 'topo'")
+}
 
 console.log('Database tables created successfully.')

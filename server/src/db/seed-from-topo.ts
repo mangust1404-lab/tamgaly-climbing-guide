@@ -1,5 +1,5 @@
 /**
- * Seed the server database from topo-data.json (the source of truth for routes/sectors/areas).
+ * Seed the server database from topo-data.json (bootstrap data for first start).
  * Uses UPSERT to preserve existing data (ascents, reviews, user-added fields).
  *
  * Path priority:
@@ -53,14 +53,27 @@ try {
     )
   }
 
-  // Sectors — upsert (skip sectors whose areaId doesn't match any known area)
+  // Sectors — upsert with ALL fields
   const knownAreas = new Set(db.prepare('SELECT id FROM area').all().map((r: any) => r.id))
-  const upsertSector = db.prepare(`INSERT INTO sector (id, area_id, name, slug, description, latitude, longitude, orientation, sun_exposure, sort_order, approach_description, approach_time_min)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const upsertSector = db.prepare(`INSERT INTO sector
+    (id, area_id, name, slug, description, latitude, longitude, approach_description, approach_time_min,
+     approach_gps_track, orientation, sun_exposure, sort_order, sun_from, sun_to, cover_image_url,
+     description_en, description_kk, approach_description_en, approach_description_kk, sun_exposure_en, sun_exposure_kk)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET name=excluded.name, slug=excluded.slug, description=excluded.description,
-    latitude=excluded.latitude, longitude=excluded.longitude, orientation=excluded.orientation,
-    sun_exposure=excluded.sun_exposure, sort_order=excluded.sort_order,
-    approach_description=excluded.approach_description, approach_time_min=excluded.approach_time_min`)
+    latitude=excluded.latitude, longitude=excluded.longitude,
+    approach_description=excluded.approach_description, approach_time_min=excluded.approach_time_min,
+    approach_gps_track=excluded.approach_gps_track,
+    orientation=excluded.orientation, sun_exposure=excluded.sun_exposure, sort_order=excluded.sort_order,
+    sun_from=COALESCE(excluded.sun_from, sector.sun_from),
+    sun_to=COALESCE(excluded.sun_to, sector.sun_to),
+    cover_image_url=COALESCE(excluded.cover_image_url, sector.cover_image_url),
+    description_en=COALESCE(excluded.description_en, sector.description_en),
+    description_kk=COALESCE(excluded.description_kk, sector.description_kk),
+    approach_description_en=COALESCE(excluded.approach_description_en, sector.approach_description_en),
+    approach_description_kk=COALESCE(excluded.approach_description_kk, sector.approach_description_kk),
+    sun_exposure_en=COALESCE(excluded.sun_exposure_en, sector.sun_exposure_en),
+    sun_exposure_kk=COALESCE(excluded.sun_exposure_kk, sector.sun_exposure_kk)`)
   let sectorCount = 0
   for (const sector of data.sectors || []) {
     if (!knownAreas.has(sector.areaId)) {
@@ -70,31 +83,32 @@ try {
     upsertSector.run(
       sector.id, sector.areaId, sector.name, sector.slug, sector.description || null,
       sector.latitude ?? 0, sector.longitude ?? 0,
+      sector.approachDescription || null, sector.approachTimeMin || null,
+      sector.approachGpsTrack ? JSON.stringify(sector.approachGpsTrack) : null,
       sector.orientation || null, sector.sunExposure || null,
-      sector.sortOrder || 0, sector.approachDescription || null, sector.approachTimeMin || null,
+      sector.sortOrder || 0, sector.sunFrom || null, sector.sunTo || null,
+      sector.coverImageUrl || null,
+      sector.descriptionEn || null, sector.descriptionKk || null,
+      sector.approachDescriptionEn || null, sector.approachDescriptionKk || null,
+      sector.sunExposureEn || null, sector.sunExposureKk || null,
     )
     sectorCount++
   }
 
-  // Routes — upsert, preserving quickdraws/rope_length/terrain_tags/hold_types
+  // Routes — upsert with ALL fields, preserving server-managed fields via COALESCE
   const knownSectors = new Set(db.prepare('SELECT id FROM sector').all().map((r: any) => r.id))
 
-  // Clear all existing route slugs first to avoid UNIQUE conflicts during batch upsert.
-  // The slug will be set correctly during the upsert. For routes NOT in this batch,
-  // their slugs stay cleared — but these are orphan routes not in topo-data.json.
-  // We use a temp suffix with the route id to keep them unique while clearing.
+  // Clear slugs to avoid UNIQUE conflicts during batch upsert
   const routeIdsInBatch = new Set((data.routes || []).map((r: any) => r.id))
   const existingRoutes = db.prepare('SELECT id, sector_id, slug FROM route').all() as any[]
   const clearSlug = db.prepare('UPDATE route SET slug = ? WHERE id = ?')
   for (const er of existingRoutes) {
     if (routeIdsInBatch.has(er.id)) {
-      // Temporarily set slug to a unique value to avoid conflicts
       clearSlug.run(`__tmp__${er.id}`, er.id)
     }
   }
 
   const seenSlugs = new Map<string, number>()
-  // Count slugs of routes NOT in this batch
   for (const er of existingRoutes) {
     if (!routeIdsInBatch.has(er.id)) {
       const key = `${er.sector_id}:${er.slug}`
@@ -102,15 +116,30 @@ try {
     }
   }
 
-  const upsertRoute = db.prepare(`INSERT INTO route (id, sector_id, name, slug, grade, grade_system, grade_sort, length_m, pitches, route_type, number_in_sector, status, quickdraws, rope_length, terrain_tags, hold_types)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET name=excluded.name, slug=excluded.slug, grade=excluded.grade,
-    grade_system=excluded.grade_system, grade_sort=excluded.grade_sort, length_m=excluded.length_m,
-    pitches=excluded.pitches, route_type=excluded.route_type, number_in_sector=excluded.number_in_sector,
-    quickdraws=COALESCE(excluded.quickdraws, quickdraws),
-    rope_length=COALESCE(excluded.rope_length, rope_length),
-    terrain_tags=COALESCE(excluded.terrain_tags, terrain_tags),
-    hold_types=COALESCE(excluded.hold_types, hold_types)`)
+  const upsertRoute = db.prepare(`INSERT INTO route
+    (id, sector_id, name, slug, grade, grade_system, grade_sort, grade_alt,
+     length_m, pitches, pitch_grades, route_type, description, protection,
+     first_ascent, first_ascent_date, quality_rating, number_in_sector,
+     latitude, longitude, tags, status,
+     quickdraws, rope_length, terrain_tags, hold_types)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name=excluded.name, slug=excluded.slug, grade=excluded.grade,
+      grade_system=excluded.grade_system, grade_sort=excluded.grade_sort, grade_alt=excluded.grade_alt,
+      length_m=excluded.length_m, pitches=excluded.pitches, pitch_grades=excluded.pitch_grades,
+      route_type=excluded.route_type, number_in_sector=excluded.number_in_sector,
+      description=COALESCE(excluded.description, route.description),
+      protection=COALESCE(excluded.protection, route.protection),
+      first_ascent=COALESCE(excluded.first_ascent, route.first_ascent),
+      first_ascent_date=COALESCE(excluded.first_ascent_date, route.first_ascent_date),
+      quality_rating=COALESCE(excluded.quality_rating, route.quality_rating),
+      latitude=COALESCE(excluded.latitude, route.latitude),
+      longitude=COALESCE(excluded.longitude, route.longitude),
+      tags=COALESCE(excluded.tags, route.tags),
+      quickdraws=COALESCE(excluded.quickdraws, route.quickdraws),
+      rope_length=COALESCE(excluded.rope_length, route.rope_length),
+      terrain_tags=COALESCE(excluded.terrain_tags, route.terrain_tags),
+      hold_types=COALESCE(excluded.hold_types, route.hold_types)`)
   let routeCount = 0
   let skipCount = 0
   for (const route of data.routes || []) {
@@ -119,9 +148,10 @@ try {
       skipCount++
       continue
     }
-    const terrainTags = route.terrainTags ? JSON.stringify(route.terrainTags) : null
-    const holdTypes = route.holdTypes ? JSON.stringify(route.holdTypes) : null
-    // Ensure unique slug per sector
+    const terrainTags = Array.isArray(route.terrainTags) ? JSON.stringify(route.terrainTags) : route.terrainTags || null
+    const holdTypes = Array.isArray(route.holdTypes) ? JSON.stringify(route.holdTypes) : route.holdTypes || null
+    const tags = Array.isArray(route.tags) ? JSON.stringify(route.tags) : route.tags || null
+    const pitchGrades = Array.isArray(route.pitchGrades) ? JSON.stringify(route.pitchGrades) : route.pitchGrades || null
     let slug = route.slug || route.name.toLowerCase().replace(/[^a-zа-яё0-9]+/gi, '-')
     const slugKey = `${route.sectorId}:${slug}`
     const count = seenSlugs.get(slugKey) || 0
@@ -130,9 +160,12 @@ try {
     try {
       upsertRoute.run(
         route.id, route.sectorId, route.name, slug,
-        route.grade, route.gradeSystem || 'french', route.gradeSort || 0,
-        route.lengthM || null, route.pitches || 1, route.routeType || 'sport',
-        route.numberInSector || null,
+        route.grade, route.gradeSystem || 'french', route.gradeSort || 0, route.gradeAlt || null,
+        route.lengthM || null, route.pitches || 1, pitchGrades, route.routeType || 'sport',
+        route.description || null, route.protection || null,
+        route.firstAscent || null, route.firstAscentDate || null,
+        route.qualityRating || null, route.numberInSector || null,
+        route.latitude || null, route.longitude || null, tags,
         route.quickdraws || null, route.ropeLength || null, terrainTags, holdTypes,
       )
       routeCount++
@@ -142,8 +175,41 @@ try {
     }
   }
 
+  // Topos — clear and re-insert (safe: only topo_routes reference them, and we replace those too)
+  db.prepare('DELETE FROM topo_route').run()
+  db.prepare('DELETE FROM topo').run()
+
+  const insertTopo = db.prepare(`INSERT INTO topo
+    (id, sector_id, image_url, image_width, image_height, caption, photographer, sort_order, type)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+  let topoCount = 0
+  for (const t of data.topos || []) {
+    if (!knownSectors.has(t.sectorId)) continue
+    insertTopo.run(
+      t.id, t.sectorId, t.imageUrl, t.imageWidth || 0, t.imageHeight || 0,
+      t.caption || null, t.photographer || null, t.sortOrder || 0, t.type || 'topo',
+    )
+    topoCount++
+  }
+
+  // TopoRoutes
+  const insertTopoRoute = db.prepare(`INSERT INTO topo_route
+    (id, topo_id, route_id, svg_path, color, start_x, start_y, anchor_x, anchor_y, label_x, label_y, route_number)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+  let trCount = 0
+  for (const tr of data.topoRoutes || []) {
+    try {
+      insertTopoRoute.run(
+        tr.id, tr.topoId, tr.routeId, tr.svgPath, tr.color || '#FF0000',
+        tr.startX, tr.startY, tr.anchorX || null, tr.anchorY || null,
+        tr.labelX || null, tr.labelY || null, tr.routeNumber || null,
+      )
+      trCount++
+    } catch { /* skip FK violations for orphan topo_routes */ }
+  }
+
   db.exec('COMMIT')
-  console.log(`Seeded: ${(data.areas || []).length} areas, ${sectorCount} sectors, ${routeCount} routes` +
+  console.log(`Seeded: ${(data.areas || []).length} areas, ${sectorCount} sectors, ${routeCount} routes, ${topoCount} topos, ${trCount} topoRoutes` +
     (skipCount > 0 ? ` (${skipCount} skipped)` : ''))
 } catch (err) {
   db.exec('ROLLBACK')
