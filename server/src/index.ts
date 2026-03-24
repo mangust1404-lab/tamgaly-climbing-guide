@@ -303,8 +303,47 @@ app.post('/api/save-topo-data', async (c) => {
         )
       }
 
+      // --- Delete sectors/routes that admin removed ---
+      // Admin sends the complete set — anything not in the batch was deleted
+      const incomingSectorIds = new Set((body.sectors || []).map((s: any) => s.id))
+      const incomingRouteIds = new Set((body.routes || []).map((r: any) => r.id))
+
+      if (incomingSectorIds.size > 0) {
+        const allDbSectors = sdb.prepare('SELECT id FROM sector').all() as any[]
+        for (const s of allDbSectors) {
+          if (!incomingSectorIds.has(s.id)) {
+            // Delete routes in this sector that aren't referenced by ascents
+            const orphanRoutes = sdb.prepare('SELECT id FROM route WHERE sector_id = ?').all(s.id) as any[]
+            for (const r of orphanRoutes) {
+              const hasAscents = sdb.prepare('SELECT 1 FROM ascent WHERE route_id = ? LIMIT 1').get(r.id)
+              if (!hasAscents) {
+                sdb.prepare('DELETE FROM route WHERE id = ?').run(r.id)
+              } else {
+                sdb.prepare("UPDATE route SET status = 'archived' WHERE id = ?").run(r.id)
+              }
+            }
+            sdb.prepare('DELETE FROM sector WHERE id = ?').run(s.id)
+            console.log(`Deleted sector ${s.id} (removed by admin)`)
+          }
+        }
+      }
+
+      if (incomingRouteIds.size > 0) {
+        const allDbRoutes = sdb.prepare("SELECT id FROM route WHERE status = 'published'").all() as any[]
+        for (const r of allDbRoutes) {
+          if (!incomingRouteIds.has(r.id)) {
+            const hasAscents = sdb.prepare('SELECT 1 FROM ascent WHERE route_id = ? LIMIT 1').get(r.id)
+            if (!hasAscents) {
+              sdb.prepare('DELETE FROM route WHERE id = ?').run(r.id)
+            } else {
+              sdb.prepare("UPDATE route SET status = 'archived' WHERE id = ?").run(r.id)
+            }
+          }
+        }
+      }
+
       sdb.exec('COMMIT')
-      console.log(`Upserted to SQLite: ${(body.sectors || []).length} sectors, ${(body.routes || []).length} routes, ${(body.topos || []).length} topos, ${(body.topoRoutes || []).length} topoRoutes`)
+      console.log(`Synced to SQLite: ${(body.sectors || []).length} sectors, ${(body.routes || []).length} routes, ${(body.topos || []).length} topos, ${(body.topoRoutes || []).length} topoRoutes`)
     } catch (e) {
       sdb.exec('ROLLBACK')
       console.error('SQLite upsert failed:', e)
