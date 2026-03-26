@@ -17,6 +17,18 @@ function toCamel(row: Record<string, unknown>): Record<string, unknown> {
   return out
 }
 
+/** French grade → numeric sort value (must match client GRADE_SORT_MAP) */
+const GRADE_SORT_MAP: Record<string, number> = {
+  '4': 30, '4a': 40, '4b': 50, '4c': 60,
+  '5a': 70, '5a+': 75, '5b': 85, '5b+': 90, '5c': 100, '5c+': 105,
+  '6a': 120, '6a+': 135, '6b': 150, '6b+': 170, '6c': 190, '6c+': 210,
+  '7a': 240, '7a+': 270, '7b': 300, '7b+': 340, '7c': 380, '7c+': 420,
+  '8a': 470, '8a+': 520,
+}
+function gradeToSort(grade: string): number {
+  return GRADE_SORT_MAP[grade.toLowerCase().trim()] ?? 0
+}
+
 /** Parse a JSON string field, returning null if invalid */
 function parseJson(val: unknown): unknown {
   if (typeof val !== 'string' || !val) return null
@@ -41,6 +53,11 @@ export function exportTopoDataFromDb(): Record<string, unknown> {
       const parsed = parseJson(c[f])
       if (parsed) c[f] = parsed
       else if (c[f] !== undefined && c[f] !== null) delete c[f]
+    }
+    // Recalculate gradeSort from grade to fix stale values
+    if (c.grade) {
+      const correctSort = gradeToSort(c.grade as string)
+      if (correctSort > 0) c.gradeSort = correctSort
     }
     return c
   })

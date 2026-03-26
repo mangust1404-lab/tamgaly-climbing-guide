@@ -260,16 +260,24 @@ syncRouter.post('/suggestion', async (c) => {
   return c.json({ error: 'Unknown action' }, 400)
 })
 
-// Pull suggestions (for admin moderation)
+// Pull suggestions (for admin moderation — requires auth)
 syncRouter.get('/suggestions', async (c) => {
+  const token = c.req.header('X-Admin-Token')
+  const adminPw = process.env.ADMIN_PASSWORD || 'tamgaly2024'
+  if (token !== adminPw) return c.json({ error: 'Unauthorized' }, 401)
+
   const sdb = getDb()
   const status = c.req.query('status') || 'pending'
   const suggestions = sdb.prepare('SELECT * FROM suggestion WHERE status = ? ORDER BY created_at DESC').all(status)
   return c.json(suggestions)
 })
 
-// Update suggestion status (approve/reject)
+// Update suggestion status (approve/reject — requires auth)
 syncRouter.patch('/suggestion/:id', async (c) => {
+  const token = c.req.header('X-Admin-Token')
+  const adminPw = process.env.ADMIN_PASSWORD || 'tamgaly2024'
+  if (token !== adminPw) return c.json({ error: 'Unauthorized' }, 401)
+
   const sdb = getDb()
   const id = c.req.param('id')
   const body = await c.req.json()

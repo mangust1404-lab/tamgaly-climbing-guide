@@ -20,6 +20,29 @@ app.use('/*', bodyLimit({ maxSize: 200 * 1024 * 1024 })) // 200MB limit (topo-da
 // Health check
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
+// --- Admin authentication ---
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'tamgaly2024'
+
+function checkAdminAuth(c: any): boolean {
+  const token = c.req.header('X-Admin-Token')
+  return token === ADMIN_PASSWORD
+}
+
+// Login endpoint — verify password and return success
+app.post('/api/admin/login', async (c) => {
+  const { password } = await c.req.json()
+  if (password === ADMIN_PASSWORD) {
+    return c.json({ ok: true, token: ADMIN_PASSWORD })
+  }
+  return c.json({ ok: false, error: 'Неверный пароль' }, 401)
+})
+
+// Check auth status
+app.get('/api/admin/check', (c) => {
+  if (checkAdminAuth(c)) return c.json({ ok: true })
+  return c.json({ ok: false }, 401)
+})
+
 // Serve topo-data.json — prefer nginx-served copy (most up-to-date from admin saves)
 app.get('/api/topo-data', (c) => {
   const candidates = [
@@ -111,6 +134,7 @@ function extractBase64Image(dataUri: string, prefix: string, imgDir: string, web
  * This prevents the old bug where client data overwrote topo-data.json directly, losing server-only fields.
  */
 app.post('/api/save-topo-data', async (c) => {
+  if (!checkAdminAuth(c)) return c.json({ error: 'Unauthorized' }, 401)
   console.log('POST /api/save-topo-data received, content-length:', c.req.header('content-length'))
   try {
     const body = await c.req.json()

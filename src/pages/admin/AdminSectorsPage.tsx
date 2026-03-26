@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../../lib/db/schema'
+import { db, type Route } from '../../lib/db/schema'
 import { AdminNav } from '../../components/admin/AdminNav'
+import { refreshTopoData } from '../../lib/offline/downloadManager'
+import { adminFetch } from '../../lib/adminAuth'
+import { gradeToSort } from '../../lib/utils'
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -32,7 +35,7 @@ async function saveTopoData() {
     }
 
     try {
-      const resp = await fetch('/api/save-topo-data', {
+      const resp = await adminFetch('/api/save-topo-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -40,6 +43,8 @@ async function saveTopoData() {
       if (resp.ok) {
         await db.syncMeta.put({ key: 'topoDataVersion', value: String(version) })
         console.log(`Saved topo-data v${version}`)
+        // Auto-refresh IndexedDB from server's merged topo-data.json
+        await refreshTopoData(() => {}).catch(() => {})
       }
     } catch (err) {
       console.error('Failed to save:', err)
@@ -85,7 +90,7 @@ export function AdminSectorsPage() {
       const meta = await db.syncMeta.get('topoDataVersion')
       const version = (parseInt(meta?.value || '0') || 0) + 1
       const data = { version, exportedAt: new Date().toISOString(), topos, topoRoutes, routes: allRoutes, sectors: allSectors, sectorCovers }
-      const resp = await fetch('/api/save-topo-data', {
+      const resp = await adminFetch('/api/save-topo-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -230,7 +235,7 @@ function SectorEditForm({
   sector,
   onUpdate,
 }: {
-  sector: { id: string; name: string; description?: string; orientation?: string; approachDescription?: string; approachTimeMin?: number; sunExposure?: string; sunFrom?: number; sunTo?: number; sortOrder: number }
+  sector: { id: string; name: string; description?: string; orientation?: string; approachDescription?: string; approachTimeMin?: number; sunExposure?: string; sunFrom?: number; sunTo?: number; sortOrder: number; latitude: number; longitude: number; coverImageUrl?: string }
   onUpdate: (id: string, field: string, value: string | number | undefined) => void
 }) {
   const [name, setName] = useState(sector.name)
@@ -242,6 +247,9 @@ function SectorEditForm({
   const [sunFrom, setSunFrom] = useState(sector.sunFrom?.toString() || '')
   const [sunTo, setSunTo] = useState(sector.sunTo?.toString() || '')
   const [sortOrder, setSortOrder] = useState(sector.sortOrder.toString())
+  const [latitude, setLatitude] = useState(sector.latitude?.toString() || '')
+  const [longitude, setLongitude] = useState(sector.longitude?.toString() || '')
+  const [coverImageUrl, setCoverImageUrl] = useState(sector.coverImageUrl || '')
 
   const field = (label: string, value: string, setValue: (v: string) => void, fieldName: string, multiline = false) => (
     <div className="mb-3">
@@ -324,6 +332,32 @@ function SectorEditForm({
         </div>
       </div>
       {field('Освещение (заметка)', sunExposure, setSunExposure, 'sunExposure')}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="mb-3">
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Широта</label>
+          <input
+            type="number"
+            step="0.0001"
+            value={latitude}
+            onChange={e => setLatitude(e.target.value)}
+            onBlur={() => onUpdate(sector.id, 'latitude', latitude ? parseFloat(latitude) : undefined)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 focus:outline-none"
+          />
+        </div>
+        <div className="mb-3">
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Долгота</label>
+          <input
+            type="number"
+            step="0.0001"
+            value={longitude}
+            onChange={e => setLongitude(e.target.value)}
+            onBlur={() => onUpdate(sector.id, 'longitude', longitude ? parseFloat(longitude) : undefined)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-300 focus:outline-none"
+          />
+        </div>
+      </div>
+      {field('Обложка (URL)', coverImageUrl, setCoverImageUrl, 'coverImageUrl')}
     </div>
   )
 }
@@ -363,45 +397,160 @@ function SectorRoutesList({ sectorId, onChanged }: { sectorId: string; onChanged
   )
 }
 
-function RouteEditRow({ route, onChanged }: { route: { id: string; name: string; grade: string; numberInSector?: number }; onChanged: () => void }) {
-  const [name, setName] = useState(route.name)
-  const [grade, setGrade] = useState(route.grade)
-  const [num, setNum] = useState(route.numberInSector?.toString() || '')
+const TERRAIN_OPTIONS = ['slab', 'vertical', 'overhang', 'roof', 'chimney', 'crack', 'arete', 'corner']
+const HOLD_OPTIONS = ['crimps', 'slopers', 'pinches', 'sidepulls', 'pockets', 'jugs', 'underclings', 'tufas']
+const ROUTE_TYPES = ['sport', 'trad', 'boulder', 'multi-pitch'] as const
 
-  const save = async (field: string, value: string | number | undefined) => {
+function RouteEditRow({ route, onChanged }: { route: Route; onChanged: () => void }) {
+  const [f, setF] = useState({
+    name: route.name,
+    grade: route.grade,
+    gradeAlt: route.gradeAlt || '',
+    numberInSector: route.numberInSector?.toString() || '',
+    routeType: route.routeType,
+    lengthM: route.lengthM?.toString() || '',
+    pitches: route.pitches?.toString() || '1',
+    quickdraws: route.quickdraws?.toString() || '',
+    ropeLength: route.ropeLength?.toString() || '',
+    description: route.description || '',
+    protection: route.protection || '',
+    firstAscent: route.firstAscent || '',
+    firstAscentDate: route.firstAscentDate || '',
+    qualityRating: route.qualityRating?.toString() || '',
+    latitude: route.latitude?.toString() || '',
+    longitude: route.longitude?.toString() || '',
+    status: route.status,
+  })
+  const [terrainTags, setTerrainTags] = useState<string[]>(route.terrainTags || [])
+  const [holdTypes, setHoldTypes] = useState<string[]>(route.holdTypes || [])
+
+  const save = async (field: string, value: unknown) => {
     await db.routes.update(route.id, { [field]: value, updatedAt: new Date().toISOString() } as any)
     onChanged()
   }
 
+  const saveText = (field: string, val: string) => save(field, val || undefined)
+  const saveNum = (field: string, val: string) => save(field, val ? parseFloat(val) : undefined)
+  const saveInt = (field: string, val: string) => save(field, val ? parseInt(val) : undefined)
+  const saveGrade = async (val: string) => {
+    await db.routes.update(route.id, { grade: val || undefined, gradeSort: gradeToSort(val), updatedAt: new Date().toISOString() } as any)
+    onChanged()
+  }
+
+  const toggleTag = (arr: string[], setArr: (v: string[]) => void, field: string, tag: string) => {
+    const next = arr.includes(tag) ? arr.filter(t => t !== tag) : [...arr, tag]
+    setArr(next)
+    save(field, next.length > 0 ? next : undefined)
+  }
+
+  const inp = "w-full border border-gray-200 rounded px-2 py-1 text-sm focus:border-blue-300 focus:outline-none"
+  const lbl = "text-[10px] text-gray-400 mb-0.5 block"
+
   return (
-    <div className="ml-7 mb-2 p-2 bg-gray-50 rounded-lg grid grid-cols-[1fr_80px_50px] gap-2">
-      <div>
-        <label className="text-[10px] text-gray-400">Название</label>
-        <input
-          value={name}
-          onChange={e => setName(e.target.value)}
-          onBlur={() => save('name', name)}
-          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:border-blue-300 focus:outline-none"
-        />
+    <div className="ml-7 mb-2 p-3 bg-gray-50 rounded-lg space-y-2">
+      {/* Row 1: name, grade, gradeAlt, # */}
+      <div className="grid grid-cols-[1fr_70px_70px_45px] gap-2">
+        <div><label className={lbl}>Название</label>
+          <input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} onBlur={() => saveText('name', f.name)} className={inp} /></div>
+        <div><label className={lbl}>Категория</label>
+          <input value={f.grade} onChange={e => setF({ ...f, grade: e.target.value })} onBlur={() => saveGrade(f.grade)} className={inp} /></div>
+        <div><label className={lbl}>Кат. альт.</label>
+          <input value={f.gradeAlt} onChange={e => setF({ ...f, gradeAlt: e.target.value })} onBlur={() => saveText('gradeAlt', f.gradeAlt)} placeholder="6a+" className={inp} /></div>
+        <div><label className={lbl}>#</label>
+          <input type="number" value={f.numberInSector} onChange={e => setF({ ...f, numberInSector: e.target.value })} onBlur={() => saveInt('numberInSector', f.numberInSector)} className={inp + " text-center"} /></div>
       </div>
-      <div>
-        <label className="text-[10px] text-gray-400">Категория</label>
-        <input
-          value={grade}
-          onChange={e => setGrade(e.target.value)}
-          onBlur={() => save('grade', grade)}
-          className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:border-blue-300 focus:outline-none"
-        />
+
+      {/* Row 2: type, length, pitches, quickdraws, rope, quality */}
+      <div className="grid grid-cols-3 gap-2">
+        <div><label className={lbl}>Тип</label>
+          <select value={f.routeType} onChange={e => { setF({ ...f, routeType: e.target.value as any }); save('routeType', e.target.value) }} className={inp}>
+            {ROUTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select></div>
+        <div><label className={lbl}>Длина (м)</label>
+          <input type="number" value={f.lengthM} onChange={e => setF({ ...f, lengthM: e.target.value })} onBlur={() => saveNum('lengthM', f.lengthM)} className={inp} /></div>
+        <div><label className={lbl}>Верёвки</label>
+          <input type="number" value={f.pitches} onChange={e => setF({ ...f, pitches: e.target.value })} onBlur={() => saveInt('pitches', f.pitches)} className={inp} /></div>
       </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <div><label className={lbl}>Оттяжки</label>
+          <input type="number" value={f.quickdraws} onChange={e => setF({ ...f, quickdraws: e.target.value })} onBlur={() => saveInt('quickdraws', f.quickdraws)} className={inp} /></div>
+        <div><label className={lbl}>Верёвка (м)</label>
+          <input type="number" value={f.ropeLength} onChange={e => setF({ ...f, ropeLength: e.target.value })} onBlur={() => saveNum('ropeLength', f.ropeLength)} className={inp} /></div>
+        <div><label className={lbl}>Качество (1-5)</label>
+          <input type="number" min="1" max="5" step="0.5" value={f.qualityRating} onChange={e => setF({ ...f, qualityRating: e.target.value })} onBlur={() => saveNum('qualityRating', f.qualityRating)} className={inp} /></div>
+      </div>
+
+      {/* Description & protection */}
+      <div><label className={lbl}>Описание</label>
+        <textarea value={f.description} onChange={e => setF({ ...f, description: e.target.value })} onBlur={() => saveText('description', f.description)} rows={2} className={inp + " resize-none"} /></div>
+      <div><label className={lbl}>Страховка</label>
+        <input value={f.protection} onChange={e => setF({ ...f, protection: e.target.value })} onBlur={() => saveText('protection', f.protection)} className={inp} /></div>
+
+      {/* First ascent */}
+      <div className="grid grid-cols-2 gap-2">
+        <div><label className={lbl}>Первопроход</label>
+          <input value={f.firstAscent} onChange={e => setF({ ...f, firstAscent: e.target.value })} onBlur={() => saveText('firstAscent', f.firstAscent)} className={inp} /></div>
+        <div><label className={lbl}>Дата первопрохода</label>
+          <input value={f.firstAscentDate} onChange={e => setF({ ...f, firstAscentDate: e.target.value })} onBlur={() => saveText('firstAscentDate', f.firstAscentDate)} placeholder="2024" className={inp} /></div>
+      </div>
+
+      {/* GPS */}
+      <div className="grid grid-cols-2 gap-2">
+        <div><label className={lbl}>Широта</label>
+          <input type="number" step="0.0001" value={f.latitude} onChange={e => setF({ ...f, latitude: e.target.value })} onBlur={() => saveNum('latitude', f.latitude)} className={inp} /></div>
+        <div><label className={lbl}>Долгота</label>
+          <input type="number" step="0.0001" value={f.longitude} onChange={e => setF({ ...f, longitude: e.target.value })} onBlur={() => saveNum('longitude', f.longitude)} className={inp} /></div>
+      </div>
+
+      {/* Status */}
+      <div className="grid grid-cols-2 gap-2">
+        <div><label className={lbl}>Статус</label>
+          <select value={f.status} onChange={e => { setF({ ...f, status: e.target.value as any }); save('status', e.target.value) }} className={inp}>
+            <option value="published">published</option>
+            <option value="draft">draft</option>
+            <option value="archived">archived</option>
+          </select></div>
+      </div>
+
+      {/* Terrain tags */}
       <div>
-        <label className="text-[10px] text-gray-400">#</label>
-        <input
-          type="number"
-          value={num}
-          onChange={e => setNum(e.target.value)}
-          onBlur={() => save('numberInSector', num ? parseInt(num) : undefined)}
-          className="w-full border border-gray-200 rounded px-2 py-1 text-sm text-center focus:border-blue-300 focus:outline-none"
-        />
+        <label className={lbl}>Рельеф</label>
+        <div className="flex flex-wrap gap-1">
+          {TERRAIN_OPTIONS.map(t => (
+            <button key={t} onClick={() => toggleTag(terrainTags, setTerrainTags, 'terrainTags', t)}
+              className={`px-2 py-0.5 rounded text-xs border ${terrainTags.includes(t) ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-500'}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Hold types */}
+      <div>
+        <label className={lbl}>Зацепы</label>
+        <div className="flex flex-wrap gap-1">
+          {HOLD_OPTIONS.map(t => (
+            <button key={t} onClick={() => toggleTag(holdTypes, setHoldTypes, 'holdTypes', t)}
+              className={`px-2 py-0.5 rounded text-xs border ${holdTypes.includes(t) ? 'bg-green-100 border-green-300 text-green-700' : 'bg-white border-gray-200 text-gray-500'}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Delete route */}
+      <div className="pt-1 border-t border-gray-200">
+        <button
+          onClick={async () => {
+            if (!confirm(`Удалить маршрут "${route.name}"?`)) return
+            await db.routes.delete(route.id)
+            onChanged()
+          }}
+          className="text-xs text-red-400 hover:text-red-600"
+        >
+          Удалить маршрут
+        </button>
       </div>
     </div>
   )

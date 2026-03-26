@@ -70,7 +70,6 @@ export function calculatePoints(
  * Calculate total score from a list of ascent points.
  * Uses best N ascents (default 20).
  */
-export function calculateTotalScore(ascentPoints: number[], bestN = 20): number {
-  const sorted = [...ascentPoints].sort((a, b) => b - a)
-  return sorted.slice(0, bestN).reduce((sum, p) => sum + p, 0)
+export function calculateTotalScore(ascentPoints: number[]): number {
+  return ascentPoints.reduce((sum, p) => sum + p, 0)
 }

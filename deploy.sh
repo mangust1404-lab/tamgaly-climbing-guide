@@ -60,6 +60,7 @@ deploy_server() {
       -v /var/www/tamgaly/data:/var/www/tamgaly/data \
       -v /var/www/tamgaly/topo-images:/var/www/tamgaly/topo-images \
       -e PORT=3001 \
+      -e ADMIN_PASSWORD="${ADMIN_PASSWORD:-tamgaly2024}" \
       tamgaly-api
     echo "Container status:"
     docker ps --filter name=tamgaly-api --format "{{.Status}}"

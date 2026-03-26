@@ -24,7 +24,7 @@ export function RouteList({ topoRoutes, selectedRouteId, onSelect }: RouteListPr
     return (
       <div className="px-2 py-1.5">
         {/* Route info row */}
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => onSelect(null)}
             className="text-gray-400 text-sm leading-none"
@@ -32,20 +32,23 @@ export function RouteList({ topoRoutes, selectedRouteId, onSelect }: RouteListPr
           >
             &larr;
           </button>
-          <span
-            className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[10px] font-bold"
-            style={{ backgroundColor: selectedTr.color || '#FF4444' }}
-          >
-            {selectedTr.routeNumber}
-          </span>
-          <span className={`text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(selectedRoute.grade)}`}>
-            {selectedRoute.grade}
-          </span>
           <Link
             to={`/route/${selectedRoute.id}`}
-            className="text-sm font-medium truncate text-blue-700"
+            className="flex-1 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 active:bg-blue-100 transition-colors"
           >
-            <TranslatedName name={td(selectedRoute.name)} />
+            <span
+              className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[10px] font-bold"
+              style={{ backgroundColor: selectedTr.color || '#FF4444' }}
+            >
+              {selectedTr.routeNumber}
+            </span>
+            <span className={`text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(selectedRoute.grade)}`}>
+              {selectedRoute.grade}
+            </span>
+            <span className="text-sm font-medium truncate text-blue-700">
+              <TranslatedName name={td(selectedRoute.name)} />
+            </span>
+            <span className="ml-auto text-blue-400 text-sm">&rarr;</span>
           </Link>
         </div>
       </div>

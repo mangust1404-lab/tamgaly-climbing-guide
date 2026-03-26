@@ -3,18 +3,15 @@ import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { refreshTopoData, type DownloadProgress } from '../lib/offline/downloadManager'
-import { gradeColor, sunHours } from '../lib/utils'
+import { gradeColor, sunHours, gradeToSort } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 import { SuggestNewSector } from '../components/suggest/SuggestNewSector'
 import { TranslatedName } from '../components/ui/TranslatedName'
 
-const GRADE_SORT: Record<string, number> = {
-  '4': 30, '4a': 40, '4b': 50, '4c': 60,
-  '5a': 70, '5a+': 75, '5b': 85, '5b+': 90, '5c': 100, '5c+': 105,
-  '6a': 120, '6a+': 135, '6b': 150, '6b+': 170, '6c': 190, '6c+': 210,
-  '7a': 240, '7a+': 270, '7b': 300, '7b+': 340, '7c': 380, '7c+': 420,
-  '8a': 470, '8a+': 520,
+/** Normalize Cyrillic а/б/с in grade search to Latin a/b/c */
+function normalizeCyrGrade(s: string): string {
+  return s.replace(/а/g, 'a').replace(/б/g, 'b').replace(/с/g, 'c')
 }
 
 const GRADE_CHIPS = ['4', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c+', '8a']
@@ -89,12 +86,12 @@ export function HomePage() {
   const filteredRoutes = useMemo(() => {
     if (!hasActiveFilters || !routes || !sectors) return []
 
-    const q = search.trim().toLowerCase()
+    const q = normalizeCyrGrade(search.trim().toLowerCase())
 
     // Build grade filter set
     const matchSorts = new Set<number>()
     for (const g of selectedGrades) {
-      const sort = GRADE_SORT[g]
+      const sort = gradeToSort(g)
       if (sort) matchSorts.add(sort)
     }
 
@@ -119,7 +116,7 @@ export function HomePage() {
     return routes
       .filter(r => {
         // Text search
-        if (q && !r.name.toLowerCase().includes(q) && !r.grade.toLowerCase().includes(q)) return false
+        if (q && !r.name.toLowerCase().includes(q) && !normalizeCyrGrade(r.grade.toLowerCase()).includes(q)) return false
         // Grade filter
         if (matchSorts.size > 0 && !matchSorts.has(r.gradeSort)) return false
         // Route type filter

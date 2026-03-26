@@ -4,6 +4,8 @@ import { db, type Topo } from '../../lib/db/schema'
 import { TopoEditor } from '../../components/topo/TopoEditor'
 import { CropModal } from '../../components/topo/CropModal'
 import { AdminNav } from '../../components/admin/AdminNav'
+import { refreshTopoData } from '../../lib/offline/downloadManager'
+import { adminFetch } from '../../lib/adminAuth'
 
 type UploadType = 'topo' | 'approach'
 
@@ -33,7 +35,7 @@ async function saveTopoData(): Promise<boolean> {
   }
 
   try {
-    const resp = await fetch('/api/save-topo-data', {
+    const resp = await adminFetch('/api/save-topo-data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -41,6 +43,8 @@ async function saveTopoData(): Promise<boolean> {
     if (resp.ok) {
       await db.syncMeta.put({ key: 'topoDataVersion', value: String(version) })
       console.log(`Saved topo-data v${version} to server`)
+      // Auto-refresh IndexedDB from server's merged topo-data.json
+      await refreshTopoData(() => {}).catch(() => {})
       return true
     }
     console.error('Server save failed:', resp.status, resp.statusText)
@@ -164,6 +168,22 @@ export function AdminTopoPage() {
     markChanged()
   }
 
+  const handleMoveTopo = async (topoId: string, direction: 'up' | 'down', list: Topo[]) => {
+    const idx = list.findIndex(t => t.id === topoId)
+    if (idx < 0) return
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= list.length) return
+    // Reorder array
+    const reordered = [...list]
+    const [moved] = reordered.splice(idx, 1)
+    reordered.splice(swapIdx, 0, moved)
+    // Assign sequential sortOrder to all items
+    for (let i = 0; i < reordered.length; i++) {
+      await db.topos.update(reordered[i].id, { sortOrder: i + 1 })
+    }
+    markChanged()
+  }
+
   const handleToggleCover = async (imageUrl: string) => {
     if (!selectedSectorId) return
     const isCurrent = selectedSector?.coverImageUrl === imageUrl
@@ -195,7 +215,7 @@ export function AdminTopoPage() {
     setEditingCaption(null)
   }
 
-  const renderPhotoCard = (topo: Topo, borderColor: string) => {
+  const renderPhotoCard = (topo: Topo, borderColor: string, list: Topo[], idx: number) => {
     const isCover = selectedSector?.coverImageUrl === topo.imageUrl
     const isApproach = topo.type === 'approach'
     const isEditingThis = editingCaption?.id === topo.id
@@ -209,6 +229,20 @@ export function AdminTopoPage() {
             alt={topo.caption || 'Topo'}
             className="w-full max-h-[500px] object-contain bg-gray-100"
           />
+          {/* Sort order badge + move buttons */}
+          <div className="absolute top-2 right-2 flex items-center gap-1">
+            <button
+              onClick={() => handleMoveTopo(topo.id, 'up', list)}
+              disabled={idx === 0}
+              className="w-7 h-7 rounded bg-black/50 text-white text-sm font-bold disabled:opacity-30"
+            >↑</button>
+            <span className="bg-black/50 text-white text-xs font-bold px-2 py-1 rounded">{idx + 1}/{list.length}</span>
+            <button
+              onClick={() => handleMoveTopo(topo.id, 'down', list)}
+              disabled={idx === list.length - 1}
+              className="w-7 h-7 rounded bg-black/50 text-white text-sm font-bold disabled:opacity-30"
+            >↓</button>
+          </div>
           {isCover && (
             <div className="absolute top-2 left-2 bg-yellow-400 text-black text-xs font-bold px-2 py-1 rounded">
               Обложка
@@ -380,7 +414,7 @@ export function AdminTopoPage() {
           {sectorTopos.length > 0 && (
             <div className="space-y-4 mb-6">
               <h2 className="text-sm font-semibold text-gray-700">Фото стен ({sectorTopos.length})</h2>
-              {sectorTopos.map((topo) => renderPhotoCard(topo, 'border-gray-200'))}
+              {sectorTopos.map((topo, i) => renderPhotoCard(topo, 'border-gray-200', sectorTopos, i))}
             </div>
           )}
 
@@ -388,7 +422,7 @@ export function AdminTopoPage() {
           {approachPhotos.length > 0 && (
             <div className="space-y-4 mb-6">
               <h2 className="text-sm font-semibold text-green-700">Фото подходов ({approachPhotos.length})</h2>
-              {approachPhotos.map((topo) => renderPhotoCard(topo, 'border-green-200'))}
+              {approachPhotos.map((topo, i) => renderPhotoCard(topo, 'border-green-200', approachPhotos, i))}
             </div>
           )}
         </>

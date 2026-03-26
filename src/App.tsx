@@ -7,6 +7,7 @@ import { HomePage } from './pages/HomePage'
 import { AboutPage } from './pages/AboutPage'
 import { SectorPage } from './pages/SectorPage'
 import { RoutePage } from './pages/RoutePage'
+import { AdminGuard } from './components/admin/AdminGuard'
 
 // Lazy-load heavy pages (maplibre, openseadragon)
 const MapPage = lazy(() => import('./pages/MapPage').then(m => ({ default: m.MapPage })))
@@ -70,10 +71,10 @@ function App() {
             <Route path="/leaderboard" element={<Suspense fallback={<Loading />}><LeaderboardPage /></Suspense>} />
             <Route path="/activity" element={<Suspense fallback={<Loading />}><ActivityPage /></Suspense>} />
             <Route path="/profile" element={<Suspense fallback={<Loading />}><ProfilePage /></Suspense>} />
-            <Route path="/admin/topo" element={<Suspense fallback={<Loading />}><AdminTopoPage /></Suspense>} />
-            <Route path="/admin/photos" element={<Suspense fallback={<Loading />}><AdminPhotoTagger /></Suspense>} />
-            <Route path="/admin/moderation" element={<Suspense fallback={<Loading />}><ModerationPage /></Suspense>} />
-            <Route path="/admin/sectors" element={<Suspense fallback={<Loading />}><AdminSectorsPage /></Suspense>} />
+            <Route path="/admin/topo" element={<AdminGuard><Suspense fallback={<Loading />}><AdminTopoPage /></Suspense></AdminGuard>} />
+            <Route path="/admin/photos" element={<AdminGuard><Suspense fallback={<Loading />}><AdminPhotoTagger /></Suspense></AdminGuard>} />
+            <Route path="/admin/moderation" element={<AdminGuard><Suspense fallback={<Loading />}><ModerationPage /></Suspense></AdminGuard>} />
+            <Route path="/admin/sectors" element={<AdminGuard><Suspense fallback={<Loading />}><AdminSectorsPage /></Suspense></AdminGuard>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

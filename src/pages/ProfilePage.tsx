@@ -116,7 +116,7 @@ export function ProfilePage() {
           return r?.grade === grade
         })?.routeId || '')?.gradeSort || 0,
       }))
-      .sort((a, b) => b.sort - a.sort)
+      .sort((a, b) => a.sort - b.sort)
 
     return {
       totalAscents: myAscents.length,

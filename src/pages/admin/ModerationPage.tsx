@@ -4,6 +4,8 @@ import { db, type Suggestion } from '../../lib/db/schema'
 import { useI18n } from '../../lib/i18n'
 import { safeTags } from '../../lib/utils'
 import { AdminNav } from '../../components/admin/AdminNav'
+import { refreshTopoData } from '../../lib/offline/downloadManager'
+import { adminFetch } from '../../lib/adminAuth'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -18,10 +20,14 @@ async function saveTopoData() {
     const version = (parseInt(meta?.value || '0') || 0) + 1
     const routes = await db.routes.toArray()
     const data = { version, exportedAt: new Date().toISOString(), topos, topoRoutes, routes, sectors, sectorCovers }
-    const resp = await fetch('/api/save-topo-data', {
+    const resp = await adminFetch('/api/save-topo-data', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
     })
-    if (resp.ok) await db.syncMeta.put({ key: 'topoDataVersion', value: String(version) })
+    if (resp.ok) {
+      await db.syncMeta.put({ key: 'topoDataVersion', value: String(version) })
+      // Auto-refresh IndexedDB from server's merged topo-data.json
+      await refreshTopoData(() => {}).catch(() => {})
+    }
   } catch { /* production — no save endpoint */ }
 }
 
@@ -65,7 +71,7 @@ export function ModerationPage() {
     setLoading(true)
     setError('')
     try {
-      const resp = await fetch(`${API_BASE}/sync/suggestions?status=pending`)
+      const resp = await adminFetch(`${API_BASE}/sync/suggestions?status=pending`)
       if (resp.ok) {
         const data = await resp.json() as ServerSuggestion[]
         setServerSuggestions(data.map(toLocal))
@@ -123,7 +129,7 @@ export function ModerationPage() {
           if (Object.keys(updates).length > 0) {
             await db.routes.update(info.routeId, updates)
             try {
-              await fetch(`${API_BASE}/routes/${info.routeId}`, {
+              await adminFetch(`${API_BASE}/routes/${info.routeId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updates),
@@ -175,7 +181,7 @@ export function ModerationPage() {
 
       // Update status on server
       try {
-        await fetch(`${API_BASE}/sync/suggestion/${s.id}`, {
+        await adminFetch(`${API_BASE}/sync/suggestion/${s.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'approved' }),
@@ -195,7 +201,7 @@ export function ModerationPage() {
   const handleReject = async (s: Suggestion) => {
     setProcessing(s.id)
     try {
-      await fetch(`${API_BASE}/sync/suggestion/${s.id}`, {
+      await adminFetch(`${API_BASE}/sync/suggestion/${s.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'rejected' }),

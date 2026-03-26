@@ -99,7 +99,7 @@ const translations = {
   'sector.orientation': { ru: 'Ориентация', en: 'Orientation', kk: 'Бағдар' },
 
   // Route
-  'route.logAscent': { ru: 'Залогировать пролаз', en: 'Log ascent', kk: 'Өрмелеуді жазу' },
+  'route.logAscent': { ru: 'Отметить пролаз', en: 'Log ascent', kk: 'Өрмелеуді жазу' },
   'route.climbed': { ru: 'Пролазано', en: 'Climbed', kk: 'Өрмелеп шықтым' },
   'route.review': { ru: 'Отзыв', en: 'Review', kk: 'Пікір' },
   'route.ascents': { ru: 'Пролазы', en: 'Ascents', kk: 'Өрмелеулер' },
@@ -113,7 +113,7 @@ const translations = {
   'route.points': { ru: 'очков', en: 'points', kk: 'ұпай' },
 
   // Ascent form
-  'ascent.title': { ru: 'Залогировать пролаз', en: 'Log ascent', kk: 'Өрмелеуді жазу' },
+  'ascent.title': { ru: 'Отметить пролаз', en: 'Log ascent', kk: 'Өрмелеуді жазу' },
   'ascent.style': { ru: 'Стиль', en: 'Style', kk: 'Стиль' },
   'ascent.date': { ru: 'Дата', en: 'Date', kk: 'Күні' },
   'ascent.rating': { ru: 'Оценка маршрута', en: 'Route rating', kk: 'Маршрут бағасы' },

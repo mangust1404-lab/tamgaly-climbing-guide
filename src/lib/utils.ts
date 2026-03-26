@@ -42,6 +42,20 @@ export function sunHours(sunExposure?: string): string {
   return ''
 }
 
+/** French grade → numeric sort value (canonical mapping used everywhere) */
+const GRADE_SORT_MAP: Record<string, number> = {
+  '4': 30, '4a': 40, '4b': 50, '4c': 60,
+  '5a': 70, '5a+': 75, '5b': 85, '5b+': 90, '5c': 100, '5c+': 105,
+  '6a': 120, '6a+': 135, '6b': 150, '6b+': 170, '6c': 190, '6c+': 210,
+  '7a': 240, '7a+': 270, '7b': 300, '7b+': 340, '7c': 380, '7c+': 420,
+  '8a': 470, '8a+': 520,
+}
+
+export function gradeToSort(grade: string): number {
+  const g = grade.toLowerCase().trim()
+  return GRADE_SORT_MAP[g] ?? 0
+}
+
 /** Unique sorted list of grade "groups" from routes, for filter chips */
 export function gradeGroups(grades: string[]): string[] {
   const groups = new Set<string>()
