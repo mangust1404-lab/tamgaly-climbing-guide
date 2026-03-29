@@ -478,25 +478,21 @@ export function ProfilePage() {
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-3">
           {/* Avatar */}
-          <div className="relative flex-shrink-0"
-            onClick={() => {
-              const input = document.getElementById('avatar-upload') as HTMLInputElement
-              if (input) { input.value = ''; input.click() }
-            }}
-          >
+          <label htmlFor="avatar-upload" className="relative flex-shrink-0 cursor-pointer block">
             {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-gray-200 cursor-pointer" />
+              <img src={avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-gray-200" />
             ) : (
-              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xl cursor-pointer">👤</div>
+              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xl">👤</div>
             )}
             {uploadingAvatar && <div className="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center text-xs">...</div>}
-            <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center border border-white cursor-pointer">✎</div>
-          </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center border border-white">✎</div>
+          </label>
           <input
             id="avatar-upload"
             type="file"
             accept="image/*"
-            className="hidden"
+            style={{ position: 'absolute', width: 0, height: 0, opacity: 0, overflow: 'hidden' }}
+            onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
             onChange={async (e) => {
                 const file = e.target.files?.[0]
                 if (!file || !user) return
