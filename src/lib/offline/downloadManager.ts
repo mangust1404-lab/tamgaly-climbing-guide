@@ -232,12 +232,11 @@ export async function refreshTopoData(
 
 /**
  * Cache map tiles for Tamgaly-Tas area for offline use.
- * Downloads CARTO Voyager tiles at zoom levels 14-17 around the climbing area.
- * ~44.055-44.072 lat, ~76.985-77.010 lng
+ * Downloads OpenTopoMap tiles (terrain + trails) at zoom levels 14-17.
  */
 async function cacheMapTiles(): Promise<number> {
-  const TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'
-  const subdomains = ['a', 'b', 'c', 'd']
+  const TILE_URL = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+  const subdomains = ['a', 'b', 'c']
 
   // Tamgaly-Tas bounding box (slightly expanded)
   const bounds = { minLat: 44.054, maxLat: 44.073, minLng: 76.984, maxLng: 77.012 }

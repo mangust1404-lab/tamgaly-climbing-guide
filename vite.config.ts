@@ -135,10 +135,26 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /basemaps\.cartocdn\.com\/rastertiles\/voyager\//,
+            urlPattern: /tile\.opentopomap\.org\//,
             handler: 'CacheFirst',
             options: {
               cacheName: 'map-tiles',
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
+          },
+          {
+            urlPattern: /server\.arcgisonline\.com\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'map-tiles-satellite',
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
+          },
+          {
+            urlPattern: /basemaps\.cartocdn\.com\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'map-tiles-street',
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 90 },
             },
           },

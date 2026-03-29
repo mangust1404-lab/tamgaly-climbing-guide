@@ -66,6 +66,9 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
     return result
   }, [sectors, colorSource])
 
+  const [mapStyle, setMapStyle] = useState<'topo' | 'satellite' | 'street'>('topo')
+  const tileLayerRef = useRef<L.TileLayer | null>(null)
+
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return
@@ -76,10 +79,11 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
       zoomControl: true,
     })
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
-      attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-      maxZoom: 19,
-      subdomains: 'abcd',
+    // Default: OpenTopoMap (terrain + trails)
+    tileLayerRef.current = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+      maxZoom: 17,
+      subdomains: 'abc',
     }).addTo(map)
 
     mapRef.current = map
@@ -89,6 +93,43 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
       mapRef.current = null
     }
   }, [])
+
+  // Switch tile layer when mapStyle changes
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current)
+    }
+
+    const layers: Record<string, { url: string; attr: string; maxZoom: number; subdomains?: string }> = {
+      topo: {
+        url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+        attr: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+        maxZoom: 17,
+        subdomains: 'abc',
+      },
+      satellite: {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr: '&copy; Esri, Maxar, Earthstar',
+        maxZoom: 19,
+      },
+      street: {
+        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+        attr: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+        maxZoom: 19,
+        subdomains: 'abcd',
+      },
+    }
+
+    const cfg = layers[mapStyle]
+    tileLayerRef.current = L.tileLayer(cfg.url, {
+      attribution: cfg.attr,
+      maxZoom: cfg.maxZoom,
+      subdomains: cfg.subdomains || '',
+    }).addTo(map)
+  }, [mapStyle])
 
   // Update sector markers
   useEffect(() => {
@@ -307,6 +348,21 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="absolute inset-0" />
+
+      {/* Map style switcher */}
+      <div className="absolute bottom-16 right-3 flex flex-col gap-1" style={{ zIndex: 1000 }}>
+        {([['topo', '🏔'], ['satellite', '🛰'], ['street', '🗺']] as const).map(([key, icon]) => (
+          <button
+            key={key}
+            onClick={() => setMapStyle(key)}
+            className={`w-10 h-10 rounded-full shadow-lg flex items-center justify-center text-lg ${
+              mapStyle === key ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'
+            }`}
+          >
+            {icon}
+          </button>
+        ))}
+      </div>
 
       {/* GPS center button */}
       <button
