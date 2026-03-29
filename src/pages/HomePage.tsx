@@ -86,7 +86,8 @@ export function HomePage() {
   const filteredRoutes = useMemo(() => {
     if (!hasActiveFilters || !routes || !sectors) return []
 
-    const q = normalizeCyrGrade(search.trim().toLowerCase())
+    const raw = search.trim().toLowerCase()
+    const qGrade = normalizeCyrGrade(raw)
 
     // Build grade filter set
     const matchSorts = new Set<number>()
@@ -103,12 +104,14 @@ export function HomePage() {
         const cat = sectorSunMap.get(s.id)
         if (sunMode === 'sun') {
           if (cat === null) continue
-          if (cat === sunFilter) sunPassSectors.add(s.id)
+          // "allday" sectors match any sun filter (they have sun both morning and afternoon)
+          if (cat === sunFilter || cat === 'allday') sunPassSectors.add(s.id)
         } else {
-          if (cat === null) { if (sunFilter === 'allday') sunPassSectors.add(s.id); continue }
-          if (cat === 'allday') continue
-          if (sunFilter === 'allday') continue
-          if (cat !== sunFilter) sunPassSectors.add(s.id)
+          // shade mode: sector has shade when it does NOT have sun at that time
+          if (cat === null) { sunPassSectors.add(s.id); continue }
+          if (cat === 'allday') continue // sun all day = no shade ever
+          if (sunFilter === 'allday') continue // want shade all day = only unknown/null sectors
+          if (cat !== sunFilter) sunPassSectors.add(s.id) // morning sun = afternoon shade
         }
       }
     }
@@ -116,7 +119,7 @@ export function HomePage() {
     return routes
       .filter(r => {
         // Text search
-        if (q && !r.name.toLowerCase().includes(q) && !normalizeCyrGrade(r.grade.toLowerCase()).includes(q)) return false
+        if (raw && !r.name.toLowerCase().includes(raw) && !normalizeCyrGrade(r.grade.toLowerCase()).includes(qGrade)) return false
         // Grade filter
         if (matchSorts.size > 0 && !matchSorts.has(r.gradeSort)) return false
         // Route type filter
@@ -132,7 +135,7 @@ export function HomePage() {
         return true
       })
       .sort((a, b) => a.gradeSort - b.gradeSort)
-      .slice(0, q ? 30 : 999)
+      .slice(0, raw ? 30 : 999)
       .map(r => ({ ...r, sectorName: sectorMap.get(r.sectorId)?.name ?? '' }))
   }, [hasActiveFilters, search, selectedGrades, routeTypeFilter, maxRopeLength, sunFilter, sunMode, routes, sectors, sectorMap, sectorSunMap])
 
@@ -156,14 +159,14 @@ export function HomePage() {
       list = list.filter(s => {
         const cat = sectorSunMap.get(s.id)
         if (sunMode === 'sun') {
-          if (cat === null) return false // unknown sun = exclude
-          return cat === sunFilter
+          if (cat === null) return false
+          return cat === sunFilter || cat === 'allday'
         }
         // shade mode
-        if (cat === null) return sunFilter === 'allday' // unknown = show only for "shade allday"
+        if (cat === null) return true // unknown = assume shade available
         if (cat === 'allday') return false // sun all day = no shade
-        if (sunFilter === 'allday') return false // shade all day = only unknown sectors qualify
-        return cat !== sunFilter // morning sun = afternoon shade, etc.
+        if (sunFilter === 'allday') return false
+        return cat !== sunFilter
       })
     }
     // Sort by ascent count (most popular first), then by sortOrder

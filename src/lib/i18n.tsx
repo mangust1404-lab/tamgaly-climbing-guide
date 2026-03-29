@@ -7,6 +7,8 @@ const TRANSLIT: Record<string, string> = {
   'й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t',
   'у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'shch','ъ':'','ы':'y',
   'ь':'','э':'e','ю':'yu','я':'ya',
+  // Kazakh-specific characters
+  'ә':'a','ғ':'gh','қ':'q','ң':'ng','ө':'o','ұ':'u','ү':'u','і':'i','һ':'h',
 }
 function transliterate(text: string): string {
   return text.split('').map(c => {

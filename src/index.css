@@ -33,3 +33,8 @@ body {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
+
+/* Main content padding: nav bar height (56px) + safe area */
+.pb-safe {
+  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0));
+}
