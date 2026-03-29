@@ -214,26 +214,20 @@ export function LeaderboardPage() {
                           : 'bg-white border border-gray-100'
                   }`}
                 >
-                  {/* Rank + Avatar */}
-                  <div className="relative flex-shrink-0">
-                    {avatarMap[entry.userId] ? (
-                      <img src={avatarMap[entry.userId]} alt="" className="w-9 h-9 rounded-full object-cover" />
-                    ) : (
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
-                        idx === 0 ? 'bg-yellow-400 text-white' :
-                        idx === 1 ? 'bg-gray-400 text-white' :
-                        idx === 2 ? 'bg-orange-400 text-white' :
-                        'bg-gray-100 text-gray-500'
-                      }`}>
-                        {idx + 1}
-                      </div>
-                    )}
-                    {avatarMap[entry.userId] && (
-                      <span className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-white text-[10px] font-bold flex items-center justify-center border border-gray-200">
-                        {idx + 1}
-                      </span>
-                    )}
+                  {/* Rank */}
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                    idx === 0 ? 'bg-yellow-400 text-white' :
+                    idx === 1 ? 'bg-gray-400 text-white' :
+                    idx === 2 ? 'bg-orange-400 text-white' :
+                    'bg-gray-100 text-gray-500'
+                  }`}>
+                    {idx + 1}
                   </div>
+
+                  {/* Avatar */}
+                  {avatarMap[entry.userId] && (
+                    <img src={avatarMap[entry.userId]} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                  )}
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">

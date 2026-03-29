@@ -479,24 +479,23 @@ export function ProfilePage() {
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-3">
           {/* Avatar */}
-          <div className="relative flex-shrink-0">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-gray-200" />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xl">👤</div>
-            )}
-            {uploadingAvatar && <div className="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center text-xs">...</div>}
-            <button
-              type="button"
-              onClick={() => { if (avatarInputRef.current) { avatarInputRef.current.value = ''; avatarInputRef.current.click() } }}
-              className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center border-2 border-white"
-            >📷</button>
+          <div className="flex flex-col items-center flex-shrink-0">
+            <label htmlFor="avatar-file" className="relative cursor-pointer">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-gray-200" />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xl">👤</div>
+              )}
+              {uploadingAvatar && <div className="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center text-xs">...</div>}
+            </label>
+            <label htmlFor="avatar-file" className="text-[9px] text-blue-500 mt-0.5 cursor-pointer">📷 {t('profile.changePhoto')}</label>
           </div>
           <input
+            id="avatar-file"
             ref={avatarInputRef}
             type="file"
             accept="image/*"
-            style={{ position: 'fixed', left: '-9999px', top: '-9999px' }}
+            style={{ width: '1px', height: '1px', opacity: 0.01, position: 'absolute', left: '-100px' }}
             onChange={async (e) => {
                 const file = e.target.files?.[0]
                 if (!file || !user) return

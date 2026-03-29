@@ -257,6 +257,7 @@ const translations = {
   'profile.setPin': { ru: 'Установить пароль', en: 'Set password', kk: 'Пароль орнату' },
   'profile.savePin': { ru: 'Сохранить', en: 'Save', kk: 'Сақтау' },
   'profile.pinSaved': { ru: 'Пароль установлен!', en: 'Password set!', kk: 'Пароль орнатылды!' },
+  'profile.changePhoto': { ru: 'фото', en: 'photo', kk: 'фото' },
 
   // Review form
   'review.title': { ru: 'Оставить отзыв', en: 'Leave a review', kk: 'Пікір қалдыру' },
