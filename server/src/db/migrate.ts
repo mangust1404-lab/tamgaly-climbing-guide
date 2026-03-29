@@ -235,12 +235,30 @@ if (!topoColNames.has('type')) {
   db.exec("ALTER TABLE topo ADD COLUMN type TEXT DEFAULT 'topo'")
 }
 
+// Achievement table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS achievement (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    target_id TEXT,
+    name TEXT NOT NULL,
+    earned_at TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_achievement_user ON achievement(user_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_achievement_unique ON achievement(user_id, type, target_id);
+`)
+
 // User column migrations (PIN protection)
 const userCols = db.prepare("PRAGMA table_info(app_user)").all() as { name: string }[]
 const userColNames = new Set(userCols.map(c => c.name))
 
 if (!userColNames.has('pin_hash')) {
   db.exec('ALTER TABLE app_user ADD COLUMN pin_hash TEXT')
+}
+if (!userColNames.has('avatar_url')) {
+  db.exec('ALTER TABLE app_user ADD COLUMN avatar_url TEXT')
 }
 
 console.log('Database tables created successfully.')

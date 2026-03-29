@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
@@ -12,6 +12,27 @@ export function LeaderboardPage() {
   const { t, td } = useI18n()
   const [period, setPeriod] = useState<Period>('all')
   const [expandedName, setExpandedName] = useState<string | null>(null)
+
+  // Load avatars and achievements from server
+  const [avatarMap, setAvatarMap] = useState<Record<string, string>>({})
+  const [achievementMap, setAchievementMap] = useState<Record<string, Array<{ type: string; name: string }>>>({})
+
+  useEffect(() => {
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    fetch(`${API_BASE}/sync/users`).then(r => r.json()).then((users: any[]) => {
+      const map: Record<string, string> = {}
+      for (const u of users) { if (u.avatar_url) map[u.id] = u.avatar_url }
+      setAvatarMap(map)
+    }).catch(() => {})
+    fetch(`${API_BASE}/sync/achievements`).then(r => r.json()).then((achs: any[]) => {
+      const map: Record<string, Array<{ type: string; name: string }>> = {}
+      for (const a of achs) {
+        if (!map[a.user_id]) map[a.user_id] = []
+        map[a.user_id].push({ type: a.type, name: a.name })
+      }
+      setAchievementMap(map)
+    }).catch(() => {})
+  }, [])
 
   const ascents = useLiveQuery(() =>
     db.ascents.toArray().then(all => all.filter(a => a.style !== 'attempt' && a.style !== 'toprope')),
@@ -179,20 +200,35 @@ export function LeaderboardPage() {
                           : 'bg-white border border-gray-100'
                   }`}
                 >
-                  {/* Rank */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                    idx === 0 ? 'bg-yellow-400 text-white' :
-                    idx === 1 ? 'bg-gray-400 text-white' :
-                    idx === 2 ? 'bg-orange-400 text-white' :
-                    'bg-gray-100 text-gray-500'
-                  }`}>
-                    {idx + 1}
+                  {/* Rank + Avatar */}
+                  <div className="relative flex-shrink-0">
+                    {avatarMap[entry.userId] ? (
+                      <img src={avatarMap[entry.userId]} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    ) : (
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
+                        idx === 0 ? 'bg-yellow-400 text-white' :
+                        idx === 1 ? 'bg-gray-400 text-white' :
+                        idx === 2 ? 'bg-orange-400 text-white' :
+                        'bg-gray-100 text-gray-500'
+                      }`}>
+                        {idx + 1}
+                      </div>
+                    )}
+                    {avatarMap[entry.userId] && (
+                      <span className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-white text-[10px] font-bold flex items-center justify-center border border-gray-200">
+                        {idx + 1}
+                      </span>
+                    )}
                   </div>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">
-                      {entry.displayName}
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium text-sm truncate">{entry.displayName}</span>
+                      {/* Achievement badges */}
+                      {achievementMap[entry.userId]?.map((a, i) => (
+                        <span key={i} title={a.name} className="text-xs">{a.type === 'sector_master' ? '🏠' : a.type === 'grade_king' ? '👑' : '🏆'}</span>
+                      ))}
                     </div>
                     <div className="text-xs text-gray-400">
                       {entry.ascentCount} {t('leaderboard.ascents')}

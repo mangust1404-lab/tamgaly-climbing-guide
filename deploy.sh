@@ -59,6 +59,7 @@ deploy_server() {
       -v tamgaly-data:/app/server/data \
       -v /var/www/tamgaly/data:/var/www/tamgaly/data \
       -v /var/www/tamgaly/topo-images:/var/www/tamgaly/topo-images \
+      -v /var/www/tamgaly/avatars:/var/www/tamgaly/avatars \
       -e PORT=3001 \
       -e ADMIN_PASSWORD="${ADMIN_PASSWORD:-tamgaly2024}" \
       tamgaly-api

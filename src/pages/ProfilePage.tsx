@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { calculatePoints, calculateTotalScore } from '../lib/scoring/points'
+import { calculateAchievements } from '../lib/scoring/achievements'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 import { gradeColor } from '../lib/utils'
@@ -49,9 +50,21 @@ export function ProfilePage() {
   const [settingPin, setSettingPin] = useState(false)
   const [newPinInput, setNewPinInput] = useState('')
   const [pinSaved, setPinSaved] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [period, setPeriod] = useState<'all' | 'year' | 'season' | 'month' | 'week'>('all')
   const [profileTab, setProfileTab] = useState<'ascents' | 'projects'>('ascents')
   const [styleFilter, setStyleFilter] = useState<string | null>(null)
+
+  // Load avatar from server
+  useEffect(() => {
+    if (!user?.id) return
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    fetch(`${API_BASE}/sync/users`).then(r => r.json()).then((users: any[]) => {
+      const me = users.find((u: any) => u.id === user.id)
+      if (me?.avatar_url) setAvatarUrl(me.avatar_url)
+    }).catch(() => {})
+  }, [user?.id])
 
   const ascents = useLiveQuery(() =>
     db.ascents.orderBy('date').reverse().toArray(),
@@ -134,6 +147,63 @@ export function ProfilePage() {
       pending: myAscents.filter((a) => a.syncStatus === 'pending').length,
     }
   }, [ascents, routes, user?.id, period])
+
+  // Achievements
+  const existingAchievements = useLiveQuery(
+    () => user?.id ? db.achievements.where('userId').equals(user.id).toArray() : [],
+    [user?.id],
+  )
+
+  const earnedAchievements = useMemo(() => {
+    if (!ascents || !routes || !sectors || !user?.id || !existingAchievements) return []
+    const existingKeys = new Set(existingAchievements.map(a => `${a.type}:${a.description}`))
+    // Use type:targetId pattern to match
+    const existingTypeTargets = new Set(existingAchievements.map(a => {
+      const parts = a.id.split(':')
+      return `${a.type}:${parts[1] || ''}`
+    }))
+    return calculateAchievements(
+      ascents.filter(a => a.userId === user.id),
+      routes,
+      sectors,
+      existingTypeTargets,
+    )
+  }, [ascents, routes, sectors, user?.id, existingAchievements])
+
+  // Save newly earned achievements to DB and sync
+  useEffect(() => {
+    if (!earnedAchievements.length || !user?.id) return
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    for (const ach of earnedAchievements) {
+      const id = `${ach.type}:${ach.targetId || 'all'}`
+      const now = new Date().toISOString()
+      db.achievements.put({
+        id,
+        userId: user.id,
+        type: ach.type,
+        name: ach.name,
+        description: ach.description,
+        earnedAt: now,
+        syncStatus: 'synced',
+      }).catch(() => {})
+      // Sync to server
+      fetch(`${API_BASE}/sync/achievement`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, userId: user.id, type: ach.type, targetId: ach.targetId, name: ach.name, earnedAt: now }),
+      }).catch(() => {})
+    }
+  }, [earnedAchievements, user?.id])
+
+  const allAchievements = useMemo(() => {
+    const existing = (existingAchievements || []).map(a => ({
+      type: a.type, name: a.name, description: a.description,
+      icon: a.type === 'sector_master' ? '🏠' : a.type === 'grade_king' ? '👑' : '🏆',
+      earnedAt: a.earnedAt,
+    }))
+    const fresh = earnedAchievements.map(a => ({ ...a, earnedAt: new Date().toISOString() }))
+    return [...existing, ...fresh]
+  }, [existingAchievements, earnedAchievements])
 
   const sectorRoutes = useMemo(() => {
     if (!routes || !selectedSectorId) return []
@@ -406,32 +476,95 @@ export function ProfilePage() {
   return (
     <div className="p-4 pb-8">
       <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">{user.displayName}</h1>
-          {editingName ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (nameInput.trim()) { updateName(nameInput); setEditingName(false) }
+        <div className="flex items-center gap-3">
+          {/* Avatar */}
+          <label className="relative cursor-pointer flex-shrink-0">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-gray-200" />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xl">👤</div>
+            )}
+            {uploadingAvatar && <div className="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center text-xs">...</div>}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file || !user) return
+                setUploadingAvatar(true)
+                const reader = new FileReader()
+                reader.onload = async () => {
+                  // Resize to 200x200
+                  const img = new Image()
+                  img.onload = async () => {
+                    const canvas = document.createElement('canvas')
+                    const size = 200
+                    canvas.width = size; canvas.height = size
+                    const ctx = canvas.getContext('2d')!
+                    const min = Math.min(img.width, img.height)
+                    ctx.drawImage(img, (img.width - min) / 2, (img.height - min) / 2, min, min, 0, 0, size, size)
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+                    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+                    try {
+                      const resp = await fetch(`${API_BASE}/sync/user/avatar`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: user.id, avatarData: dataUrl }),
+                      })
+                      if (resp.ok) {
+                        const { avatarUrl: url } = await resp.json()
+                        setAvatarUrl(url)
+                      }
+                    } catch {}
+                    setUploadingAvatar(false)
+                  }
+                  img.src = reader.result as string
+                }
+                reader.readAsDataURL(file)
               }}
-              className="flex gap-1"
-            >
-              <input
-                autoFocus
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-0.5 text-sm w-32"
-              />
-              <button type="submit" className="text-xs text-blue-600">OK</button>
-            </form>
-          ) : (
-            <button
-              onClick={() => { setNameInput(user.displayName); setEditingName(true) }}
-              className="text-gray-400 text-xs"
-            >
-              ✎
-            </button>
-          )}
+            />
+          </label>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold">{user.displayName}</h1>
+              {editingName ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (nameInput.trim()) { updateName(nameInput); setEditingName(false) }
+                  }}
+                  className="flex gap-1"
+                >
+                  <input
+                    autoFocus
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-0.5 text-sm w-32"
+                  />
+                  <button type="submit" className="text-xs text-blue-600">OK</button>
+                </form>
+              ) : (
+                <button
+                  onClick={() => { setNameInput(user.displayName); setEditingName(true) }}
+                  className="text-gray-400 text-xs"
+                >
+                  ✎
+                </button>
+              )}
+            </div>
+            {/* Achievement badges inline */}
+            {allAchievements.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-0.5">
+                {allAchievements.map((a, i) => (
+                  <span key={i} title={a.description} className="inline-flex items-center gap-0.5 bg-yellow-50 border border-yellow-200 rounded-full px-1.5 py-0.5 text-[10px]">
+                    <span>{a.icon}</span>
+                    <span className="font-medium text-yellow-800">{a.name}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         {showForm && (
           <button

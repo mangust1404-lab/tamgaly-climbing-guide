@@ -394,10 +394,60 @@ syncRouter.get('/user/lookup', async (c) => {
   return c.json(users)
 })
 
+// Upload avatar
+syncRouter.post('/user/avatar', async (c) => {
+  const body = await c.req.json()
+  const db = getDb()
+  const { userId, avatarData } = body // avatarData = base64 data URL
+  if (!userId || !avatarData) return c.json({ error: 'userId and avatarData required' }, 400)
+
+  // Save base64 to disk as file
+  const fs = await import('fs')
+  const path = await import('path')
+  const ext = avatarData.startsWith('data:image/png') ? 'png' : 'jpg'
+  const filename = `avatar-${userId}.${ext}`
+  const avatarDir = '/var/www/tamgaly/avatars'
+  fs.mkdirSync(avatarDir, { recursive: true })
+  const base64 = avatarData.replace(/^data:image\/\w+;base64,/, '')
+  fs.writeFileSync(path.join(avatarDir, filename), Buffer.from(base64, 'base64'))
+
+  const avatarUrl = `/avatars/${filename}`
+  db.prepare('UPDATE app_user SET avatar_url = ?, updated_at = ? WHERE id = ?')
+    .run(avatarUrl, new Date().toISOString(), userId)
+  return c.json({ status: 'ok', avatarUrl })
+})
+
+// Push achievement
+syncRouter.post('/achievement', async (c) => {
+  const body = await c.req.json()
+  const db = getDb()
+  const { id, userId, type, targetId, name, earnedAt } = body
+  if (!userId || !type || !name) return c.json({ error: 'userId, type, name required' }, 400)
+
+  db.prepare(`
+    INSERT OR IGNORE INTO achievement (id, user_id, type, target_id, name, earned_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id || crypto.randomUUID(), userId, type, targetId || null, name, earnedAt || new Date().toISOString())
+  return c.json({ status: 'ok' })
+})
+
+// Pull achievements (for leaderboard/activity)
+syncRouter.get('/achievements', async (c) => {
+  const db = getDb()
+  const achievements = db.prepare(`
+    SELECT a.*, COALESCE(u.display_name, 'Anonymous') as user_name
+    FROM achievement a
+    LEFT JOIN app_user u ON a.user_id = u.id
+    ORDER BY a.earned_at DESC
+    LIMIT 200
+  `).all()
+  return c.json(achievements)
+})
+
 // Pull users (for leaderboard display names)
 syncRouter.get('/users', async (c) => {
   const db = getDb()
-  const users = db.prepare('SELECT id, display_name, created_at FROM app_user').all()
+  const users = db.prepare('SELECT id, display_name, avatar_url, created_at FROM app_user').all()
   return c.json(users)
 })
 
