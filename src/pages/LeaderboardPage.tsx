@@ -22,7 +22,8 @@ export function LeaderboardPage() {
     const API_BASE = import.meta.env.VITE_API_URL || '/api'
     fetch(`${API_BASE}/sync/users`).then(r => r.json()).then((users: any[]) => {
       const map: Record<string, string> = {}
-      for (const u of users) { if (u.avatar_url) map[u.id] = u.avatar_url }
+      const t = Date.now()
+      for (const u of users) { if (u.avatar_url) map[u.id] = u.avatar_url + '?t=' + t }
       setAvatarMap(map)
     }).catch(() => {})
     fetch(`${API_BASE}/sync/achievements`).then(r => r.json()).then(async (achs: any[]) => {
@@ -246,7 +247,7 @@ export function LeaderboardPage() {
                         {(showAchDetail === entry.userId ? achievementMap[entry.userId] : achievementMap[entry.userId].slice(0, 3)).map((a, i) => (
                           <span key={i} className="inline-flex items-center gap-0.5 bg-yellow-50 border border-yellow-200 rounded-full px-1.5 py-0 text-[9px] leading-4">
                             <span>{a.type === 'sector_master' ? '🥇' : a.type === 'grade_king' ? '👑' : a.type === 'admin' ? '🛡' : '🏆'}</span>
-                            <span className="font-medium text-yellow-800">{showAchDetail === entry.userId ? `Хозяин: ${a.name}` : a.name}</span>
+                            <span className="font-medium text-yellow-800">{showAchDetail === entry.userId && a.type === 'sector_master' ? `Хозяин: ${a.name}` : a.name}</span>
                           </span>
                         ))}
                         {showAchDetail !== entry.userId && achievementMap[entry.userId].length > 3 && (

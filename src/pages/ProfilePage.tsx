@@ -63,7 +63,7 @@ export function ProfilePage() {
     const API_BASE = import.meta.env.VITE_API_URL || '/api'
     fetch(`${API_BASE}/sync/users`).then(r => r.json()).then((users: any[]) => {
       const me = users.find((u: any) => u.id === user.id)
-      if (me?.avatar_url) setAvatarUrl(me.avatar_url)
+      if (me?.avatar_url) setAvatarUrl(me.avatar_url + '?t=' + Date.now())
     }).catch(() => {})
   }, [user?.id])
 
