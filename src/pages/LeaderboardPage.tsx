@@ -24,11 +24,23 @@ export function LeaderboardPage() {
       for (const u of users) { if (u.avatar_url) map[u.id] = u.avatar_url }
       setAvatarMap(map)
     }).catch(() => {})
-    fetch(`${API_BASE}/sync/achievements`).then(r => r.json()).then((achs: any[]) => {
+    fetch(`${API_BASE}/sync/achievements`).then(r => r.json()).then(async (achs: any[]) => {
       const map: Record<string, Array<{ type: string; name: string }>> = {}
       for (const a of achs) {
         if (!map[a.user_id]) map[a.user_id] = []
         map[a.user_id].push({ type: a.type, name: a.name })
+        // Save to local IndexedDB so profile page can display them
+        try {
+          await db.achievements.put({
+            id: a.id,
+            userId: a.user_id,
+            type: a.type,
+            name: a.name,
+            description: a.name,
+            earnedAt: a.earned_at,
+            syncStatus: 'synced',
+          })
+        } catch {}
       }
       setAchievementMap(map)
     }).catch(() => {})
@@ -223,13 +235,18 @@ export function LeaderboardPage() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <span className="font-medium text-sm truncate">{entry.displayName}</span>
-                      {/* Achievement badges */}
-                      {achievementMap[entry.userId]?.map((a, i) => (
-                        <span key={i} title={a.name} className="text-xs">{a.type === 'sector_master' ? '🏠' : a.type === 'grade_king' ? '👑' : '🏆'}</span>
-                      ))}
-                    </div>
+                    <div className="font-medium text-sm truncate">{entry.displayName}</div>
+                    {/* Achievement badges */}
+                    {achievementMap[entry.userId]?.length > 0 && (
+                      <div className="flex flex-wrap gap-0.5 mt-0.5">
+                        {achievementMap[entry.userId].map((a, i) => (
+                          <span key={i} className="inline-flex items-center gap-0.5 bg-yellow-50 border border-yellow-200 rounded-full px-1.5 py-0 text-[9px] leading-4">
+                            <span>{a.type === 'sector_master' ? '🏠' : a.type === 'grade_king' ? '👑' : a.type === 'admin' ? '🛡' : '🏆'}</span>
+                            <span className="font-medium text-yellow-800 truncate max-w-[80px]">{a.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className="text-xs text-gray-400">
                       {entry.ascentCount} {t('leaderboard.ascents')}
                       {' · '}{t('leaderboard.best')} {entry.bestGrade}
