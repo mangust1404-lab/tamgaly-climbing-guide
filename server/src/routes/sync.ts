@@ -431,15 +431,54 @@ syncRouter.post('/achievement', async (c) => {
   return c.json({ status: 'ok' })
 })
 
-// Pull achievements (for leaderboard/activity)
+// Pull achievements (recalculates sector_master for all users first)
 syncRouter.get('/achievements', async (c) => {
   const db = getDb()
+
+  // Recalculate sector_master achievements for all users
+  const users = db.prepare('SELECT id FROM app_user').all() as { id: string }[]
+  const sectors = db.prepare("SELECT id, name FROM sector WHERE id != 'unknown'").all() as { id: string; name: string }[]
+  const now = new Date().toISOString()
+
+  for (const user of users) {
+    // Sector master
+    for (const sector of sectors) {
+      const totalRoutes = (db.prepare("SELECT COUNT(*) as cnt FROM route WHERE sector_id=? AND status='published'").get(sector.id) as any).cnt
+      if (totalRoutes === 0) continue
+      const climbedRoutes = (db.prepare("SELECT COUNT(DISTINCT route_id) as cnt FROM ascent WHERE user_id=? AND style IN ('onsight','flash','redpoint') AND route_id IN (SELECT id FROM route WHERE sector_id=? AND status='published')").get(user.id, sector.id) as any).cnt
+      if (climbedRoutes >= totalRoutes) {
+        db.prepare("INSERT OR IGNORE INTO achievement (id, user_id, type, target_id, name, earned_at) VALUES (?, ?, ?, ?, ?, ?)")
+          .run(`sector_master:${sector.id}:${user.id}`, user.id, 'sector_master', sector.id, sector.name, now)
+      }
+    }
+
+    // Grade king (5, 6, 7, 8)
+    for (const prefix of ['5', '6', '7', '8']) {
+      const names: Record<string, string> = { '5': 'Король пятёрок', '6': 'Король шестёрок', '7': 'Король семёрок', '8': 'Король восьмёрок' }
+      const totalGrade = (db.prepare("SELECT COUNT(*) as cnt FROM route WHERE grade LIKE ? AND status='published'").get(`${prefix}%`) as any).cnt
+      if (totalGrade === 0) continue
+      const climbedGrade = (db.prepare("SELECT COUNT(DISTINCT route_id) as cnt FROM ascent WHERE user_id=? AND style IN ('onsight','flash','redpoint') AND route_id IN (SELECT id FROM route WHERE grade LIKE ? AND status='published')").get(user.id, `${prefix}%`) as any).cnt
+      if (climbedGrade >= totalGrade) {
+        db.prepare("INSERT OR IGNORE INTO achievement (id, user_id, type, target_id, name, earned_at) VALUES (?, ?, ?, ?, ?, ?)")
+          .run(`grade_king:${prefix}:${user.id}`, user.id, 'grade_king', prefix, names[prefix], now)
+      }
+    }
+
+    // Legend
+    const totalAll = (db.prepare("SELECT COUNT(*) as cnt FROM route WHERE status='published'").get() as any).cnt
+    const climbedAll = (db.prepare("SELECT COUNT(DISTINCT route_id) as cnt FROM ascent WHERE user_id=? AND style IN ('onsight','flash','redpoint') AND route_id IN (SELECT id FROM route WHERE status='published')").get(user.id) as any).cnt
+    if (totalAll > 0 && climbedAll >= totalAll) {
+      db.prepare("INSERT OR IGNORE INTO achievement (id, user_id, type, target_id, name, earned_at) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(`legend:all:${user.id}`, user.id, 'legend', 'all', 'Легенда Тамгалы', now)
+    }
+  }
+
   const achievements = db.prepare(`
     SELECT a.*, COALESCE(u.display_name, 'Anonymous') as user_name
     FROM achievement a
     LEFT JOIN app_user u ON a.user_id = u.id
     ORDER BY a.earned_at DESC
-    LIMIT 200
+    LIMIT 500
   `).all()
   return c.json(achievements)
 })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
@@ -52,6 +52,7 @@ export function ProfilePage() {
   const [pinSaved, setPinSaved] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
   const [period, setPeriod] = useState<'all' | 'year' | 'season' | 'month' | 'week'>('all')
   const [profileTab, setProfileTab] = useState<'ascents' | 'projects'>('ascents')
   const [styleFilter, setStyleFilter] = useState<string | null>(null)
@@ -478,28 +479,31 @@ export function ProfilePage() {
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-3">
           {/* Avatar */}
-          <label htmlFor="avatar-upload" className="relative flex-shrink-0 cursor-pointer block">
+          <div className="relative flex-shrink-0">
             {avatarUrl ? (
               <img src={avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover border-2 border-gray-200" />
             ) : (
               <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xl">👤</div>
             )}
             {uploadingAvatar && <div className="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center text-xs">...</div>}
-            <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center border border-white">✎</div>
-          </label>
+            <button
+              type="button"
+              onClick={() => { if (avatarInputRef.current) { avatarInputRef.current.value = ''; avatarInputRef.current.click() } }}
+              className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center border-2 border-white"
+            >✎</button>
+          </div>
           <input
-            id="avatar-upload"
+            ref={avatarInputRef}
             type="file"
             accept="image/*"
-            style={{ position: 'absolute', width: 0, height: 0, opacity: 0, overflow: 'hidden' }}
-            onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
+            capture="environment"
+            style={{ position: 'fixed', left: '-9999px', top: '-9999px' }}
             onChange={async (e) => {
                 const file = e.target.files?.[0]
                 if (!file || !user) return
                 setUploadingAvatar(true)
                 const reader = new FileReader()
                 reader.onload = async () => {
-                  // Resize to 200x200
                   const img = new Image()
                   img.onload = async () => {
                     const canvas = document.createElement('canvas')
@@ -518,7 +522,7 @@ export function ProfilePage() {
                       })
                       if (resp.ok) {
                         const { avatarUrl: url } = await resp.json()
-                        setAvatarUrl(url)
+                        setAvatarUrl(url + '?t=' + Date.now())
                       }
                     } catch {}
                     setUploadingAvatar(false)
