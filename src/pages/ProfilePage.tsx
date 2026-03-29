@@ -199,7 +199,7 @@ export function ProfilePage() {
   const allAchievements = useMemo(() => {
     const existing = (existingAchievements || []).map(a => ({
       type: a.type, name: a.name, description: a.description,
-      icon: a.type === 'sector_master' ? '🏠' : a.type === 'grade_king' ? '👑' : '🏆',
+      icon: a.type === 'sector_master' ? '🥇' : a.type === 'grade_king' ? '👑' : a.type === 'admin' ? '🛡' : '🏆',
       earnedAt: a.earnedAt,
     }))
     const fresh = earnedAchievements.map(a => ({ ...a, earnedAt: new Date().toISOString() }))
@@ -489,14 +489,13 @@ export function ProfilePage() {
             <button
               type="button"
               onClick={() => { if (avatarInputRef.current) { avatarInputRef.current.value = ''; avatarInputRef.current.click() } }}
-              className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center border-2 border-white"
-            >✎</button>
+              className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-blue-500 text-white text-[10px] flex items-center justify-center border-2 border-white"
+            >📷</button>
           </div>
           <input
             ref={avatarInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
             style={{ position: 'fixed', left: '-9999px', top: '-9999px' }}
             onChange={async (e) => {
                 const file = e.target.files?.[0]

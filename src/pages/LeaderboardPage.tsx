@@ -12,6 +12,7 @@ export function LeaderboardPage() {
   const { t, td } = useI18n()
   const [period, setPeriod] = useState<Period>('all')
   const [expandedName, setExpandedName] = useState<string | null>(null)
+  const [showAchDetail, setShowAchDetail] = useState<string | null>(null) // "userId" showing achievement details
 
   // Load avatars and achievements from server
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({})
@@ -238,13 +239,19 @@ export function LeaderboardPage() {
                     <div className="font-medium text-sm truncate">{entry.displayName}</div>
                     {/* Achievement badges */}
                     {achievementMap[entry.userId]?.length > 0 && (
-                      <div className="flex flex-wrap gap-0.5 mt-0.5">
-                        {achievementMap[entry.userId].map((a, i) => (
+                      <div
+                        className="flex flex-wrap gap-0.5 mt-0.5 cursor-pointer"
+                        onClick={(e) => { e.stopPropagation(); setShowAchDetail(showAchDetail === entry.userId ? null : entry.userId) }}
+                      >
+                        {(showAchDetail === entry.userId ? achievementMap[entry.userId] : achievementMap[entry.userId].slice(0, 3)).map((a, i) => (
                           <span key={i} className="inline-flex items-center gap-0.5 bg-yellow-50 border border-yellow-200 rounded-full px-1.5 py-0 text-[9px] leading-4">
-                            <span>{a.type === 'sector_master' ? '🏠' : a.type === 'grade_king' ? '👑' : a.type === 'admin' ? '🛡' : '🏆'}</span>
-                            <span className="font-medium text-yellow-800 truncate max-w-[80px]">{a.name}</span>
+                            <span>{a.type === 'sector_master' ? '🥇' : a.type === 'grade_king' ? '👑' : a.type === 'admin' ? '🛡' : '🏆'}</span>
+                            <span className="font-medium text-yellow-800">{showAchDetail === entry.userId ? `Хозяин: ${a.name}` : a.name}</span>
                           </span>
                         ))}
+                        {showAchDetail !== entry.userId && achievementMap[entry.userId].length > 3 && (
+                          <span className="text-[9px] text-gray-400">+{achievementMap[entry.userId].length - 3}</span>
+                        )}
                       </div>
                     )}
                     <div className="text-xs text-gray-400">

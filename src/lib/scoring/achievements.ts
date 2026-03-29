@@ -36,7 +36,7 @@ export function calculateAchievements(
         type: 'sector_master',
         targetId: sector.id,
         name: sector.name,
-        icon: '🏠',
+        icon: '🥇',
         description: `Все маршруты сектора ${sector.name}`,
       })
     }
