@@ -249,6 +249,14 @@ const translations = {
   'profile.confirmDelete': { ru: 'Удалить этот пролаз?', en: 'Delete this ascent?', kk: 'Бұл өрмелеуді жою керек пе?' },
   'profile.editProfile': { ru: 'Редактировать профиль', en: 'Edit profile', kk: 'Профильді өзгерту' },
   'profile.createAnyway': { ru: 'Создать новый аккаунт с этим именем', en: 'Create new account with this name', kk: 'Осы атпен жаңа аккаунт құру' },
+  'profile.setPinOptional': { ru: 'Пароль для защиты (необязательно)', en: 'Password to protect account (optional)', kk: 'Қорғау паролі (міндетті емес)' },
+  'profile.enterPin': { ru: 'Введите пароль аккаунта', en: 'Enter account password', kk: 'Аккаунт паролін енгізіңіз' },
+  'profile.pinPlaceholder': { ru: 'Пароль', en: 'Password', kk: 'Пароль' },
+  'profile.wrongPin': { ru: 'Неверный пароль', en: 'Wrong password', kk: 'Қате пароль' },
+  'profile.verifyPin': { ru: 'Войти', en: 'Sign in', kk: 'Кіру' },
+  'profile.setPin': { ru: 'Установить пароль', en: 'Set password', kk: 'Пароль орнату' },
+  'profile.savePin': { ru: 'Сохранить', en: 'Save', kk: 'Сақтау' },
+  'profile.pinSaved': { ru: 'Пароль установлен!', en: 'Password set!', kk: 'Пароль орнатылды!' },
 
   // Review form
   'review.title': { ru: 'Оставить отзыв', en: 'Leave a review', kk: 'Пікір қалдыру' },

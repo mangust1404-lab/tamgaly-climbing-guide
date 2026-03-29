@@ -218,10 +218,63 @@ export async function refreshTopoData(
       await navigator.storage.persist()
     }
 
+    // Cache map tiles for Tamgaly area (offline)
+    onProgress({ stage: 'saving', message: 'Кеширование карты...', percent: 85 })
+    const tilesCached = await cacheMapTiles()
+
     const routeCount = data.routes?.length || 0
-    onProgress({ stage: 'done', message: `Обновлено: ${routeCount} маршрутов, ${cached} фото`, percent: 100 })
+    onProgress({ stage: 'done', message: `Обновлено: ${routeCount} маршрутов, ${cached} фото, ${tilesCached} тайлов карты`, percent: 100 })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Ошибка обновления'
     onProgress({ stage: 'error', message, percent: 0 })
   }
+}
+
+/**
+ * Cache map tiles for Tamgaly-Tas area for offline use.
+ * Downloads CARTO Voyager tiles at zoom levels 14-17 around the climbing area.
+ * ~44.055-44.072 lat, ~76.985-77.010 lng
+ */
+async function cacheMapTiles(): Promise<number> {
+  const TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'
+  const subdomains = ['a', 'b', 'c', 'd']
+
+  // Tamgaly-Tas bounding box (slightly expanded)
+  const bounds = { minLat: 44.054, maxLat: 44.073, minLng: 76.984, maxLng: 77.012 }
+  const zoomLevels = [14, 15, 16, 17]
+
+  function latLngToTile(lat: number, lng: number, z: number): [number, number] {
+    const n = 2 ** z
+    const x = Math.floor((lng + 180) / 360 * n)
+    const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n)
+    return [x, y]
+  }
+
+  const urls: string[] = []
+  for (const z of zoomLevels) {
+    const [xMin, yMin] = latLngToTile(bounds.maxLat, bounds.minLng, z)
+    const [xMax, yMax] = latLngToTile(bounds.minLat, bounds.maxLng, z)
+    for (let x = xMin; x <= xMax; x++) {
+      for (let y = yMin; y <= yMax; y++) {
+        const s = subdomains[(x + y) % subdomains.length]
+        urls.push(TILE_URL.replace('{s}', s).replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)))
+      }
+    }
+  }
+
+  let cached = 0
+  const cache = await caches.open('map-tiles')
+  for (const url of urls) {
+    try {
+      const existing = await cache.match(url)
+      if (!existing) {
+        const resp = await fetch(url)
+        if (resp.ok) { await cache.put(url, resp); cached++ }
+      } else {
+        cached++
+      }
+    } catch { /* skip failed tiles */ }
+  }
+  console.log(`Map tiles: ${cached}/${urls.length} cached for offline`)
+  return cached
 }

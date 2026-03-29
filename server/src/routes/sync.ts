@@ -1,5 +1,10 @@
 import { Hono } from 'hono'
+import { createHash } from 'crypto'
 import { getDb } from '../db/connection'
+
+function hashPin(pin: string): string {
+  return createHash('sha256').update(`tamgaly:${pin}`).digest('hex')
+}
 
 export const syncRouter = new Hono()
 
@@ -347,6 +352,35 @@ syncRouter.get('/ascents', async (c) => {
   return c.json(ascents)
 })
 
+// Set or update PIN for a user
+syncRouter.post('/user/set-pin', async (c) => {
+  const body = await c.req.json()
+  const db = getDb()
+  const { userId, pin } = body
+  if (!userId || !pin) return c.json({ error: 'userId and pin required' }, 400)
+
+  const user = db.prepare('SELECT id FROM app_user WHERE id = ?').get(userId)
+  if (!user) return c.json({ error: 'user not found' }, 404)
+
+  db.prepare('UPDATE app_user SET pin_hash = ?, updated_at = ? WHERE id = ?')
+    .run(hashPin(pin), new Date().toISOString(), userId)
+  return c.json({ status: 'ok' })
+})
+
+// Verify PIN for account recovery
+syncRouter.post('/user/verify-pin', async (c) => {
+  const body = await c.req.json()
+  const db = getDb()
+  const { userId, pin } = body
+  if (!userId || !pin) return c.json({ error: 'userId and pin required' }, 400)
+
+  const user = db.prepare('SELECT pin_hash FROM app_user WHERE id = ?').get(userId) as { pin_hash: string | null } | undefined
+  if (!user) return c.json({ error: 'user not found' }, 404)
+  if (!user.pin_hash) return c.json({ valid: true }) // no PIN set = allow recovery
+
+  return c.json({ valid: user.pin_hash === hashPin(pin) })
+})
+
 // Lookup user by display name (for account recovery)
 syncRouter.get('/user/lookup', async (c) => {
   const db = getDb()
@@ -354,7 +388,7 @@ syncRouter.get('/user/lookup', async (c) => {
   if (!name) return c.json({ error: 'name required' }, 400)
 
   const users = db.prepare(
-    'SELECT id, display_name, created_at FROM app_user WHERE display_name = ? COLLATE NOCASE'
+    'SELECT id, display_name, created_at, CASE WHEN pin_hash IS NOT NULL THEN 1 ELSE 0 END as has_pin FROM app_user WHERE display_name = ? COLLATE NOCASE'
   ).all(name.trim())
 
   return c.json(users)

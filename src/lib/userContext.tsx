@@ -12,9 +12,11 @@ export interface LocalUser {
 
 interface UserContextValue {
   user: LocalUser | null
-  register: (name: string) => LocalUser
+  register: (name: string, pin?: string) => LocalUser
   restore: (user: LocalUser) => void
-  lookupByName: (name: string) => Promise<Array<{ id: string; display_name: string; created_at: string }>>
+  lookupByName: (name: string) => Promise<Array<{ id: string; display_name: string; created_at: string; has_pin: number }>>
+  verifyPin: (userId: string, pin: string) => Promise<boolean>
+  setPin: (pin: string) => Promise<boolean>
   updateName: (name: string) => void
 }
 
@@ -32,7 +34,7 @@ function loadUser(): LocalUser | null {
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<LocalUser | null>(loadUser)
 
-  const register = useCallback((displayName: string) => {
+  const register = useCallback((displayName: string, pin?: string) => {
     const newUser: LocalUser = {
       id: crypto.randomUUID(),
       displayName: displayName.trim(),
@@ -40,15 +42,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser))
     setUser(newUser)
-    // Save to local DB so leaderboard can find the user
     db.users.put({
       id: newUser.id,
       displayName: newUser.displayName,
       createdAt: newUser.createdAt,
       updatedAt: newUser.createdAt,
     } as any).catch(() => {})
-    // Sync to server (fire-and-forget)
-    syncUser(newUser).catch(() => {})
+    syncUser(newUser).then(() => {
+      if (pin) {
+        const API_BASE = import.meta.env.VITE_API_URL || '/api'
+        fetch(`${API_BASE}/sync/user/set-pin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: newUser.id, pin }),
+        }).catch(() => {})
+      }
+    }).catch(() => {})
     return newUser
   }, [])
 
@@ -75,6 +84,37 @@ export function UserProvider({ children }: { children: ReactNode }) {
     syncUser(restored).catch(() => {})
   }, [])
 
+  const verifyPin = useCallback(async (userId: string, pin: string) => {
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    try {
+      const res = await fetch(`${API_BASE}/sync/user/verify-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, pin }),
+      })
+      if (!res.ok) return false
+      const data = await res.json()
+      return data.valid === true
+    } catch {
+      return false
+    }
+  }, [])
+
+  const setPin = useCallback(async (pin: string) => {
+    if (!user) return false
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    try {
+      const res = await fetch(`${API_BASE}/sync/user/set-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, pin }),
+      })
+      return res.ok
+    } catch {
+      return false
+    }
+  }, [user])
+
   const updateName = useCallback((name: string) => {
     setUser(prev => {
       if (!prev) return prev
@@ -89,7 +129,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <UserCtx.Provider value={{ user, register, restore, lookupByName, updateName }}>
+    <UserCtx.Provider value={{ user, register, restore, lookupByName, verifyPin, setPin, updateName }}>
       {children}
     </UserCtx.Provider>
   )

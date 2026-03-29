@@ -134,6 +134,14 @@ export default defineConfig({
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 90 },
             },
           },
+          {
+            urlPattern: /basemaps\.cartocdn\.com\/rastertiles\/voyager\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'map-tiles',
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
+          },
         ],
       },
     }),

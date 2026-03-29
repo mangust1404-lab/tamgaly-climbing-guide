@@ -235,4 +235,12 @@ if (!topoColNames.has('type')) {
   db.exec("ALTER TABLE topo ADD COLUMN type TEXT DEFAULT 'topo'")
 }
 
+// User column migrations (PIN protection)
+const userCols = db.prepare("PRAGMA table_info(app_user)").all() as { name: string }[]
+const userColNames = new Set(userCols.map(c => c.name))
+
+if (!userColNames.has('pin_hash')) {
+  db.exec('ALTER TABLE app_user ADD COLUMN pin_hash TEXT')
+}
+
 console.log('Database tables created successfully.')

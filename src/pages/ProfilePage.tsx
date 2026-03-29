@@ -28,7 +28,7 @@ const SCORED_STYLES = ['onsight', 'flash', 'redpoint']
 
 export function ProfilePage() {
   const { t, td } = useI18n()
-  const { user, register, restore, lookupByName, updateName } = useUser()
+  const { user, register, restore, lookupByName, verifyPin, setPin, updateName } = useUser()
   const [nameInput, setNameInput] = useState('')
   const [foundUsers, setFoundUsers] = useState<Array<{ id: string; display_name: string; created_at: string }>>([])
   const [lookingUp, setLookingUp] = useState(false)
@@ -43,6 +43,12 @@ export function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
   const [editingAscent, setEditingAscent] = useState<string | null>(null)
+  const [pinInput, setPinInput] = useState('')
+  const [pinForUser, setPinForUser] = useState<string | null>(null) // userId awaiting PIN verification
+  const [pinError, setPinError] = useState(false)
+  const [settingPin, setSettingPin] = useState(false)
+  const [newPinInput, setNewPinInput] = useState('')
+  const [pinSaved, setPinSaved] = useState(false)
   const [period, setPeriod] = useState<'all' | 'year' | 'season' | 'month' | 'week'>('all')
   const [profileTab, setProfileTab] = useState<'ascents' | 'projects'>('ascents')
   const [styleFilter, setStyleFilter] = useState<string | null>(null)
@@ -280,20 +286,31 @@ export function ProfilePage() {
           />
 
           {/* Found existing users */}
-          {foundUsers.length > 0 && (
+          {foundUsers.length > 0 && !pinForUser && (
             <div className="mb-3 space-y-2">
               <p className="text-xs text-gray-500">{t('profile.existingFound')}:</p>
               {foundUsers.map(u => (
                 <button
                   key={u.id}
-                  onClick={() => restore({ id: u.id, displayName: u.display_name, createdAt: u.created_at })}
+                  onClick={() => {
+                    if (u.has_pin) {
+                      setPinForUser(u.id)
+                      setPinInput('')
+                      setPinError(false)
+                    } else {
+                      restore({ id: u.id, displayName: u.display_name, createdAt: u.created_at })
+                    }
+                  }}
                   className="w-full text-left bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm"
                 >
                   <span className="font-medium">{u.display_name}</span>
                   <span className="text-xs text-gray-400 ml-2">
                     {new Date(u.created_at).toLocaleDateString()}
                   </span>
-                  <span className="float-right text-green-600 text-xs font-medium">{t('profile.restore')}</span>
+                  <div className="float-right flex items-center gap-1">
+                    {u.has_pin ? <span className="text-xs text-gray-400">🔒</span> : null}
+                    <span className="text-green-600 text-xs font-medium">{t('profile.restore')}</span>
+                  </div>
                 </button>
               ))}
               <button
@@ -305,33 +322,82 @@ export function ProfilePage() {
             </div>
           )}
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleLookup}
-              disabled={!nameInput.trim() || lookingUp}
-              className="flex-1 bg-gray-100 text-gray-700 rounded-lg py-3 text-sm font-medium disabled:opacity-40"
-            >
-              {lookingUp ? '...' : t('profile.findAccount')}
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!nameInput.trim()) return
-                // Check for existing accounts with this name before registering
-                const existing = await lookupByName(nameInput)
-                if (existing.length > 0) {
-                  setFoundUsers(existing)
-                  return // Show found accounts instead of creating duplicate
-                }
-                register(nameInput)
-              }}
-              disabled={!nameInput.trim()}
-              className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-40"
-            >
-              {t('profile.start')}
-            </button>
-          </div>
+          {/* PIN verification for protected account */}
+          {pinForUser && (
+            <div className="mb-3 space-y-2">
+              <p className="text-xs text-gray-500">{t('profile.enterPin')}</p>
+              <input
+                autoFocus
+                type="password"
+                value={pinInput}
+                onChange={(e) => { setPinInput(e.target.value); setPinError(false) }}
+                placeholder={t('profile.pinPlaceholder')}
+                className={`w-full border rounded-lg px-4 py-3 text-sm ${pinError ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
+              />
+              {pinError && <p className="text-xs text-red-500">{t('profile.wrongPin')}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setPinForUser(null); setPinInput('') }}
+                  className="flex-1 bg-gray-100 text-gray-600 rounded-lg py-2 text-sm"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  onClick={async () => {
+                    const valid = await verifyPin(pinForUser, pinInput)
+                    if (valid) {
+                      const u = foundUsers.find(x => x.id === pinForUser)!
+                      restore({ id: u.id, displayName: u.display_name, createdAt: u.created_at })
+                    } else {
+                      setPinError(true)
+                    }
+                  }}
+                  disabled={!pinInput}
+                  className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-40"
+                >
+                  {t('profile.verifyPin')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!pinForUser && (
+            <>
+              <input
+                type="password"
+                value={newPinInput}
+                onChange={(e) => setNewPinInput(e.target.value)}
+                placeholder={t('profile.setPinOptional')}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm mb-3"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleLookup}
+                  disabled={!nameInput.trim() || lookingUp}
+                  className="flex-1 bg-gray-100 text-gray-700 rounded-lg py-3 text-sm font-medium disabled:opacity-40"
+                >
+                  {lookingUp ? '...' : t('profile.findAccount')}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!nameInput.trim()) return
+                    const existing = await lookupByName(nameInput)
+                    if (existing.length > 0) {
+                      setFoundUsers(existing)
+                      return
+                    }
+                    register(nameInput, newPinInput || undefined)
+                  }}
+                  disabled={!nameInput.trim()}
+                  className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-40"
+                >
+                  {t('profile.start')}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     )
@@ -376,7 +442,39 @@ export function ProfilePage() {
           </button>
         )}
       </div>
-      {/* removed subtitle */}
+
+      {/* PIN setup for existing users */}
+      {settingPin ? (
+        <div className="flex items-center gap-2 mb-3">
+          <input
+            autoFocus
+            type="password"
+            value={newPinInput}
+            onChange={(e) => setNewPinInput(e.target.value)}
+            placeholder={t('profile.pinPlaceholder')}
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-40"
+          />
+          <button
+            onClick={async () => {
+              if (!newPinInput) return
+              const ok = await setPin(newPinInput)
+              if (ok) { setPinSaved(true); setSettingPin(false); setNewPinInput(''); setTimeout(() => setPinSaved(false), 3000) }
+            }}
+            disabled={!newPinInput}
+            className="text-xs text-blue-600 font-medium disabled:opacity-40"
+          >
+            {t('profile.savePin')}
+          </button>
+          <button onClick={() => setSettingPin(false)} className="text-xs text-gray-400">{t('cancel')}</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setSettingPin(true)}
+          className="text-xs text-gray-400 mb-2 flex items-center gap-1"
+        >
+          🔒 {pinSaved ? t('profile.pinSaved') : t('profile.setPin')}
+        </button>
+      )}
 
       {/* Ascent logging form */}
       {showForm && (
