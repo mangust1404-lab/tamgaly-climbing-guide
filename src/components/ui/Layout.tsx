@@ -79,14 +79,15 @@ export function Layout() {
 
       {/* Spacer for top-right fixed buttons when no status bar is shown */}
       {isOnline && pendingCount === 0 && !(lastResult && lastResult.pushed + lastResult.pulled > 0) && !isMapPage && (
-        <div className="mt-9 flex-shrink-0" />
+        <div className="h-9 flex-shrink-0" />
       )}
 
-      <main className={`flex-1 flex flex-col min-h-0 relative ${isMapPage ? 'overflow-hidden' : 'overflow-y-auto pb-14'}`}>
+      <main className={`flex-1 min-h-0 relative ${isMapPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-2 py-1 flex justify-around items-center">
+      {/* Bottom nav — part of flex layout, not fixed */}
+      <nav className="flex-shrink-0 bg-white border-t border-gray-200 px-2 py-1 flex justify-around items-center">
         {bottomNav.map((item) => (
           <NavLink
             key={item.to}
