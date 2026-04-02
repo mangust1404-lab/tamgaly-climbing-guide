@@ -377,7 +377,7 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
       {/* Nearest sector info */}
       {nearestSector && (
         <div
-          className="absolute top-3 left-14 bg-white/90 backdrop-blur rounded-lg px-3 py-2 shadow text-sm"
+          className="absolute top-1 left-12 bg-white/90 backdrop-blur rounded-lg px-2 py-1 shadow text-xs"
           style={{ zIndex: 1000 }}
         >
           <span className="text-gray-500">{t('map.nearest')}</span>{' '}

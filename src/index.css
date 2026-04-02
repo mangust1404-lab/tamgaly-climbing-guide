@@ -8,13 +8,6 @@ body {
 
 #root {
   min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  /* Prevent Android Chrome URL bar from pushing nav off screen */
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
 }
 
 @keyframes slide-up {

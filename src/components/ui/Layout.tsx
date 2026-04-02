@@ -21,7 +21,7 @@ export function Layout() {
   ]
 
   return (
-    <div className="flex flex-col" style={{ height: '100dvh', minHeight: '-webkit-fill-available' }}>
+    <div className="min-h-screen">
       {/* Top-right: profile + language */}
       <div className="fixed top-0 right-0 z-50 flex items-center gap-1 px-2 py-1 bg-white/80 backdrop-blur rounded-bl-lg shadow-sm">
         <NavLink
@@ -57,7 +57,7 @@ export function Layout() {
         <button
           onClick={doSync}
           disabled={syncing}
-          className={`flex flex-col items-center justify-center gap-0.5 px-3 py-2 mt-9 text-xs font-medium transition-colors cursor-pointer border-b ${
+          className={`w-full flex flex-col items-center justify-center gap-0.5 px-3 py-2 mt-9 text-xs font-medium transition-colors cursor-pointer border-b ${
             lastError
               ? 'bg-red-100 text-red-800 border-red-200'
               : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 active:bg-yellow-300 border-yellow-200'
@@ -79,15 +79,22 @@ export function Layout() {
 
       {/* Spacer for top-right fixed buttons when no status bar is shown */}
       {isOnline && pendingCount === 0 && !(lastResult && lastResult.pushed + lastResult.pulled > 0) && !isMapPage && (
-        <div className="h-9 flex-shrink-0" />
+        <div className="h-9" />
       )}
 
-      <main className={`flex-1 min-h-0 relative ${isMapPage ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-        <Outlet />
-      </main>
+      {/* Main content */}
+      {isMapPage ? (
+        <div className="fixed inset-0" style={{ top: 0, bottom: '3.5rem' }}>
+          <Outlet />
+        </div>
+      ) : (
+        <main className="pb-14">
+          <Outlet />
+        </main>
+      )}
 
-      {/* Bottom nav — part of flex layout, not fixed */}
-      <nav className="flex-shrink-0 bg-white border-t border-gray-200 px-2 py-1 flex justify-around items-center">
+      {/* Bottom nav — fixed */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-2 py-1 flex justify-around items-center" style={{ height: '3.5rem' }}>
         {bottomNav.map((item) => (
           <NavLink
             key={item.to}
