@@ -76,8 +76,14 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
     const map = L.map(mapContainer.current, {
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
-      zoomControl: true,
+      zoomControl: false,
     })
+
+    // Zoom control positioned lower to avoid top UI overlap
+    L.control.zoom({ position: 'topleft' }).addTo(map)
+    // Push zoom control down via CSS margin
+    const zoomEl = mapContainer.current.querySelector('.leaflet-control-zoom') as HTMLElement
+    if (zoomEl) zoomEl.style.marginTop = '3rem'
 
     // Default: OpenTopoMap (terrain + trails)
     tileLayerRef.current = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
@@ -377,7 +383,7 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
       {/* Nearest sector info */}
       {nearestSector && (
         <div
-          className="absolute top-3 left-3 bg-white/90 backdrop-blur rounded-lg px-3 py-2 shadow text-sm"
+          className="absolute top-12 left-3 bg-white/90 backdrop-blur rounded-lg px-3 py-2 shadow text-sm"
           style={{ zIndex: 1000 }}
         >
           <span className="text-gray-500">{t('map.nearest')}</span>{' '}
