@@ -21,7 +21,7 @@ export function Layout() {
   ]
 
   return (
-    <div className="flex flex-col h-[100dvh]">
+    <div className="flex flex-col" style={{ height: '100dvh', minHeight: '-webkit-fill-available' }}>
       {/* Top-right: profile + language */}
       <div className="fixed top-0 right-0 z-50 flex items-center gap-1 px-2 py-1 bg-white/80 backdrop-blur rounded-bl-lg shadow-sm">
         <NavLink

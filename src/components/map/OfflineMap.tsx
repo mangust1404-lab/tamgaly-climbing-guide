@@ -350,7 +350,7 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
       <div ref={mapContainer} className="absolute inset-0" />
 
       {/* Map style switcher */}
-      <div className="absolute bottom-16 right-3 flex flex-col gap-1" style={{ zIndex: 1000 }}>
+      <div className="absolute bottom-14 right-3 flex flex-col gap-1" style={{ zIndex: 1000 }}>
         {([['topo', '🏔'], ['satellite', '🛰'], ['street', '🗺']] as const).map(([key, icon]) => (
           <button
             key={key}
