@@ -23,7 +23,7 @@ export function Layout() {
   return (
     <div className="flex flex-col h-[100dvh]">
       {/* Top-right: profile + language */}
-      <div className="fixed top-0 right-0 z-50 flex items-center gap-1 px-2 py-1 bg-white/80 backdrop-blur rounded-bl-lg shadow-sm">
+      <div className="fixed right-0 z-50 flex items-center gap-1 px-2 py-1 bg-white/80 backdrop-blur rounded-bl-lg shadow-sm safe-top">
         <NavLink
           to="/profile"
           className={({ isActive }) =>
@@ -50,14 +50,14 @@ export function Layout() {
 
       {/* Status bar: offline or pending sync — below top-right buttons */}
       {!isOnline ? (
-        <div className="flex items-center justify-center px-3 py-1.5 mt-9 text-xs bg-gray-100 text-gray-600">
+        <div className="flex items-center justify-center px-3 py-1.5 mt-safe-top text-xs bg-gray-100 text-gray-600">
           {t('status.offline')}
         </div>
       ) : pendingCount > 0 ? (
         <button
           onClick={doSync}
           disabled={syncing}
-          className={`flex flex-col items-center justify-center gap-0.5 px-3 py-2 mt-9 text-xs font-medium transition-colors cursor-pointer border-b ${
+          className={`flex flex-col items-center justify-center gap-0.5 px-3 py-2 mt-safe-top text-xs font-medium transition-colors cursor-pointer border-b ${
             lastError
               ? 'bg-red-100 text-red-800 border-red-200'
               : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 active:bg-yellow-300 border-yellow-200'
@@ -72,14 +72,14 @@ export function Layout() {
           )}
         </button>
       ) : lastResult && lastResult.pushed + lastResult.pulled > 0 ? (
-        <div className="flex items-center justify-center px-3 py-1 mt-9 text-xs bg-green-50 text-green-600">
+        <div className="flex items-center justify-center px-3 py-1 mt-safe-top text-xs bg-green-50 text-green-600">
           ✓ {lastResult.pushed > 0 ? `↑${lastResult.pushed}` : ''} {lastResult.pulled > 0 ? `↓${lastResult.pulled}` : ''}
         </div>
       ) : null}
 
       {/* Spacer for top-right fixed buttons when no status bar is shown */}
       {isOnline && pendingCount === 0 && !(lastResult && lastResult.pushed + lastResult.pulled > 0) && !isMapPage && (
-        <div className="h-9 flex-shrink-0" />
+        <div className="mt-safe-top flex-shrink-0" />
       )}
 
       <main className={`flex-1 flex flex-col min-h-0 relative ${isMapPage ? 'overflow-hidden' : 'overflow-y-auto pb-safe'}`}>
