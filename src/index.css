@@ -38,9 +38,14 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-/* Main content padding: nav bar height (56px) + safe area bottom */
+/* Main content padding: fixed nav bar height + safe area bottom */
 .pb-safe {
   padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0));
+}
+
+/* Map container: account for nav bar + safe area */
+.bottom-nav-safe {
+  bottom: calc(3.5rem + env(safe-area-inset-bottom, 0));
 }
 
 /* Top spacer accounting for safe area */
