@@ -103,9 +103,14 @@ export function getMotivationMessages(
     }
   }
 
-  // First ascent of the day — always congratulate
+  // First scored ascent of the day
   if (todayCount === 1 && newRoute && SCORED_STYLES.includes(newAscent.style)) {
     messages.push({ icon: '☀️', title: 'Первый пролаз дня!', subtitle: `${newRoute.name} ${newRoute.grade}`, type: 'celebrate' })
+  }
+
+  // Fallback: always show something for any ascent if no other messages
+  if (messages.length === 0 && newRoute) {
+    messages.push({ icon: '✅', title: `${newRoute.grade}`, subtitle: newRoute.name, type: 'celebrate' })
   }
 
   return messages

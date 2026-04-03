@@ -295,10 +295,12 @@ export function ProfilePage() {
       setTimeout(() => setJustSaved(false), 2000)
 
       // Motivation messages
-      if (routes && sectors && !editingAscent) {
-        const allAscents = await db.ascents.where('userId').equals(user?.id ?? '').toArray()
-        const msgs = getMotivationMessages(allAscents, { routeId: selectedRoute.id, style }, routes, sectors)
-        if (msgs.length > 0) setMotivationMessages(msgs)
+      if (routes && sectors) {
+        try {
+          const allAscents = await db.ascents.where('userId').equals(user?.id ?? '').toArray()
+          const msgs = getMotivationMessages(allAscents, { routeId: selectedRoute.id, style }, routes, sectors)
+          if (msgs.length > 0) setMotivationMessages(msgs)
+        } catch { /* ignore motivation errors */ }
       }
     } catch (err) {
       console.error('Failed to save ascent:', err)
