@@ -2,9 +2,11 @@ import { useState, useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../../lib/db/schema'
 import { calculatePoints } from '../../lib/scoring/points'
+import { getMotivationMessages, type MotivationMessage } from '../../lib/scoring/motivation'
+import { MotivationToast } from '../ui/MotivationToast'
 import { useI18n } from '../../lib/i18n'
 import { useUser } from '../../lib/userContext'
-import type { Route } from '../../lib/db/schema'
+import type { Route, Sector } from '../../lib/db/schema'
 
 const STYLE_KEYS = [
   { value: 'onsight', key: 'style.onsight', emoji: '👁️' },
@@ -28,6 +30,8 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
   const [notes, setNotes] = useState('')
   const [rating, setRating] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [motivation, setMotivation] = useState<MotivationMessage[]>([])
+  const [saved, setSaved] = useState(false)
 
   const SCORED_STYLES = ['onsight', 'flash', 'redpoint']
   const myAscents = useLiveQuery(
@@ -77,12 +81,30 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
       })
 
       onSaved?.()
+      setSaved(true)
+
+      // Generate motivation messages
+      try {
+        const allAscents = await db.ascents.where('userId').equals(user?.id ?? '').toArray()
+        const routes = await db.routes.toArray()
+        const sectors = await db.sectors.toArray()
+        const msgs = getMotivationMessages(allAscents, { routeId: route.id, style }, routes, sectors)
+        if (msgs.length > 0) {
+          setMotivation(msgs)
+          return // don't close yet, toast will close
+        }
+      } catch {}
       onClose()
     } catch (err) {
       console.error('Failed to save ascent:', err)
     } finally {
       setSaving(false)
     }
+  }
+
+  // Show motivation toast after save, then close
+  if (motivation.length > 0) {
+    return <MotivationToast messages={motivation} onDone={onClose} />
   }
 
   return (
