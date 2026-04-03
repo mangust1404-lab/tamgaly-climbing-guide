@@ -639,7 +639,7 @@ export function ProfilePage() {
           <div className="mb-4">
             <h3 className="text-xs font-semibold text-gray-500 mb-2">{t('profile.progressTitle')}</h3>
             <div className="space-y-1.5">
-              {progress.slice(0, 5).map((p, i) => (
+              {progress.map((p, i) => (
                 <div key={i}>
                   <div className="flex items-center justify-between text-xs mb-0.5">
                     <span>{p.icon} {p.label}</span>
