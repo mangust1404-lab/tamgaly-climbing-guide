@@ -103,14 +103,9 @@ export function getMotivationMessages(
     }
   }
 
-  // Generic encouragement if no special messages
-  if (messages.length === 0 && newRoute && SCORED_STYLES.includes(newAscent.style)) {
-    const phrases = [
-      { icon: '✅', title: `${newRoute.grade} пройдена!`, subtitle: newRoute.name },
-      { icon: '👏', title: 'Отлично!', subtitle: `${newRoute.name} — ${newRoute.grade}` },
-      { icon: '🧗', title: 'Есть!', subtitle: `${newRoute.name} ${newRoute.grade}` },
-    ]
-    messages.push({ ...phrases[totalScored % phrases.length], type: 'celebrate' as const })
+  // First ascent of the day — always congratulate
+  if (todayCount === 1 && newRoute && SCORED_STYLES.includes(newAscent.style)) {
+    messages.push({ icon: '☀️', title: 'Первый пролаз дня!', subtitle: `${newRoute.name} ${newRoute.grade}`, type: 'celebrate' })
   }
 
   return messages
