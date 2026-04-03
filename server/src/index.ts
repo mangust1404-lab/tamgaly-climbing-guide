@@ -11,6 +11,8 @@ import { routesRouter } from './routes/routes'
 import { syncRouter } from './routes/sync'
 import { downloadRouter } from './routes/download'
 import { exportTopoDataFromDb } from './db/export-topo-data'
+import { startBotPolling } from './telegram'
+import { getDb } from './db/connection'
 
 const app = new Hono()
 
@@ -408,8 +410,10 @@ console.log(`Server running on http://localhost:${port}`)
 
 serve({ fetch: app.fetch, port })
 
+// Start Telegram bot polling
+startBotPolling(getDb)
+
 // Graceful shutdown: checkpoint WAL to prevent data loss on docker restart
-import { getDb } from './db/connection'
 
 function shutdown(signal: string) {
   console.log(`${signal} received, checkpointing WAL...`)

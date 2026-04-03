@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { createHash } from 'crypto'
 import { getDb } from '../db/connection'
+import { notifyModeration } from '../telegram'
 
 function hashPin(pin: string): string {
   return createHash('sha256').update(`tamgaly:${pin}`).digest('hex')
@@ -259,6 +260,14 @@ syncRouter.post('/suggestion', async (c) => {
       payload.createdAt || new Date().toISOString(),
     )
 
+    // Notify admin via Telegram
+    notifyModeration(
+      payload.userName || 'Anonymous',
+      payload.type || 'route',
+      payload.sectorId || null,
+      payload.comment || null,
+    ).catch(() => {})
+
     return c.json({ status: 'created', serverId: payload.id || localId })
   }
 
@@ -488,6 +497,25 @@ syncRouter.get('/users', async (c) => {
   const db = getDb()
   const users = db.prepare('SELECT id, display_name, avatar_url, created_at FROM app_user').all()
   return c.json(users)
+})
+
+// News for app users
+syncRouter.get('/news', async (c) => {
+  const db = getDb()
+  const since = c.req.query('since') // ISO date
+  let query = 'SELECT * FROM news'
+  const params: string[] = []
+  if (since) {
+    query += ' WHERE created_at > ?'
+    params.push(since)
+  }
+  query += ' ORDER BY created_at DESC LIMIT 20'
+  try {
+    const news = db.prepare(query).all(...params)
+    return c.json(news)
+  } catch {
+    return c.json([]) // table may not exist yet
+  }
 })
 
 // Leaderboard

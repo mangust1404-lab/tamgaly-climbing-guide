@@ -258,6 +258,7 @@ const translations = {
   'profile.savePin': { ru: 'Сохранить', en: 'Save', kk: 'Сақтау' },
   'profile.pinSaved': { ru: 'Пароль установлен!', en: 'Password set!', kk: 'Пароль орнатылды!' },
   'profile.changePhoto': { ru: 'фото', en: 'photo', kk: 'фото' },
+  'profile.progressTitle': { ru: 'Прогресс к ачивкам', en: 'Achievement progress', kk: 'Жетістік барысы' },
 
   // Review form
   'review.title': { ru: 'Оставить отзыв', en: 'Leave a review', kk: 'Пікір қалдыру' },

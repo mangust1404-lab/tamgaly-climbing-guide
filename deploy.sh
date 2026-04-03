@@ -62,6 +62,8 @@ deploy_server() {
       -v /var/www/tamgaly/avatars:/var/www/tamgaly/avatars \
       -e PORT=3001 \
       -e ADMIN_PASSWORD="${ADMIN_PASSWORD:-tamgaly2024}" \
+      -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-8285918522:AAE8rGYFTJUWa2lMf3t-mFjL-rE1rPTNTCw}" \
+      -e TELEGRAM_ADMIN_CHAT_ID="${TELEGRAM_ADMIN_CHAT_ID:-6530516765}" \
       tamgaly-api
     echo "Container status:"
     docker ps --filter name=tamgaly-api --format "{{.Status}}"

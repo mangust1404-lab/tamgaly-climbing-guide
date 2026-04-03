@@ -4,6 +4,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { calculatePoints, calculateTotalScore } from '../lib/scoring/points'
 import { calculateAchievements } from '../lib/scoring/achievements'
+import { getMotivationMessages, getAchievementProgress } from '../lib/scoring/motivation'
+import { MotivationToast } from '../components/ui/MotivationToast'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 import { gradeColor } from '../lib/utils'
@@ -53,6 +55,7 @@ export function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [motivationMessages, setMotivationMessages] = useState<any[]>([])
   const [period, setPeriod] = useState<'all' | 'year' | 'season' | 'month' | 'week'>('all')
   const [profileTab, setProfileTab] = useState<'ascents' | 'projects'>('ascents')
   const [styleFilter, setStyleFilter] = useState<string | null>(null)
@@ -290,6 +293,13 @@ export function ProfilePage() {
       setRating(0)
       setJustSaved(true)
       setTimeout(() => setJustSaved(false), 2000)
+
+      // Motivation messages
+      if (routes && sectors && !editingAscent) {
+        const allAscents = await db.ascents.where('userId').equals(user?.id ?? '').toArray()
+        const msgs = getMotivationMessages(allAscents, { routeId: selectedRoute.id, style }, routes, sectors)
+        if (msgs.length > 0) setMotivationMessages(msgs)
+      }
     } catch (err) {
       console.error('Failed to save ascent:', err)
     } finally {
@@ -612,6 +622,42 @@ export function ProfilePage() {
         >
           🔒 {pinSaved ? t('profile.pinSaved') : t('profile.setPin')}
         </button>
+      )}
+
+      {/* Progress towards achievements */}
+      {(() => {
+        if (!ascents || !routes || !sectors || !user?.id) return null
+        const progress = getAchievementProgress(
+          ascents.filter(a => a.userId === user.id),
+          routes, sectors,
+        )
+        if (progress.length === 0) return null
+        return (
+          <div className="mb-4">
+            <h3 className="text-xs font-semibold text-gray-500 mb-2">{t('profile.progressTitle')}</h3>
+            <div className="space-y-1.5">
+              {progress.slice(0, 5).map((p, i) => (
+                <div key={i}>
+                  <div className="flex items-center justify-between text-xs mb-0.5">
+                    <span>{p.icon} {p.label}</span>
+                    <span className="text-gray-400 font-mono">{p.current}/{p.total}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${p.type === 'sector' ? 'bg-yellow-400' : 'bg-purple-400'}`}
+                      style={{ width: `${(p.current / p.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Motivation toasts */}
+      {motivationMessages.length > 0 && (
+        <MotivationToast messages={motivationMessages} onDone={() => setMotivationMessages([])} />
       )}
 
       {/* Ascent logging form */}

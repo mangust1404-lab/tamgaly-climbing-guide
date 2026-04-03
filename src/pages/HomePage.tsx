@@ -56,6 +56,10 @@ export function HomePage() {
   const [sunMode, setSunMode] = useState<'sun' | 'shade'>('sun') // sun = where sun IS, shade = where sun ISN'T
   const [maxRopeLength, setMaxRopeLength] = useState<number | null>(null)
   const [routeTypeFilter, setRouteTypeFilter] = useState<string | null>(null) // 'multi-pitch' | 'trad' | null
+  const [newsItems, setNewsItems] = useState<Array<{ id: number; body: string; created_at: string }>>([])
+  const [dismissedNews, setDismissedNews] = useState<Set<number>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('dismissedNews') || '[]')) } catch { return new Set() }
+  })
 
   const toggleGrade = (g: string) => {
     setSelectedGrades(prev => {
@@ -221,6 +225,25 @@ export function HomePage() {
     return () => window.removeEventListener('topo-load-progress', handler)
   }, [])
 
+  // Load news from server
+  useEffect(() => {
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    fetch(`${API_BASE}/sync/news`).then(r => r.json()).then((items: any[]) => {
+      if (Array.isArray(items)) setNewsItems(items)
+    }).catch(() => {})
+  }, [])
+
+  const dismissNews = (id: number) => {
+    setDismissedNews(prev => {
+      const next = new Set(prev)
+      next.add(id)
+      localStorage.setItem('dismissedNews', JSON.stringify([...next]))
+      return next
+    })
+  }
+
+  const visibleNews = newsItems.filter(n => !dismissedNews.has(n.id))
+
   // PWA install prompt
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [isInstalled, setIsInstalled] = useState(false)
@@ -254,6 +277,19 @@ export function HomePage() {
         <h1 className="text-2xl font-bold">{t('home.title')}</h1>
         <Link to="/about" className="text-blue-600 text-xs">{t('home.aboutArea')}</Link>
       </div>
+
+      {/* News banner */}
+      {visibleNews.length > 0 && (
+        <div className="mb-3 space-y-2">
+          {visibleNews.slice(0, 3).map(n => (
+            <div key={n.id} className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-start gap-2">
+              <span className="text-sm flex-shrink-0">📢</span>
+              <p className="text-sm text-blue-800 flex-1">{n.body}</p>
+              <button onClick={() => dismissNews(n.id)} className="text-blue-400 text-xs flex-shrink-0 mt-0.5">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {topoLoadProgress && (
         <div className="mb-4 bg-blue-50 rounded-lg p-3">
