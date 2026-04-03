@@ -295,13 +295,14 @@ export function ProfilePage() {
       setTimeout(() => setJustSaved(false), 2000)
 
       // Motivation messages
-      if (routes && sectors) {
-        try {
-          const allAscents = await db.ascents.where('userId').equals(user?.id ?? '').toArray()
-          const msgs = getMotivationMessages(allAscents, { routeId: selectedRoute.id, style }, routes, sectors)
-          if (msgs.length > 0) setMotivationMessages(msgs)
-        } catch { /* ignore motivation errors */ }
-      }
+      try {
+        const myAscents = await db.ascents.where('userId').equals(user?.id ?? '').toArray()
+        const msgs = getMotivationMessages(myAscents, { routeId: selectedRoute.id, style }, routes || [], sectors || [])
+        console.log('Motivation msgs:', msgs.length, JSON.stringify(msgs))
+        if (msgs.length > 0) {
+          setTimeout(() => setMotivationMessages(msgs), 500)
+        }
+      } catch (e) { console.error('Motivation error:', e) }
     } catch (err) {
       console.error('Failed to save ascent:', err)
     } finally {
