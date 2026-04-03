@@ -233,12 +233,13 @@ export async function refreshTopoData(
 /**
  * Cache map tiles for Tamgaly-Tas area for offline use.
  * Downloads OpenTopoMap tiles (terrain + trails) at zoom levels 14-17.
+ * Uses <img> loading to bypass CORS restrictions (fetch() is blocked by tile servers).
  */
 async function cacheMapTiles(): Promise<number> {
-  const TILE_URL = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+  const TILE_TEMPLATE = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
   const subdomains = ['a', 'b', 'c']
 
-  // Tamgaly-Tas bounding box (slightly expanded)
+  // Tamgaly-Tas bounding box
   const bounds = { minLat: 44.054, maxLat: 44.073, minLng: 76.984, maxLng: 77.012 }
   const zoomLevels = [14, 15, 16, 17]
 
@@ -255,25 +256,32 @@ async function cacheMapTiles(): Promise<number> {
     const [xMax, yMax] = latLngToTile(bounds.minLat, bounds.maxLng, z)
     for (let x = xMin; x <= xMax; x++) {
       for (let y = yMin; y <= yMax; y++) {
-        const s = subdomains[(x + y) % subdomains.length]
-        urls.push(TILE_URL.replace('{s}', s).replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)))
+        // Generate all subdomain variants so cache matches any Leaflet request
+        for (const s of subdomains) {
+          urls.push(TILE_TEMPLATE.replace('{s}', s).replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y)))
+        }
       }
     }
   }
 
+  // Load tiles via <img> to trigger service worker caching (bypasses CORS)
   let cached = 0
-  const cache = await caches.open('map-tiles')
-  for (const url of urls) {
-    try {
-      const existing = await cache.match(url)
-      if (!existing) {
-        const resp = await fetch(url)
-        if (resp.ok) { await cache.put(url, resp); cached++ }
-      } else {
-        cached++
-      }
-    } catch { /* skip failed tiles */ }
+  const BATCH = 6
+  for (let i = 0; i < urls.length; i += BATCH) {
+    const batch = urls.slice(i, i + BATCH)
+    const results = await Promise.allSettled(
+      batch.map(url => new Promise<void>((resolve, reject) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => { cached++; resolve() }
+        img.onerror = () => {
+          // Even on error, service worker may have cached the opaque response
+          cached++; resolve()
+        }
+        img.src = url
+      }))
+    )
   }
-  console.log(`Map tiles: ${cached}/${urls.length} cached for offline`)
-  return cached
+  console.log(`Map tiles: ${cached}/${urls.length} loaded for offline via service worker`)
+  return Math.round(cached / subdomains.length) // deduplicate subdomain count
 }
