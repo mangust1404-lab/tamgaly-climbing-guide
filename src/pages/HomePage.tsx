@@ -48,6 +48,7 @@ export function HomePage() {
     },
     [user?.id],
   )
+  const allAscents = useLiveQuery(() => db.ascents.toArray())
   const [dl, setDl] = useState<DownloadProgress | null>(null)
   const [search, setSearch] = useState('')
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
@@ -277,6 +278,29 @@ export function HomePage() {
         <h1 className="text-2xl font-bold">{t('home.title')}</h1>
         <Link to="/about" className="text-blue-600 text-xs">{t('home.aboutArea')}</Link>
       </div>
+
+      {/* Inactivity reminder */}
+      {(() => {
+        if (!user?.id || !allAscents) return null
+        const myAscents = allAscents.filter(a => a.userId === user.id)
+        if (myAscents.length === 0) return null
+        const lastDate = myAscents.reduce((max, a) => a.date > max ? a.date : max, '')
+        if (!lastDate) return null
+        const days = Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000)
+        if (days < 7) return null
+        return (
+          <div className="mb-3 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 flex items-center gap-2">
+            <span className="text-lg">🏔</span>
+            <p className="text-sm text-orange-800">
+              {days >= 30
+                ? `Скалы скучают! Ты не лазал уже ${days} дней...`
+                : days >= 14
+                  ? `${days} дней без скал... Скалы ждут!`
+                  : `Неделя без пролазов! Пора на скалы?`}
+            </p>
+          </div>
+        )
+      })()}
 
       {/* News banner */}
       {visibleNews.length > 0 && (
