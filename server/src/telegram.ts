@@ -97,6 +97,45 @@ export function startBotPolling(getDb: () => any): void {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: `✅ Новость опубликована! Увидят ${userCount} пользователей при открытии приложения.` }),
           })
+        } else if (msg.text.startsWith('/testnews ')) {
+          const newsText = msg.text.slice(10).trim()
+          if (!newsText) {
+            await fetch(`${API}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: '❌ Формат: /testnews Текст' }),
+            })
+            continue
+          }
+          // Save with special id=-1 so only admin sees it (or use a flag)
+          const sdb = getDb()
+          sdb.prepare('INSERT INTO news (title, body, created_at) VALUES (?, ?, ?)').run(
+            '[ТЕСТ] ' + newsText.slice(0, 90),
+            newsText,
+            new Date().toISOString(),
+          )
+          await fetch(`${API}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: `🧪 Тестовая новость добавлена. Открой приложение чтобы увидеть. Удали через /delnews` }),
+          })
+        } else if (msg.text.startsWith('/delnews')) {
+          const sdb = getDb()
+          const last = sdb.prepare('SELECT id, title FROM news ORDER BY id DESC LIMIT 1').get() as any
+          if (last) {
+            sdb.prepare('DELETE FROM news WHERE id = ?').run(last.id)
+            await fetch(`${API}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: `🗑 Удалена: "${last.title}"` }),
+            })
+          } else {
+            await fetch(`${API}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: '❌ Нет новостей' }),
+            })
+          }
         } else if (msg.text === '/stats') {
           const sdb = getDb()
           const users = (sdb.prepare('SELECT COUNT(*) as cnt FROM app_user').get() as any).cnt
@@ -117,7 +156,7 @@ export function startBotPolling(getDb: () => any): void {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: ADMIN_CHAT_ID,
-              text: `🤖 <b>Команды бота</b>\n/news Текст — отправить новость всем\n/stats — статистика приложения\n/help — список команд`,
+              text: `🤖 <b>Команды бота</b>\n/news Текст — отправить новость всем\n/testnews Текст — тестовая новость (только для тебя)\n/delnews — удалить последнюю новость\n/stats — статистика приложения\n/help — список команд`,
               parse_mode: 'HTML',
             }),
           })

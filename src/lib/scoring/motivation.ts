@@ -88,6 +88,31 @@ export function getMotivationMessages(
     messages.push({ icon: '🏋️', title: '10 за день!', subtitle: 'Настоящий марафон!', type: 'milestone' })
   }
 
+  // Almost sector master (1-2 routes left)
+  if (newRoute) {
+    const climbedIds = new Set(scored.map(a => a.routeId))
+    const sector = sectors.find(s => s.id === newRoute.sectorId)
+    if (sector) {
+      const sectorRoutes = routes.filter(r => r.sectorId === sector.id && r.status === 'published')
+      const remaining = sectorRoutes.filter(r => !climbedIds.has(r.id)).length
+      if (remaining === 0 && sectorRoutes.length > 0) {
+        messages.push({ icon: '🥇', title: `Хозяин: ${sector.name}!`, subtitle: 'Все маршруты сектора пройдены!', type: 'celebrate' })
+      } else if (remaining <= 2 && remaining > 0 && sectorRoutes.length >= 3) {
+        messages.push({ icon: '🔜', title: `Почти Хозяин!`, subtitle: `Осталось ${remaining} до ${sector.name}`, type: 'progress' })
+      }
+    }
+  }
+
+  // Generic encouragement if no special messages
+  if (messages.length === 0 && newRoute && SCORED_STYLES.includes(newAscent.style)) {
+    const phrases = [
+      { icon: '✅', title: `${newRoute.grade} пройдена!`, subtitle: newRoute.name },
+      { icon: '👏', title: 'Отлично!', subtitle: `${newRoute.name} — ${newRoute.grade}` },
+      { icon: '🧗', title: 'Есть!', subtitle: `${newRoute.name} ${newRoute.grade}` },
+    ]
+    messages.push({ ...phrases[totalScored % phrases.length], type: 'celebrate' as const })
+  }
+
   return messages
 }
 
