@@ -4,6 +4,7 @@ import { db } from '../../lib/db/schema'
 import { calculatePoints } from '../../lib/scoring/points'
 import { getMotivationMessages, type MotivationMessage } from '../../lib/scoring/motivation'
 import { MotivationToast } from '../ui/MotivationToast'
+import { GradeVoting } from './GradeVoting'
 import { useI18n } from '../../lib/i18n'
 import { useUser } from '../../lib/userContext'
 import type { Route, Sector } from '../../lib/db/schema'
@@ -32,7 +33,6 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
   const [saving, setSaving] = useState(false)
   const [motivation, setMotivation] = useState<MotivationMessage[]>([])
   const [saved, setSaved] = useState(false)
-  const [gradeOpinion, setGradeOpinion] = useState('')
 
   const SCORED_STYLES = ['onsight', 'flash', 'redpoint']
   const myAscents = useLiveQuery(
@@ -80,29 +80,6 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
         createdAt: Date.now(),
         retryCount: 0,
       })
-
-      // Auto-create review with grade opinion if selected
-      if (gradeOpinion) {
-        const reviewId = crypto.randomUUID()
-        await db.reviews.add({
-          id: reviewId,
-          localId: reviewId,
-          userId: user?.id ?? 'anon',
-          routeId: route.id,
-          rating: rating || 3,
-          gradeOpinion,
-          syncStatus: 'pending',
-          createdAt: now,
-        })
-        await db.syncQueue.add({
-          entity: 'review',
-          localId: reviewId,
-          action: 'create',
-          payload: { userId: user?.id ?? 'anon', routeId: route.id, rating: rating || 3, gradeOpinion },
-          createdAt: Date.now(),
-          retryCount: 0,
-        })
-      }
 
       onSaved?.()
       setSaved(true)
@@ -201,29 +178,9 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
           </div>
         </div>
 
-        {/* Grade opinion */}
+        {/* Grade voting */}
         <div className="mb-4">
-          <label className="text-sm font-medium text-gray-700 mb-2 block">
-            {t('review.grade')} {route.grade}
-          </label>
-          <div className="flex gap-2">
-            {(['Soft', 'Fair', 'Hard'] as const).map((op) => (
-              <button
-                key={op}
-                type="button"
-                onClick={() => setGradeOpinion(gradeOpinion === op ? '' : op)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  gradeOpinion === op
-                    ? op === 'Soft' ? 'bg-green-100 text-green-700 ring-2 ring-green-400'
-                      : op === 'Hard' ? 'bg-red-100 text-red-700 ring-2 ring-red-400'
-                      : 'bg-blue-100 text-blue-700 ring-2 ring-blue-400'
-                    : 'bg-gray-50 text-gray-600'
-                }`}
-              >
-                {t(`review.gradeOpinion.${op}` as any)}
-              </button>
-            ))}
-          </div>
+          <GradeVoting route={route} compact />
         </div>
 
         {/* Notes */}
