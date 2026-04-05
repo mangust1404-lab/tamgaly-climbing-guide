@@ -82,24 +82,31 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
 
     setUploadingPhotos(files.length)
     for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      const url = URL.createObjectURL(file)
-      const img = new Image()
-      img.src = url
-      await new Promise<void>(resolve => { img.onload = () => resolve() })
+      try {
+        const file = files[i]
+        const url = URL.createObjectURL(file)
+        const img = new Image()
+        img.src = url
+        await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject })
 
-      const canvas = document.createElement('canvas')
-      const maxW = 1600
-      const scale = img.width > maxW ? maxW / img.width : 1
-      canvas.width = img.width * scale
-      canvas.height = img.height * scale
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-      URL.revokeObjectURL(url)
+        const canvas = document.createElement('canvas')
+        const maxW = 1200
+        const scale = img.width > maxW ? maxW / img.width : 1
+        canvas.width = img.width * scale
+        canvas.height = img.height * scale
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+        URL.revokeObjectURL(url)
+        // Free canvas memory
+        canvas.width = 0
+        canvas.height = 0
 
-      const isLast = i === files.length - 1
-      await submitSuggestion('photo', dataUrl, !isLast)
+        const isLast = i === files.length - 1
+        await submitSuggestion('photo', dataUrl, !isLast)
+      } catch (err) {
+        console.error('Photo upload error:', err)
+      }
       setUploadingPhotos(files.length - i - 1)
     }
     setUploadingPhotos(0)
