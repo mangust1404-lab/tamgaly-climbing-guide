@@ -965,8 +965,16 @@ export function ProfilePage() {
             </>
           )}
 
-          {/* Period filter */}
+          {/* Period filter + reset */}
           <div className="flex flex-wrap gap-1 mb-1.5">
+            {(period !== 'all' || styleFilter) && (
+              <button
+                onClick={() => { setPeriod('all'); setDateFrom(''); setDateTo(''); setStyleFilter(null) }}
+                className="px-2.5 py-1 rounded-full text-xs font-medium bg-red-50 text-red-500"
+              >
+                ✕ {t('home.clearFilters')}
+              </button>
+            )}
             {(['all', 'year', 'season', 'month', 'week'] as const).map(p => (
               <button
                 key={p}
