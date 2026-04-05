@@ -57,7 +57,7 @@ export function RoutePage() {
         const routeMap = new Map(routesList.map(r => [r.id, r]))
         results.push({
           topo,
-          topoRoutes: allTrs.map(t => ({ ...t, route: routeMap.get(t.routeId) })),
+          topoRoutes: allTrs.sort((a, b) => (a.routeNumber || 0) - (b.routeNumber || 0)).map(t => ({ ...t, route: routeMap.get(t.routeId) })),
         })
       }
       return results

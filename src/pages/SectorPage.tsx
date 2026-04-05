@@ -191,7 +191,9 @@ export function SectorPage() {
 
   // Filter topoRoutes to only show routes belonging to the active topo photo
   const activeTopoRoutes = useMemo(
-    () => activeTopo ? (topoRoutes?.filter(tr => tr.topoId === activeTopo.id) ?? []) : [],
+    () => activeTopo
+      ? (topoRoutes?.filter(tr => tr.topoId === activeTopo.id) ?? []).sort((a, b) => (a.routeNumber || 0) - (b.routeNumber || 0))
+      : [],
     [topoRoutes, activeTopo],
   )
 
