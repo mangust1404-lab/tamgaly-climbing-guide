@@ -94,7 +94,7 @@ export function Layout() {
       )}
 
       {/* Bottom nav — fixed */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-2 pt-1.5 flex justify-around items-start" style={{ height: '3.875rem' }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-2 flex justify-around items-center" style={{ height: '3.875rem' }}>
         {bottomNav.map((item) => (
           <NavLink
             key={item.to}
