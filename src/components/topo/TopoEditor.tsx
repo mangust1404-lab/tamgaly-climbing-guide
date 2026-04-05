@@ -75,7 +75,7 @@ export function TopoEditor({ topo, onSave }: Props) {
   )
 
   const existingTopoRoutes = useLiveQuery(
-    () => db.topoRoutes.where('topoId').equals(topo.id).toArray(),
+    () => db.topoRoutes.where('topoId').equals(topo.id).toArray().then(arr => arr.sort((a, b) => (a.routeNumber || 0) - (b.routeNumber || 0))),
     [topo.id],
   )
 
@@ -633,12 +633,36 @@ export function TopoEditor({ topo, onSave }: Props) {
                       {route?.name || tr.routeId} ({route?.grade})
                     </span>
                   </span>
-                  <button
-                    onClick={() => handleDeleteTopoRoute(tr.id)}
-                    className="text-xs text-red-500 flex-shrink-0 ml-1"
-                  >
-                    Удалить
-                  </button>
+                  <div className="flex items-center gap-1 flex-shrink-0 ml-1">
+                    <button
+                      onClick={async () => {
+                        const list = existingTopoRoutes!
+                        const idx = list.findIndex(x => x.id === tr.id)
+                        if (idx <= 0) return
+                        const prev = list[idx - 1]
+                        await db.topoRoutes.update(tr.id, { routeNumber: prev.routeNumber || idx })
+                        await db.topoRoutes.update(prev.id, { routeNumber: tr.routeNumber || idx + 1 })
+                      }}
+                      className="text-xs text-gray-400 px-1"
+                    >▲</button>
+                    <button
+                      onClick={async () => {
+                        const list = existingTopoRoutes!
+                        const idx = list.findIndex(x => x.id === tr.id)
+                        if (idx < 0 || idx >= list.length - 1) return
+                        const next = list[idx + 1]
+                        await db.topoRoutes.update(tr.id, { routeNumber: next.routeNumber || idx + 2 })
+                        await db.topoRoutes.update(next.id, { routeNumber: tr.routeNumber || idx + 1 })
+                      }}
+                      className="text-xs text-gray-400 px-1"
+                    >▼</button>
+                    <button
+                      onClick={() => handleDeleteTopoRoute(tr.id)}
+                      className="text-xs text-red-500"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
               )
             })}
