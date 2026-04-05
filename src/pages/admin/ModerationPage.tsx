@@ -160,7 +160,7 @@ export function ModerationPage() {
           const sectorCount = await db.sectors.count()
           const newSector = {
             id: `sector-${Date.now()}`,
-            areaId: 'tamgaly',
+            areaId: 'tamgaly-tas',
             name: info.name,
             slug: info.name.toLowerCase().replace(/\s+/g, '-'),
             description: info.description || undefined,
@@ -192,7 +192,11 @@ export function ModerationPage() {
 
       // Remove from list immediately
       setServerSuggestions(prev => prev.filter(x => x.id !== s.id))
-      if (s.type === 'photo' || s.type === 'sector-info') setNeedsSave(true)
+
+      // Auto-save to server when new data was created
+      if (s.type === 'photo' || s.type === 'sector-info' || s.type === 'route') {
+        await saveTopoData()
+      }
     } finally {
       setProcessing(null)
     }
