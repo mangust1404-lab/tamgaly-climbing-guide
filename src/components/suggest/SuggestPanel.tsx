@@ -74,43 +74,54 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
     }
   }
 
-  const [uploadingPhotos, setUploadingPhotos] = useState(0)
+  const [photoQueue, setPhotoQueue] = useState<File[]>([])
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
-
-    setUploadingPhotos(files.length)
-    for (let i = 0; i < files.length; i++) {
-      try {
-        const file = files[i]
-        const url = URL.createObjectURL(file)
-        const img = new Image()
-        img.src = url
-        await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject })
-
-        const canvas = document.createElement('canvas')
-        const maxW = 1200
-        const scale = img.width > maxW ? maxW / img.width : 1
-        canvas.width = img.width * scale
-        canvas.height = img.height * scale
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
-        URL.revokeObjectURL(url)
-        // Free canvas memory
-        canvas.width = 0
-        canvas.height = 0
-
-        const isLast = i === files.length - 1
-        await submitSuggestion('photo', dataUrl, !isLast)
-      } catch (err) {
-        console.error('Photo upload error:', err)
-      }
-      setUploadingPhotos(files.length - i - 1)
-    }
-    setUploadingPhotos(0)
+    setPhotoQueue(Array.from(files))
     e.target.value = ''
+    // Start processing first photo
+    processPhoto(files[0])
+  }
+
+  const processPhoto = async (file: File) => {
+    setUploadingPhoto(true)
+    try {
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.src = url
+      await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject })
+
+      const canvas = document.createElement('canvas')
+      const maxW = 1200
+      const scale = img.width > maxW ? maxW / img.width : 1
+      canvas.width = img.width * scale
+      canvas.height = img.height * scale
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+      URL.revokeObjectURL(url)
+      canvas.width = 0; canvas.height = 0
+
+      await submitSuggestion('photo', dataUrl, true)
+    } catch (err) {
+      console.error('Photo upload error:', err)
+    }
+    setUploadingPhoto(false)
+    // Process next in queue
+    setPhotoQueue(prev => {
+      const next = prev.slice(1)
+      if (next.length > 0) {
+        setTimeout(() => processPhoto(next[0]), 100)
+      } else {
+        setSent(true)
+        setMode(null)
+        setTimeout(() => setSent(false), 3000)
+      }
+      return next
+    })
   }
 
   const handleRouteSubmit = async () => {
@@ -161,8 +172,8 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
             📝 {t('suggest.sectorInfo')}
           </button>
         </div>
-        {uploadingPhotos > 0 && (
-          <div className="text-xs text-blue-600 text-center">{t('suggest.uploading')} ({uploadingPhotos})</div>
+        {(uploadingPhoto || photoQueue.length > 0) && (
+          <div className="text-xs text-blue-600 text-center">{t('suggest.uploading')} ({photoQueue.length})</div>
         )}
         <input
           ref={fileRef}
