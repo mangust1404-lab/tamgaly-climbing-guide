@@ -84,17 +84,17 @@ export function Layout() {
 
       {/* Main content */}
       {isMapPage ? (
-        <div className="fixed inset-0" style={{ top: 0, bottom: '3.5rem' }}>
+        <div className="fixed inset-0" style={{ top: 0, bottom: '3.875rem' }}>
           <Outlet />
         </div>
       ) : (
-        <main className="pb-14">
+        <main className="pb-16">
           <Outlet />
         </main>
       )}
 
       {/* Bottom nav — fixed */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-2 py-1 flex justify-around items-center" style={{ height: '3.5rem' }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-2 pt-1.5 flex justify-around items-start" style={{ height: '3.875rem' }}>
         {bottomNav.map((item) => (
           <NavLink
             key={item.to}
