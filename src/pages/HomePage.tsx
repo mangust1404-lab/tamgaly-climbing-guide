@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../lib/db/schema'
+import { db, type Route } from '../lib/db/schema'
 import { refreshTopoData, type DownloadProgress } from '../lib/offline/downloadManager'
 import { gradeColor, sunHours, gradeToSort } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 import { SuggestNewSector } from '../components/suggest/SuggestNewSector'
 import { TranslatedName } from '../components/ui/TranslatedName'
+import { SwipeableRouteRow } from '../components/route/SwipeableRouteRow'
+import { AscentForm } from '../components/route/AscentForm'
 
 /** Normalize Cyrillic а/б/с in grade search to Latin a/b/c */
 function normalizeCyrGrade(s: string): string {
@@ -57,6 +59,8 @@ export function HomePage() {
   const [sunMode, setSunMode] = useState<'sun' | 'shade'>('sun') // sun = where sun IS, shade = where sun ISN'T
   const [maxRopeLength, setMaxRopeLength] = useState<number | null>(null)
   const [routeTypeFilter, setRouteTypeFilter] = useState<string | null>(null) // 'multi-pitch' | 'trad' | null
+  const [ascentRoute, setAscentRoute] = useState<Route | null>(null)
+  const [projectToast, setProjectToast] = useState('')
   const [newsItems, setNewsItems] = useState<Array<{ id: number; body: string; created_at: string }>>([])
   const [dismissedNews, setDismissedNews] = useState<Set<number>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('dismissedNews') || '[]')) } catch { return new Set() }
@@ -490,7 +494,17 @@ export function HomePage() {
             {t('home.gradeFilterResults')} ({filteredRoutes.length})
           </h2>
           {filteredRoutes.length > 0 ? (
-            <RouteList routes={filteredRoutes} climbedIds={climbedRouteIds} td={td} />
+            <RouteList routes={filteredRoutes} climbedIds={climbedRouteIds} td={td}
+              onLogAscent={(r) => { const full = routes?.find(x => x.id === r.id); if (full) setAscentRoute(full) }}
+              onAddProject={async (r) => {
+                if (!user?.id) return
+                const existing = await db.wishlist.where('[userId+routeId]').equals([user.id, r.id]).first()
+                if (existing) return
+                await db.wishlist.add({ id: crypto.randomUUID(), userId: user.id, routeId: r.id, type: 'project', addedAt: new Date().toISOString() })
+                setProjectToast(t('swipe.addedToProjects'))
+                setTimeout(() => setProjectToast(''), 2000)
+              }}
+            />
           ) : (
             <p className="text-gray-400 text-sm">{t('home.noRoutesInRange')}</p>
           )}
@@ -568,35 +582,58 @@ export function HomePage() {
           </div>
         </>
       )}
+
+      {/* Ascent form from swipe */}
+      {ascentRoute && (
+        <AscentForm route={ascentRoute} onClose={() => setAscentRoute(null)} />
+      )}
+
+      {/* Project toast */}
+      {projectToast && (
+        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-full text-sm shadow-lg z-50">
+          {projectToast}
+        </div>
+      )}
     </div>
   )
 }
 
-function RouteList({ routes, climbedIds, td }: {
+function RouteList({ routes, climbedIds, td, onLogAscent, onAddProject }: {
   routes: Array<{ id: string; grade: string; name: string; sectorName: string }>
   climbedIds?: Set<string>
   td: (s: string, obj?: Record<string, any>, field?: string) => string
+  onLogAscent?: (r: { id: string }) => void
+  onAddProject?: (r: { id: string }) => void
 }) {
+  const row = (r: typeof routes[0]) => (
+    <Link
+      to={`/route/${r.id}`}
+      className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-2.5 hover:border-blue-300 transition-colors"
+    >
+      <span className={`w-11 text-center text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(r.grade)}`}>
+        {r.grade}
+      </span>
+      <div className="flex-1 min-w-0">
+        <TranslatedName name={td(r.name)} className="text-sm font-medium truncate" />
+        <div className="text-xs text-gray-400">{r.sectorName}</div>
+      </div>
+      {climbedIds?.has(r.id) && (
+        <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 text-[10px] flex items-center justify-center flex-shrink-0">✓</span>
+      )}
+    </Link>
+  )
+
   return (
     <div className="space-y-1">
-      {routes.map((r) => (
-        <Link
-          key={r.id}
-          to={`/route/${r.id}`}
-          className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg p-2.5 hover:border-blue-300 transition-colors"
-        >
-          <span className={`w-11 text-center text-xs font-mono font-bold rounded px-1.5 py-0.5 ${gradeColor(r.grade)}`}>
-            {r.grade}
-          </span>
-          <div className="flex-1 min-w-0">
-            <TranslatedName name={td(r.name)} className="text-sm font-medium truncate" />
-            <div className="text-xs text-gray-400">{r.sectorName}</div>
-          </div>
-          {climbedIds?.has(r.id) && (
-            <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 text-[10px] flex items-center justify-center flex-shrink-0">✓</span>
-          )}
-        </Link>
-      ))}
+      {routes.map((r) =>
+        onLogAscent ? (
+          <SwipeableRouteRow key={r.id} onSwipeRight={() => onLogAscent(r)} onSwipeLeft={() => onAddProject?.(r)}>
+            {row(r)}
+          </SwipeableRouteRow>
+        ) : (
+          <div key={r.id}>{row(r)}</div>
+        )
+      )}
     </div>
   )
 }

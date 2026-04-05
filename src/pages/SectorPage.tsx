@@ -410,8 +410,8 @@ export function SectorPage() {
               return (
                 <SwipeableRouteRow
                   key={route.id}
-                  onSwipeRight={() => addToProjects(route)}
-                  onSwipeLeft={() => setAscentRoute(route)}
+                  onSwipeRight={() => setAscentRoute(route)}
+                  onSwipeLeft={() => addToProjects(route)}
                 >
                   <Link
                     to={`/route/${route.id}`}

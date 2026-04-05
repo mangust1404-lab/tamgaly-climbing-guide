@@ -41,8 +41,8 @@ export function SwipeableRouteRow({ children, onSwipeRight, onSwipeLeft }: Swipe
     setSwiping(false)
   }, [offset, onSwipeRight, onSwipeLeft])
 
-  const bgColor = offset > 30 ? 'bg-green-500' : offset < -30 ? 'bg-orange-500' : ''
-  const label = offset > 30 ? t('swipe.toProjects') : offset < -30 ? t('swipe.logAscent') : ''
+  const bgColor = offset > 30 ? 'bg-orange-500' : offset < -30 ? 'bg-green-500' : ''
+  const label = offset > 30 ? t('swipe.logAscent') : offset < -30 ? t('swipe.toProjects') : ''
 
   return (
     <div className="relative overflow-hidden rounded-lg">
