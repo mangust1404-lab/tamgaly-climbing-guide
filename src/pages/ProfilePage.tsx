@@ -56,6 +56,7 @@ export function ProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [motivationMessages, setMotivationMessages] = useState<any[]>([])
+  const [expandedProgress, setExpandedProgress] = useState<string | null>(null)
   const [period, setPeriod] = useState<'all' | 'year' | 'season' | 'month' | 'week'>('all')
   const [profileTab, setProfileTab] = useState<'ascents' | 'projects'>('ascents')
   const [styleFilter, setStyleFilter] = useState<string | null>(null)
@@ -639,20 +640,41 @@ export function ProfilePage() {
           <div className="mb-4">
             <h3 className="text-xs font-semibold text-gray-500 mb-2">{t('profile.progressTitle')}</h3>
             <div className="space-y-1.5">
-              {progress.map((p, i) => (
-                <div key={i}>
-                  <div className="flex items-center justify-between text-xs mb-0.5">
-                    <span>{p.icon} {p.label}</span>
-                    <span className="text-gray-400 font-mono">{p.current}/{p.total}</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              {progress.map((p, i) => {
+                const key = `${p.type}:${p.label}`
+                const isExpanded = expandedProgress === key
+                return (
+                  <div key={i}>
                     <div
-                      className={`h-full rounded-full transition-all ${p.type === 'sector' ? 'bg-yellow-400' : 'bg-purple-400'}`}
-                      style={{ width: `${(p.current / p.total) * 100}%` }}
-                    />
+                      className="flex items-center justify-between text-xs mb-0.5 cursor-pointer"
+                      onClick={() => setExpandedProgress(isExpanded ? null : key)}
+                    >
+                      <span>{p.icon} {p.label} <span className="text-gray-300">{isExpanded ? '▲' : '▼'}</span></span>
+                      <span className="text-gray-400 font-mono">{p.current}/{p.total}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1">
+                      <div
+                        className={`h-full rounded-full transition-all ${p.type === 'sector' ? 'bg-yellow-400' : 'bg-purple-400'}`}
+                        style={{ width: `${(p.current / p.total) * 100}%` }}
+                      />
+                    </div>
+                    {isExpanded && p.routes && (
+                      <div className="ml-2 mb-2 space-y-0.5">
+                        {p.routes.map(r => (
+                          <Link
+                            key={r.id}
+                            to={`/route/${r.id}`}
+                            className={`flex items-center gap-2 text-xs py-0.5 px-1.5 rounded ${r.climbed ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}
+                          >
+                            <span className={`font-mono font-bold ${r.climbed ? '' : 'opacity-50'}`}>{r.grade}</span>
+                            <span className="truncate">{r.climbed ? '✓' : '○'} {td(r.name)}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )

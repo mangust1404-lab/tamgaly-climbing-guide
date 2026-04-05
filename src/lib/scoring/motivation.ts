@@ -7,12 +7,20 @@ export interface MotivationMessage {
   type: 'celebrate' | 'streak' | 'progress' | 'milestone'
 }
 
+export interface ProgressRoute {
+  id: string
+  name: string
+  grade: string
+  climbed: boolean
+}
+
 export interface ProgressItem {
   icon: string
   label: string
   current: number
   total: number
   type: 'sector' | 'grade'
+  routes: ProgressRoute[]
 }
 
 const SCORED_STYLES = ['onsight', 'flash', 'redpoint']
@@ -131,21 +139,24 @@ export function getAchievementProgress(
   // Sector progress — show sectors where user climbed at least 1 route, sorted by completion %
   for (const sector of sectors) {
     const sectorRoutes = routes.filter(r => r.sectorId === sector.id && r.status === 'published')
+      .sort((a, b) => a.gradeSort - b.gradeSort)
     if (sectorRoutes.length === 0) continue
     const climbed = sectorRoutes.filter(r => climbedIds.has(r.id)).length
-    if (climbed === 0 || climbed === sectorRoutes.length) continue // skip empty and completed
+    if (climbed === 0 || climbed === sectorRoutes.length) continue
     progress.push({
       icon: '🥇',
       label: `Хозяин: ${sector.name}`,
       current: climbed,
       total: sectorRoutes.length,
       type: 'sector',
+      routes: sectorRoutes.map(r => ({ id: r.id, name: r.name, grade: r.grade, climbed: climbedIds.has(r.id) })),
     })
   }
 
   // Grade progress
   for (const prefix of ['5', '6', '7']) {
     const gradeRoutes = routes.filter(r => r.grade.startsWith(prefix) && r.status === 'published')
+      .sort((a, b) => a.gradeSort - b.gradeSort)
     if (gradeRoutes.length === 0) continue
     const climbed = gradeRoutes.filter(r => climbedIds.has(r.id)).length
     if (climbed === 0 || climbed === gradeRoutes.length) continue
@@ -156,6 +167,7 @@ export function getAchievementProgress(
       current: climbed,
       total: gradeRoutes.length,
       type: 'grade',
+      routes: gradeRoutes.map(r => ({ id: r.id, name: r.name, grade: r.grade, climbed: climbedIds.has(r.id) })),
     })
   }
 
