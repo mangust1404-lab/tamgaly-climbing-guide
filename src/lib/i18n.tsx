@@ -282,6 +282,7 @@ const translations = {
   'suggest.comment': { ru: 'Комментарий (необязательно)', en: 'Comment (optional)', kk: 'Пікір (міндетті емес)' },
   'suggest.send': { ru: 'Отправить на проверку', en: 'Submit for review', kk: 'Тексеруге жіберу' },
   'suggest.sent': { ru: 'Отправлено! Администратор проверит.', en: 'Sent! Admin will review.', kk: 'Жіберілді! Әкімші тексереді.' },
+  'suggest.uploading': { ru: 'Загрузка...', en: 'Uploading...', kk: 'Жүктелуде...' },
   'suggest.pending': { ru: 'На проверке', en: 'Pending review', kk: 'Тексерілуде' },
   'suggest.loginFirst': { ru: 'Сначала укажи имя в Профиле', en: 'Set your name in Profile first', kk: 'Алдымен Профильде атыңызды көрсетіңіз' },
   'suggest.drawHint': { ru: 'Нарисуй линию маршрута на фото', en: 'Draw route line on the photo', kk: 'Фотода маршрут сызығын сызыңыз' },

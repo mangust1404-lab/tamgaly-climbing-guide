@@ -45,7 +45,7 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
     )
   }
 
-  const submitSuggestion = async (type: 'photo' | 'route' | 'topo-line', data: string) => {
+  const submitSuggestion = async (type: 'photo' | 'route' | 'topo-line', data: string, skipClose = false) => {
     const suggestion = {
       id: crypto.randomUUID(),
       userId: user.id,
@@ -58,7 +58,6 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
       createdAt: new Date().toISOString(),
     }
     await db.suggestions.add(suggestion)
-    // Sync to server
     await db.syncQueue.add({
       entity: 'suggestion',
       action: 'create',
@@ -67,32 +66,43 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
       createdAt: Date.now(),
       retryCount: 0,
     })
-    setSent(true)
-    setMode(null)
-    setComment('')
-    setTimeout(() => setSent(false), 3000)
+    if (!skipClose) {
+      setSent(true)
+      setMode(null)
+      setComment('')
+      setTimeout(() => setSent(false), 3000)
+    }
   }
 
+  const [uploadingPhotos, setUploadingPhotos] = useState(0)
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = e.target.files
+    if (!files || files.length === 0) return
 
-    const url = URL.createObjectURL(file)
-    const img = new Image()
-    img.src = url
-    await new Promise<void>(resolve => { img.onload = () => resolve() })
+    setUploadingPhotos(files.length)
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const url = URL.createObjectURL(file)
+      const img = new Image()
+      img.src = url
+      await new Promise<void>(resolve => { img.onload = () => resolve() })
 
-    const canvas = document.createElement('canvas')
-    const maxW = 1600
-    const scale = img.width > maxW ? maxW / img.width : 1
-    canvas.width = img.width * scale
-    canvas.height = img.height * scale
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-    URL.revokeObjectURL(url)
+      const canvas = document.createElement('canvas')
+      const maxW = 1600
+      const scale = img.width > maxW ? maxW / img.width : 1
+      canvas.width = img.width * scale
+      canvas.height = img.height * scale
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+      URL.revokeObjectURL(url)
 
-    await submitSuggestion('photo', dataUrl)
+      const isLast = i === files.length - 1
+      await submitSuggestion('photo', dataUrl, !isLast)
+      setUploadingPhotos(files.length - i - 1)
+    }
+    setUploadingPhotos(0)
     e.target.value = ''
   }
 
@@ -144,10 +154,14 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
             📝 {t('suggest.sectorInfo')}
           </button>
         </div>
+        {uploadingPhotos > 0 && (
+          <div className="text-xs text-blue-600 text-center">{t('suggest.uploading')} ({uploadingPhotos})</div>
+        )}
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
+          multiple
           onChange={handlePhotoUpload}
           className="hidden"
         />
