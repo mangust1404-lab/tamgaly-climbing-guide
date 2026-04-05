@@ -370,12 +370,61 @@ function SectorRoutesList({ sectorId, onChanged }: { sectorId: string; onChanged
     [sectorId],
   )
   const [editId, setEditId] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newGrade, setNewGrade] = useState('6a')
+
+  const handleAddRoute = async () => {
+    if (!newName.trim()) return
+    const num = (routes?.length || 0) + 1
+    const id = `route-${Date.now()}`
+    await db.routes.add({
+      id,
+      sectorId,
+      name: newName.trim(),
+      slug: newName.trim().toLowerCase().replace(/\s+/g, '-'),
+      grade: newGrade,
+      gradeSystem: 'french',
+      gradeSort: gradeToSort(newGrade),
+      pitches: 1,
+      routeType: 'sport',
+      numberInSector: num,
+      status: 'published',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as any)
+    setNewName('')
+    setAdding(false)
+    onChanged()
+  }
 
   if (!routes) return null
 
   return (
     <div className="mt-3 pt-3 border-t border-gray-100">
-      <h3 className="text-xs font-semibold text-gray-500 mb-2">Маршруты ({routes.length})</h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-xs font-semibold text-gray-500">Маршруты ({routes.length})</h3>
+        <button onClick={() => setAdding(!adding)} className="text-xs text-blue-600 font-medium">+ Маршрут</button>
+      </div>
+      {adding && (
+        <div className="flex gap-1 mb-2">
+          <input
+            autoFocus
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            placeholder="Название"
+            className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs"
+            onKeyDown={e => e.key === 'Enter' && handleAddRoute()}
+          />
+          <input
+            value={newGrade}
+            onChange={e => setNewGrade(e.target.value)}
+            placeholder="6a"
+            className="w-12 border border-gray-200 rounded px-2 py-1 text-xs text-center"
+          />
+          <button onClick={handleAddRoute} className="text-xs bg-blue-600 text-white rounded px-2 py-1">OK</button>
+        </div>
+      )}
       <div className="space-y-1">
         {routes.map(r => (
           <div key={r.id}>
