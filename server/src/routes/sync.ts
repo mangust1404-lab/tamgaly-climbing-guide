@@ -473,6 +473,17 @@ syncRouter.get('/achievements', async (c) => {
       }
     }
 
+    // Route type masters (multi-pitch, trad)
+    for (const [routeType, name] of [['multi-pitch', 'Мастер мультипитчей'], ['trad', 'Трэд-воин']]) {
+      const totalType = (db.prepare("SELECT COUNT(*) as cnt FROM route WHERE route_type=? AND status='published'").get(routeType) as any).cnt
+      if (totalType === 0) continue
+      const climbedType = (db.prepare("SELECT COUNT(DISTINCT route_id) as cnt FROM ascent WHERE user_id=? AND style IN ('onsight','flash','redpoint') AND route_id IN (SELECT id FROM route WHERE route_type=? AND status='published')").get(user.id, routeType) as any).cnt
+      if (climbedType >= totalType) {
+        db.prepare("INSERT OR IGNORE INTO achievement (id, user_id, type, target_id, name, earned_at) VALUES (?, ?, ?, ?, ?, ?)")
+          .run(`type_master:${routeType}:${user.id}`, user.id, 'type_master', routeType, name, now)
+      }
+    }
+
     // Legend
     const totalAll = (db.prepare("SELECT COUNT(*) as cnt FROM route WHERE status='published'").get() as any).cnt
     const climbedAll = (db.prepare("SELECT COUNT(DISTINCT route_id) as cnt FROM ascent WHERE user_id=? AND style IN ('onsight','flash','redpoint') AND route_id IN (SELECT id FROM route WHERE status='published')").get(user.id) as any).cnt

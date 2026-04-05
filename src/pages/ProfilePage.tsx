@@ -216,7 +216,7 @@ export function ProfilePage() {
   const allAchievements = useMemo(() => {
     const existing = (existingAchievements || []).map(a => ({
       type: a.type, name: a.name, description: a.description,
-      icon: a.type === 'sector_master' ? '🥇' : a.type === 'grade_king' ? '👑' : a.type === 'admin' ? '🛡' : '🏆',
+      icon: a.type === 'sector_master' ? '🥇' : a.type === 'grade_king' ? '👑' : a.type === 'type_master' ? (a.name.includes('мульти') ? '🧗' : '🪨') : a.type === 'admin' ? '🛡' : '🏆',
       earnedAt: a.earnedAt,
     }))
     const fresh = earnedAchievements.map(a => ({ ...a, earnedAt: new Date().toISOString() }))
@@ -884,17 +884,17 @@ export function ProfilePage() {
         <>
           {/* Stats cards */}
           <div className="grid grid-cols-2 gap-2 mb-6">
-            <div className="bg-blue-50 rounded-lg p-3 text-center">
+            <Link to="/leaderboard" className="bg-blue-50 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-blue-600">{stats.totalScore}</div>
-              <div className="text-xs text-blue-500">{t('profile.points')}</div>
-            </div>
-            <div className="bg-green-50 rounded-lg p-3 text-center">
+              <div className="text-xs text-blue-500">{t('profile.points')} →</div>
+            </Link>
+            <div className="bg-green-50 rounded-lg p-3 text-center cursor-pointer" onClick={() => { setExpandedPyramid(stats.bestGrade); document.getElementById('grade-pyramid')?.scrollIntoView({ behavior: 'smooth' }) }}>
               <div className="text-2xl font-bold text-green-600">{stats.bestGrade || '—'}</div>
-              <div className="text-xs text-green-500">{t('profile.bestGrade')}</div>
+              <div className="text-xs text-green-500">{t('profile.bestGrade')} →</div>
             </div>
-            <div className="bg-purple-50 rounded-lg p-3 text-center">
+            <div className="bg-purple-50 rounded-lg p-3 text-center cursor-pointer" onClick={() => document.getElementById('ascent-history')?.scrollIntoView({ behavior: 'smooth' })}>
               <div className="text-2xl font-bold text-purple-600">{stats.completedAscents}</div>
-              <div className="text-xs text-purple-500">{t('profile.ascents')}</div>
+              <div className="text-xs text-purple-500">{t('profile.ascents')} →</div>
             </div>
             <div className="bg-orange-50 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-orange-600">{stats.pending}</div>
@@ -918,7 +918,7 @@ export function ProfilePage() {
           {/* Grade pyramid */}
           {stats.pyramid.length > 0 && (
             <>
-              <h2 className="text-sm font-semibold mb-2">{t('profile.gradePyramid')}</h2>
+              <h2 id="grade-pyramid" className="text-sm font-semibold mb-2">{t('profile.gradePyramid')}</h2>
               <div className="space-y-1 mb-6">
                 {stats.pyramid.map(({ grade, count, routes: pyramidRoutes }) => {
                   const maxCount = Math.max(...stats.pyramid.map((p) => p.count))
@@ -1030,7 +1030,7 @@ export function ProfilePage() {
           </div>
 
           {/* Ascent history */}
-          <h2 className="text-sm font-semibold mb-2">{t('profile.ascentHistory')}</h2>
+          <h2 id="ascent-history" className="text-sm font-semibold mb-2">{t('profile.ascentHistory')}</h2>
           <div className="space-y-2">
             {ascents?.filter(a => {
               if (a.userId !== user?.id) return false

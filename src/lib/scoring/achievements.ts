@@ -66,6 +66,24 @@ export function calculateAchievements(
     }
   }
 
+  // Route type masters: multi-pitch and trad
+  for (const [routeType, name, icon] of [['multi-pitch', 'Мастер мультипитчей', '🧗'], ['trad', 'Трэд-воин', '🪨']] as const) {
+    const key = `type_master:${routeType}`
+    if (existingTypes.has(key)) continue
+    const typeRoutes = routes.filter(r => r.routeType === routeType && r.status === 'published')
+    if (typeRoutes.length === 0) continue
+    const allClimbed = typeRoutes.every(r => climbedRouteIds.has(r.id))
+    if (allClimbed) {
+      achievements.push({
+        type: 'type_master',
+        targetId: routeType,
+        name,
+        icon,
+        description: `Все ${routeType === 'multi-pitch' ? 'мультипитчи' : 'трэд маршруты'}`,
+      })
+    }
+  }
+
   // Legend of Tamgaly: climbed ALL published routes
   const legendKey = 'legend:all'
   if (!existingTypes.has(legendKey)) {

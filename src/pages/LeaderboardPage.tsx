@@ -246,7 +246,7 @@ export function LeaderboardPage() {
                       >
                         {(showAchDetail === entry.userId ? achievementMap[entry.userId] : achievementMap[entry.userId].slice(0, 3)).map((a, i) => (
                           <span key={i} className="inline-flex items-center gap-0.5 bg-yellow-50 border border-yellow-200 rounded-full px-1.5 py-0 text-[9px] leading-4">
-                            <span>{a.type === 'sector_master' ? '🥇' : a.type === 'grade_king' ? '👑' : a.type === 'admin' ? '🛡' : '🏆'}</span>
+                            <span>{a.type === 'sector_master' ? '🥇' : a.type === 'grade_king' ? '👑' : a.type === 'type_master' ? (a.name.includes('мульти') ? '🧗' : '🪨') : a.type === 'admin' ? '🛡' : '🏆'}</span>
                             <span className="font-medium text-yellow-800">{showAchDetail === entry.userId && a.type === 'sector_master' ? `Хозяин: ${a.name}` : a.name}</span>
                           </span>
                         ))}

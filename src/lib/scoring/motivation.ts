@@ -171,6 +171,23 @@ export function getAchievementProgress(
     })
   }
 
+  // Route type progress (multi-pitch, trad)
+  for (const [routeType, label, icon] of [['multi-pitch', 'Мастер мультипитчей', '🧗'], ['trad', 'Трэд-воин', '🪨']] as const) {
+    const typeRoutes = routes.filter(r => r.routeType === routeType && r.status === 'published')
+      .sort((a, b) => a.gradeSort - b.gradeSort)
+    if (typeRoutes.length === 0) continue
+    const climbed = typeRoutes.filter(r => climbedIds.has(r.id)).length
+    if (climbed === 0 || climbed === typeRoutes.length) continue
+    progress.push({
+      icon,
+      label,
+      current: climbed,
+      total: typeRoutes.length,
+      type: 'grade',
+      routes: typeRoutes.map(r => ({ id: r.id, name: r.name, grade: r.grade, climbed: climbedIds.has(r.id) })),
+    })
+  }
+
   // Sort by completion % descending
   progress.sort((a, b) => (b.current / b.total) - (a.current / a.total))
 
