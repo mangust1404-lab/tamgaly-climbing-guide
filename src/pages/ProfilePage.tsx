@@ -58,7 +58,9 @@ export function ProfilePage() {
   const [motivationMessages, setMotivationMessages] = useState<any[]>([])
   const [expandedProgress, setExpandedProgress] = useState<string | null>(null)
   const [expandedPyramid, setExpandedPyramid] = useState<string | null>(null)
-  const [period, setPeriod] = useState<'all' | 'year' | 'season' | 'month' | 'week'>('all')
+  const [period, setPeriod] = useState<'all' | 'year' | 'season' | 'month' | 'week' | 'custom'>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [profileTab, setProfileTab] = useState<'ascents' | 'projects'>('ascents')
   const [styleFilter, setStyleFilter] = useState<string | null>(null)
 
@@ -89,6 +91,11 @@ export function ProfilePage() {
     const myAscents = ascents.filter(a => {
       if (a.userId !== user?.id) return false
       if (period === 'all') return true
+      if (period === 'custom') {
+        if (dateFrom && a.date < dateFrom) return false
+        if (dateTo && a.date > dateTo) return false
+        return true
+      }
       const date = new Date(a.date).getTime()
       if (period === 'week') return now - date < 7 * 86400000
       if (period === 'month') return now - date < 30 * 86400000
@@ -157,7 +164,7 @@ export function ProfilePage() {
       pyramid,
       pending: myAscents.filter((a) => a.syncStatus === 'pending').length,
     }
-  }, [ascents, routes, user?.id, period])
+  }, [ascents, routes, user?.id, period, dateFrom, dateTo])
 
   // Achievements
   const existingAchievements = useLiveQuery(
@@ -959,11 +966,11 @@ export function ProfilePage() {
           )}
 
           {/* Period filter */}
-          <div className="flex gap-1 mb-1.5">
+          <div className="flex flex-wrap gap-1 mb-1.5">
             {(['all', 'year', 'season', 'month', 'week'] as const).map(p => (
               <button
                 key={p}
-                onClick={() => setPeriod(p)}
+                onClick={() => { setPeriod(p); setDateFrom(''); setDateTo('') }}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                   period === p ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
                 }`}
@@ -971,7 +978,34 @@ export function ProfilePage() {
                 {t(p === 'all' ? 'leaderboard.allTime' : p === 'year' ? 'profile.year' : p === 'season' ? 'leaderboard.season' : p === 'month' ? 'leaderboard.month' : 'leaderboard.week' as any)}
               </button>
             ))}
+            <button
+              onClick={() => setPeriod('custom')}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                period === 'custom' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              📅 {t('profile.customDates')}
+            </button>
           </div>
+          {period === 'custom' && (
+            <div className="flex gap-2 mb-2">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+                placeholder="От"
+              />
+              <span className="text-gray-400 text-xs self-center">—</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+                placeholder="До"
+              />
+            </div>
+          )}
           {/* Style filter */}
           <div className="flex gap-1 mb-3">
             {ASCENT_STYLES.map(s => (
