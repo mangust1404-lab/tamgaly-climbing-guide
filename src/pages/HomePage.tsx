@@ -245,6 +245,18 @@ export function HomePage() {
 
   const visibleNews = newsItems.filter(n => !dismissedNews.has(n.id))
 
+  // Climbed routes per sector
+  const climbedPerSector = useMemo(() => {
+    const map = new Map<string, number>()
+    if (!routes || !climbedRouteIds) return map
+    for (const r of routes) {
+      if (climbedRouteIds.has(r.id)) {
+        map.set(r.sectorId, (map.get(r.sectorId) || 0) + 1)
+      }
+    }
+    return map
+  }, [routes, climbedRouteIds])
+
   // PWA install prompt
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [isInstalled, setIsInstalled] = useState(false)
@@ -520,6 +532,9 @@ export function HomePage() {
                         )}
                         {routeCounts.get(sector.id) && (
                           <span className="text-xs text-gray-400">
+                            {climbedPerSector.get(sector.id) ? (
+                              <><span className="text-green-600 font-medium">{climbedPerSector.get(sector.id)}</span>/</>
+                            ) : null}
                             {routeCounts.get(sector.id)} {t('home.routesShort')}
                           </span>
                         )}
