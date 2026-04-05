@@ -57,6 +57,7 @@ export function ProfilePage() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [motivationMessages, setMotivationMessages] = useState<any[]>([])
   const [expandedProgress, setExpandedProgress] = useState<string | null>(null)
+  const [expandedPyramid, setExpandedPyramid] = useState<string | null>(null)
   const [period, setPeriod] = useState<'all' | 'year' | 'season' | 'month' | 'week'>('all')
   const [profileTab, setProfileTab] = useState<'ascents' | 'projects'>('ascents')
   const [styleFilter, setStyleFilter] = useState<string | null>(null)
@@ -123,18 +124,23 @@ export function ProfilePage() {
       byStyle[a.style] = (byStyle[a.style] || 0) + 1
     }
 
-    // Grade pyramid
-    const gradeCount: Record<string, number> = {}
+    // Grade pyramid with route details
+    const gradeRoutes: Record<string, Array<{ id: string; name: string; grade: string; style: string }>> = {}
     for (const a of completed) {
       const route = routeMap.get(a.routeId)
       if (route) {
-        gradeCount[route.grade] = (gradeCount[route.grade] || 0) + 1
+        if (!gradeRoutes[route.grade]) gradeRoutes[route.grade] = []
+        // Deduplicate by routeId (keep best style)
+        if (!gradeRoutes[route.grade].some(r => r.id === route.id)) {
+          gradeRoutes[route.grade].push({ id: route.id, name: route.name, grade: route.grade, style: a.style })
+        }
       }
     }
-    const pyramid = Object.entries(gradeCount)
-      .map(([grade, count]) => ({
+    const pyramid = Object.entries(gradeRoutes)
+      .map(([grade, routes]) => ({
         grade,
-        count,
+        count: routes.length,
+        routes,
         sort: routeMap.get(completed.find((a) => {
           const r = routeMap.get(a.routeId)
           return r?.grade === grade
@@ -907,22 +913,44 @@ export function ProfilePage() {
             <>
               <h2 className="text-sm font-semibold mb-2">{t('profile.gradePyramid')}</h2>
               <div className="space-y-1 mb-6">
-                {stats.pyramid.map(({ grade, count }) => {
+                {stats.pyramid.map(({ grade, count, routes: pyramidRoutes }) => {
                   const maxCount = Math.max(...stats.pyramid.map((p) => p.count))
                   const width = Math.max(20, (count / maxCount) * 100)
+                  const isExp = expandedPyramid === grade
                   return (
-                    <div key={grade} className="flex items-center gap-2">
-                      <span className="w-10 text-xs font-mono text-right text-gray-600">
-                        {grade}
-                      </span>
-                      <div className="flex-1 h-5 bg-gray-50 rounded overflow-hidden">
-                        <div
-                          className="h-full bg-blue-400 rounded flex items-center px-1.5"
-                          style={{ width: `${width}%` }}
-                        >
-                          <span className="text-[10px] text-white font-medium">{count}</span>
+                    <div key={grade}>
+                      <div
+                        className="flex items-center gap-2 cursor-pointer"
+                        onClick={() => setExpandedPyramid(isExp ? null : grade)}
+                      >
+                        <span className="w-10 text-xs font-mono text-right text-gray-600">
+                          {grade}
+                        </span>
+                        <div className="flex-1 h-5 bg-gray-50 rounded overflow-hidden">
+                          <div
+                            className="h-full bg-blue-400 rounded flex items-center px-1.5"
+                            style={{ width: `${width}%` }}
+                          >
+                            <span className="text-[10px] text-white font-medium">{count}</span>
+                          </div>
                         </div>
+                        <span className="text-gray-300 text-[10px]">{isExp ? '▲' : '▼'}</span>
                       </div>
+                      {isExp && pyramidRoutes && (
+                        <div className="ml-12 mt-1 mb-2 space-y-0.5">
+                          {pyramidRoutes.map(r => (
+                            <Link
+                              key={r.id}
+                              to={`/route/${r.id}`}
+                              className="flex items-center gap-2 text-xs py-0.5 px-1.5 rounded bg-blue-50 text-blue-700"
+                            >
+                              <span className="font-mono font-bold">{r.grade}</span>
+                              <span className="truncate">{td(r.name)}</span>
+                              <span className="text-blue-400 ml-auto text-[10px]">{r.style}</span>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
