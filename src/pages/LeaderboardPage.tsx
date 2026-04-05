@@ -12,7 +12,8 @@ export function LeaderboardPage() {
   const { t, td } = useI18n()
   const [period, setPeriod] = useState<Period>('all')
   const [expandedName, setExpandedName] = useState<string | null>(null)
-  const [showAchDetail, setShowAchDetail] = useState<string | null>(null) // "userId" showing achievement details
+  const [showAchDetail, setShowAchDetail] = useState<string | null>(null)
+  const [zoomedAvatar, setZoomedAvatar] = useState<string | null>(null)
 
   // Load avatars and achievements from server
   const [avatarMap, setAvatarMap] = useState<Record<string, string>>({})
@@ -226,7 +227,12 @@ export function LeaderboardPage() {
 
                   {/* Avatar */}
                   {avatarMap[entry.userId] && (
-                    <img src={avatarMap[entry.userId]} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                    <img
+                      src={avatarMap[entry.userId]}
+                      alt=""
+                      className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                      onClick={(e) => { e.stopPropagation(); setZoomedAvatar(avatarMap[entry.userId]) }}
+                    />
                   )}
 
                   {/* Info */}
@@ -279,6 +285,16 @@ export function LeaderboardPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Zoomed avatar modal */}
+      {zoomedAvatar && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/70 flex items-center justify-center"
+          onClick={() => setZoomedAvatar(null)}
+        >
+          <img src={zoomedAvatar} alt="" className="w-64 h-64 rounded-2xl object-cover shadow-2xl" />
         </div>
       )}
     </div>
