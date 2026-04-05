@@ -74,20 +74,13 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
     }
   }
 
-  const [photoQueue, setPhotoQueue] = useState<File[]>([])
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoCount, setPhotoCount] = useState(0)
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-    setPhotoQueue(Array.from(files))
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
     e.target.value = ''
-    // Start processing first photo
-    processPhoto(files[0])
-  }
 
-  const processPhoto = async (file: File) => {
-    setUploadingPhoto(true)
     try {
       const url = URL.createObjectURL(file)
       const img = new Image()
@@ -106,22 +99,10 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
       canvas.width = 0; canvas.height = 0
 
       await submitSuggestion('photo', dataUrl, true)
+      setPhotoCount(c => c + 1)
     } catch (err) {
       console.error('Photo upload error:', err)
     }
-    setUploadingPhoto(false)
-    // Process next in queue
-    setPhotoQueue(prev => {
-      const next = prev.slice(1)
-      if (next.length > 0) {
-        setTimeout(() => processPhoto(next[0]), 100)
-      } else {
-        setSent(true)
-        setMode(null)
-        setTimeout(() => setSent(false), 3000)
-      }
-      return next
-    })
   }
 
   const handleRouteSubmit = async () => {
@@ -172,14 +153,19 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
             📝 {t('suggest.sectorInfo')}
           </button>
         </div>
-        {(uploadingPhoto || photoQueue.length > 0) && (
-          <div className="text-xs text-blue-600 text-center">{t('suggest.uploading')} ({photoQueue.length})</div>
+        {photoCount > 0 && (
+          <div className="flex items-center justify-between bg-green-50 rounded-lg px-3 py-2">
+            <span className="text-xs text-green-600">✓ {photoCount} {t('suggest.photosSent')}</span>
+            <div className="flex gap-2">
+              <button onClick={() => fileRef.current?.click()} className="text-xs text-blue-600 font-medium">+ {t('suggest.morePhotos')}</button>
+              <button onClick={() => { setPhotoCount(0); setSent(true); setMode(null); setTimeout(() => setSent(false), 3000) }} className="text-xs text-gray-400">{t('suggest.done')}</button>
+            </div>
+          </div>
         )}
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
-          multiple
           onChange={handlePhotoUpload}
           className="hidden"
         />
