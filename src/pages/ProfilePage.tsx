@@ -995,25 +995,53 @@ export function ProfilePage() {
               📅 {t('profile.customDates')}
             </button>
           </div>
-          {period === 'custom' && (
-            <div className="flex gap-2 mb-2">
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
-                placeholder="От"
-              />
-              <span className="text-gray-400 text-xs self-center">—</span>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
-                className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
-                placeholder="До"
-              />
-            </div>
-          )}
+          {period === 'custom' && (() => {
+            const months = [
+              { value: '01', label: 'Янв' }, { value: '02', label: 'Фев' },
+              { value: '03', label: 'Мар' }, { value: '04', label: 'Апр' },
+              { value: '05', label: 'Май' }, { value: '06', label: 'Июн' },
+              { value: '07', label: 'Июл' }, { value: '08', label: 'Авг' },
+              { value: '09', label: 'Сен' }, { value: '10', label: 'Окт' },
+              { value: '11', label: 'Ноя' }, { value: '12', label: 'Дек' },
+            ]
+            const curYear = new Date().getFullYear()
+            const years = Array.from({ length: 5 }, (_, i) => curYear - i)
+            const fromMonth = dateFrom.slice(5, 7) || ''
+            const fromYear = dateFrom.slice(0, 4) || ''
+            const toMonth = dateTo.slice(5, 7) || ''
+            const toYear = dateTo.slice(0, 4) || ''
+            const setFrom = (y: string, m: string) => setDateFrom(y && m ? `${y}-${m}-01` : '')
+            const setTo = (y: string, m: string) => {
+              if (!y || !m) { setDateTo(''); return }
+              const last = new Date(parseInt(y), parseInt(m), 0).getDate()
+              setDateTo(`${y}-${m}-${last}`)
+            }
+            return (
+              <div className="flex gap-1 mb-2 items-center">
+                <select value={fromMonth} onChange={e => setFrom(fromYear || String(curYear), e.target.value)}
+                  className="border border-gray-200 rounded-lg px-1.5 py-1.5 text-xs">
+                  <option value="">от мес.</option>
+                  {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+                <select value={fromYear} onChange={e => setFrom(e.target.value, fromMonth || '01')}
+                  className="border border-gray-200 rounded-lg px-1.5 py-1.5 text-xs">
+                  <option value="">год</option>
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <span className="text-gray-400 text-xs">—</span>
+                <select value={toMonth} onChange={e => setTo(toYear || String(curYear), e.target.value)}
+                  className="border border-gray-200 rounded-lg px-1.5 py-1.5 text-xs">
+                  <option value="">до мес.</option>
+                  {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+                <select value={toYear} onChange={e => setTo(e.target.value, toMonth || '12')}
+                  className="border border-gray-200 rounded-lg px-1.5 py-1.5 text-xs">
+                  <option value="">год</option>
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
+            )
+          })()}
           {/* Style filter */}
           <div className="flex gap-1 mb-3">
             {ASCENT_STYLES.map(s => (
