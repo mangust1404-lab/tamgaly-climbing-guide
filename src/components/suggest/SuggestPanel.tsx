@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { db } from '../../lib/db/schema'
 import { useUser } from '../../lib/userContext'
 import { useI18n } from '../../lib/i18n'
@@ -24,7 +24,10 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
   const [routeGrade, setRouteGrade] = useState('6a')
   const [comment, setComment] = useState('')
   const [sectorDesc, setSectorDesc] = useState('')
+  const [sending, setSending] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const mountedRef = useRef(true)
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
 
   if (!user) {
     return (
@@ -46,31 +49,38 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
   }
 
   const submitSuggestion = async (type: 'photo' | 'route' | 'topo-line', data: string, skipClose = false) => {
-    const suggestion = {
-      id: crypto.randomUUID(),
-      userId: user.id,
-      userName: user.displayName,
-      sectorId,
-      type,
-      status: 'pending' as const,
-      data,
-      comment: comment || undefined,
-      createdAt: new Date().toISOString(),
-    }
-    await db.suggestions.add(suggestion)
-    await db.syncQueue.add({
-      entity: 'suggestion',
-      action: 'create',
-      localId: suggestion.id,
-      payload: suggestion as unknown as Record<string, unknown>,
-      createdAt: Date.now(),
-      retryCount: 0,
-    })
-    if (!skipClose) {
-      setSent(true)
-      setMode(null)
-      setComment('')
-      setTimeout(() => setSent(false), 3000)
+    try {
+      setSending(true)
+      const suggestion = {
+        id: crypto.randomUUID(),
+        userId: user.id,
+        userName: user.displayName,
+        sectorId,
+        type,
+        status: 'pending' as const,
+        data,
+        comment: comment || undefined,
+        createdAt: new Date().toISOString(),
+      }
+      await db.suggestions.add(suggestion)
+      await db.syncQueue.add({
+        entity: 'suggestion',
+        action: 'create',
+        localId: suggestion.id,
+        payload: suggestion as unknown as Record<string, unknown>,
+        createdAt: Date.now(),
+        retryCount: 0,
+      })
+      if (!skipClose && mountedRef.current) {
+        setSent(true)
+        setMode(null)
+        setComment('')
+        setTimeout(() => { if (mountedRef.current) setSent(false) }, 3000)
+      }
+    } catch (err) {
+      console.error('Suggestion error:', err)
+    } finally {
+      if (mountedRef.current) setSending(false)
     }
   }
 
@@ -245,9 +255,11 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
         <button
           onClick={async () => {
             if (!sectorDesc.trim()) return
-            const data = JSON.stringify({ description: sectorDesc.trim() })
-            await submitSuggestion('sector-info' as any, data)
-            setSectorDesc('')
+            try {
+              const data = JSON.stringify({ description: sectorDesc.trim() })
+              await submitSuggestion('sector-info' as any, data)
+              if (mountedRef.current) setSectorDesc('')
+            } catch {}
           }}
           disabled={!sectorDesc.trim()}
           className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-40"
