@@ -25,6 +25,7 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
   const [comment, setComment] = useState('')
   const [sectorDesc, setSectorDesc] = useState('')
   const [sending, setSending] = useState(false)
+  const [photoCount, setPhotoCount] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
   const mountedRef = useRef(true)
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
@@ -84,7 +85,6 @@ export function SuggestPanel({ sectorId }: SuggestPanelProps) {
     }
   }
 
-  const [photoCount, setPhotoCount] = useState(0)
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
