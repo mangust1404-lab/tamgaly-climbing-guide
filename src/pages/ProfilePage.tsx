@@ -874,7 +874,7 @@ export function ProfilePage() {
             })}
           </div>
         )
-      ) : !stats || stats.totalAscents === 0 ? (
+      ) : !stats || (stats.totalAscents === 0 && period === 'all' && !styleFilter) ? (
         <div className="text-center py-12 text-gray-400">
           <p className="text-4xl mb-3">👤</p>
           <p className="text-sm">{t('profile.noAscents')}</p>
