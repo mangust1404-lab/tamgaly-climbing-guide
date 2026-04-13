@@ -230,6 +230,16 @@ export function HomePage() {
     return () => window.removeEventListener('topo-load-progress', handler)
   }, [])
 
+  // Auto-refresh topo data on app open (silent, no UI)
+  useEffect(() => {
+    const lastRefresh = localStorage.getItem('lastAutoRefresh')
+    const now = Date.now()
+    // Refresh at most once per hour
+    if (lastRefresh && now - parseInt(lastRefresh) < 3600000) return
+    localStorage.setItem('lastAutoRefresh', String(now))
+    refreshTopoData(() => {}).catch(() => {})
+  }, [])
+
   // Load news from server
   useEffect(() => {
     const API_BASE = import.meta.env.VITE_API_URL || '/api'
