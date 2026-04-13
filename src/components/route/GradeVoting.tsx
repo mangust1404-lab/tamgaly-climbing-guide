@@ -13,9 +13,14 @@ const GRADES_ORDERED = [
   '8a', '8a+',
 ]
 
+/** Normalize Cyrillic letters in grades to Latin (а→a, б→b, с→c) */
+function normalizeGrade(g: string): string {
+  return g.replace(/а/g, 'a').replace(/б/g, 'b').replace(/с/g, 'c')
+}
+
 /** Get nearby grades: ±range around the official grade */
 function nearbyGrades(grade: string, range = 3): string[] {
-  const idx = GRADES_ORDERED.indexOf(grade)
+  const idx = GRADES_ORDERED.indexOf(normalizeGrade(grade))
   if (idx === -1) return GRADES_ORDERED.slice(0, 7)
   const from = Math.max(0, idx - range)
   const to = Math.min(GRADES_ORDERED.length, idx + range + 1)
