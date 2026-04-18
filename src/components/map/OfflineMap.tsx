@@ -209,6 +209,31 @@ export function OfflineMap({ sectors, area, routes = [], allRoutes }: OfflineMap
         })
 
       markersRef.current.push(marker)
+
+      // Parking marker (if set)
+      if (sector.parkingLatitude && sector.parkingLongitude) {
+        const parkingIcon = L.divIcon({
+          html: `<div style="display:flex;flex-direction:column;align-items:center;">
+            <div style="
+              background: #3b82f6;
+              color: white;
+              width: 22px; height: 22px;
+              border-radius: 50%;
+              display: flex; align-items: center; justify-content: center;
+              font-size: 12px; font-weight: 700;
+              box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+              border: 2px solid white;
+            ">P</div>
+          </div>`,
+          className: '',
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        })
+        const parkingMarker = L.marker([sector.parkingLatitude, sector.parkingLongitude], { icon: parkingIcon })
+          .addTo(map)
+          .bindTooltip(`${t('map.parking')}: ${td(sector.name)}`, { direction: 'top' })
+        markersRef.current.push(parkingMarker)
+      }
     })
 
     // Fit map to show all markers

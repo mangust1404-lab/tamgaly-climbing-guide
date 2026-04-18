@@ -310,6 +310,7 @@ const translations = {
 
   // Map
   'map.entrance': { ru: 'Вход', en: 'Entrance', kk: 'Кіреберіс' },
+  'map.parking': { ru: 'Парковка', en: 'Parking', kk: 'Тұрақ' },
 
   // Activity feed
   'nav.activity': { ru: 'Лента', en: 'Activity', kk: 'Лента' },

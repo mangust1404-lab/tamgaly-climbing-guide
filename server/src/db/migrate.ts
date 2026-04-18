@@ -226,6 +226,12 @@ if (!sectorColNames.has('sun_exposure_en')) {
 if (!sectorColNames.has('sun_exposure_kk')) {
   db.exec('ALTER TABLE sector ADD COLUMN sun_exposure_kk TEXT')
 }
+if (!sectorColNames.has('parking_latitude')) {
+  db.exec('ALTER TABLE sector ADD COLUMN parking_latitude REAL')
+}
+if (!sectorColNames.has('parking_longitude')) {
+  db.exec('ALTER TABLE sector ADD COLUMN parking_longitude REAL')
+}
 
 // Topo column migrations
 const topoCols = db.prepare("PRAGMA table_info(topo)").all() as { name: string }[]
