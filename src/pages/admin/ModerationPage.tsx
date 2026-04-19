@@ -104,6 +104,7 @@ export function ModerationPage() {
 
   const handleApprove = async (s: Suggestion) => {
     setProcessing(s.id)
+    let isRouteUpdate = false
     try {
       if (s.type === 'photo') {
         const topoCount = await db.topos.where('sectorId').equals(s.sectorId).count()
@@ -120,6 +121,8 @@ export function ModerationPage() {
         })
       } else if (s.type === 'route') {
         const info = JSON.parse(s.data) as { name?: string; grade?: string; type?: string; routeId?: string; quickdraws?: number; ropeLength?: number; terrainTags?: string[]; holdTypes?: string[] }
+        // Track whether this was an existing-route update vs new route
+        isRouteUpdate = !!info.routeId
         if (info.routeId) {
           const updates: Record<string, unknown> = {}
           if (info.quickdraws) updates.quickdraws = info.quickdraws
@@ -127,7 +130,7 @@ export function ModerationPage() {
           if (info.terrainTags?.length) updates.terrainTags = info.terrainTags
           if (info.holdTypes?.length) updates.holdTypes = info.holdTypes
           if (Object.keys(updates).length > 0) {
-            await db.routes.update(info.routeId, updates)
+            // PATCH server FIRST (authoritative)
             try {
               await adminFetch(`${API_BASE}/routes/${info.routeId}`, {
                 method: 'PATCH',
@@ -135,7 +138,10 @@ export function ModerationPage() {
                 body: JSON.stringify(updates),
               })
             } catch { /* offline */ }
+            // Then update IndexedDB to match
+            await db.routes.update(info.routeId, updates)
           }
+          // Skip saveTopoData — we patched server directly, just refresh IndexedDB at the end
         } else if (info.name && info.grade) {
           const gradeSort = gradeToSort(info.grade)
           await db.routes.add({
@@ -193,9 +199,13 @@ export function ModerationPage() {
       // Remove from list immediately
       setServerSuggestions(prev => prev.filter(x => x.id !== s.id))
 
-      // Auto-save to server when new data was created
-      if (s.type === 'photo' || s.type === 'sector-info' || s.type === 'route') {
+      // Auto-save to server when new data was created (not for route updates — those were PATCHed directly)
+      const needsSaveForThis = s.type === 'photo' || s.type === 'sector-info' || (s.type === 'route' && !isRouteUpdate)
+      if (needsSaveForThis) {
         await saveTopoData()
+      } else if (s.type === 'route' && isRouteUpdate) {
+        // Just refresh IndexedDB from server to pull PATCHed changes
+        try { await refreshTopoData(() => {}) } catch {}
       }
     } finally {
       setProcessing(null)
