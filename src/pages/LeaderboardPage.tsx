@@ -78,24 +78,21 @@ export function LeaderboardPage() {
 
     const routeMap = new Map(routes?.map(r => [r.id, r]) ?? [])
 
+    const SCORED_STYLES = ['onsight', 'flash', 'redpoint']
     const entries = Array.from(byUser.entries()).map(([userId, userAscents]) => {
-      // Deduplicate: keep only best ascent per route name (highest points)
+      // Deduplicate: keep only FIRST scored ascent per route (earliest date)
       // Use route name as key because same route may have different IDs across syncs
-      const bestPerRoute = new Map<string, typeof userAscents[number]>()
+      const firstPerRoute = new Map<string, typeof userAscents[number]>()
       for (const a of userAscents) {
+        if (!SCORED_STYLES.includes(a.style)) continue
         const route = routeMap.get(a.routeId)
         const routeKey = route?.name || a.routeId
-        const pts = route ? calculatePoints(route.grade, a.style as any) : a.points
-        const existing = bestPerRoute.get(routeKey)
-        if (!existing) {
-          bestPerRoute.set(routeKey, a)
-        } else {
-          const existingRoute = routeMap.get(existing.routeId)
-          const existingPts = existingRoute ? calculatePoints(existingRoute.grade, existing.style as any) : existing.points
-          if (pts > existingPts) bestPerRoute.set(routeKey, a)
+        const existing = firstPerRoute.get(routeKey)
+        if (!existing || a.date < existing.date) {
+          firstPerRoute.set(routeKey, a)
         }
       }
-      const uniqueAscents = [...bestPerRoute.values()]
+      const uniqueAscents = [...firstPerRoute.values()]
 
       // Recalculate points locally from route grades (authoritative)
       const points = uniqueAscents.map((a) => {

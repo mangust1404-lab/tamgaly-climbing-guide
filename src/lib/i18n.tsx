@@ -236,6 +236,7 @@ const translations = {
   'profile.saved': { ru: 'Пролаз сохранён!', en: 'Ascent saved!', kk: 'Өрмелеу сақталды!' },
   'profile.updateAscent': { ru: 'Обновить пролаз', en: 'Update ascent', kk: 'Өрмелеуді жаңарту' },
   'profile.duplicateScored': { ru: 'Этот маршрут уже пролезен (онсайт/флеш/редпоинт). Можно добавить только топроуп или попытку.', en: 'This route already has a scored ascent. You can only add toprope or attempt.', kk: 'Бұл маршрутта бағаланған өрмелеу бар. Тек топроуп немесе әрекет қосуға болады.' },
+  'profile.repeatAscent': { ru: 'Этот маршрут уже пролезен. Пролаз будет записан в историю, но баллы не начислятся (за маршрут засчитан первый пролаз).', en: 'This route is already logged. Ascent will be saved to history but no points awarded (first ascent already counted).', kk: 'Бұл маршрут тіркелген. Өрмелеу тарихқа сақталады, бірақ ұпай берілмейді (бірінші өрмелеу есептелінді).' },
   'profile.ascentHistory': { ru: 'История пролазов', en: 'Ascent history', kk: 'Өрмелеу тарихы' },
   'profile.year': { ru: 'Год', en: 'Year', kk: 'Жыл' },
   'profile.projects': { ru: 'Проекты', en: 'Projects', kk: 'Жобалар' },

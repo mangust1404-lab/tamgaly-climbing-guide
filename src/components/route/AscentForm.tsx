@@ -44,8 +44,8 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
     return myAscents.some(a => a.userId === user.id && SCORED_STYLES.includes(a.style))
   }, [myAscents, user])
 
-  const isBlocked = SCORED_STYLES.includes(style) && hasScoredAscent
-  const points = isBlocked ? 0 : calculatePoints(route.grade, style)
+  const isRepeatScored = SCORED_STYLES.includes(style) && hasScoredAscent
+  const points = isRepeatScored ? 0 : (SCORED_STYLES.includes(style) ? calculatePoints(route.grade, style) : 0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -195,15 +195,15 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
           />
         </div>
 
-        {/* Duplicate warning */}
-        {isBlocked && (
-          <div className="text-center text-xs text-red-600 bg-red-50 rounded-lg p-2 mb-4">
-            {t('profile.duplicateScored')}
+        {/* Repeat info (not blocking) */}
+        {isRepeatScored && (
+          <div className="text-center text-xs text-gray-600 bg-gray-50 rounded-lg p-2 mb-4">
+            {t('profile.repeatAscent')}
           </div>
         )}
 
         {/* Points preview */}
-        {points > 0 && !isBlocked && (
+        {points > 0 && (
           <div className="text-center text-sm text-blue-600 font-medium mb-4">
             +{points} {t('route.points')}
           </div>
@@ -211,7 +211,7 @@ export function AscentForm({ route, onClose, onSaved }: AscentFormProps) {
 
         <button
           type="submit"
-          disabled={saving || isBlocked}
+          disabled={saving}
           className="w-full bg-green-600 text-white rounded-lg py-3 font-medium disabled:opacity-50"
         >
           {saving ? t('saving') : t('save')}

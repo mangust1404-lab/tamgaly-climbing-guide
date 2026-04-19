@@ -105,13 +105,19 @@ export function ProfilePage() {
     })
     const routeMap = new Map(routes.map((r) => [r.id, r]))
     const completed = myAscents.filter((a) => a.style !== 'attempt')
-    // Recalculate points: only scored styles (onsight/flash/redpoint) get points
-    const scoredPoints = completed
-      .filter(a => SCORED_STYLES.includes(a.style))
-      .map(a => {
-        const route = routeMap.get(a.routeId)
-        return route ? calculatePoints(route.grade, a.style as any) : 0
-      })
+    // Points: only FIRST scored ascent per route counts (repeats give 0 points)
+    const firstScoredPerRoute = new Map<string, typeof completed[number]>()
+    for (const a of completed) {
+      if (!SCORED_STYLES.includes(a.style)) continue
+      const route = routeMap.get(a.routeId)
+      const key = route?.name || a.routeId
+      const existing = firstScoredPerRoute.get(key)
+      if (!existing || a.date < existing.date) firstScoredPerRoute.set(key, a)
+    }
+    const scoredPoints = [...firstScoredPerRoute.values()].map(a => {
+      const route = routeMap.get(a.routeId)
+      return route ? calculatePoints(route.grade, a.style as any) : 0
+    })
     const totalScore = calculateTotalScore(scoredPoints)
 
     // Best grade
@@ -244,15 +250,11 @@ export function ProfilePage() {
   const handleSaveAscent = async () => {
     if (!selectedRoute || saving) return
 
-    // Prevent duplicate scored ascents on same route
-    if (SCORED_STYLES.includes(style) && hasScoredAscent) {
-      alert(t('profile.duplicateScored'))
-      return
-    }
-
     setSaving(true)
     const now = new Date().toISOString()
-    const points = SCORED_STYLES.includes(style) ? calculatePoints(selectedRoute.grade, style as any) : 0
+    // Only award points for FIRST scored ascent of a route; repeats count for stats but give 0 points
+    const isRepeat = SCORED_STYLES.includes(style) && hasScoredAscent
+    const points = (SCORED_STYLES.includes(style) && !isRepeat) ? calculatePoints(selectedRoute.grade, style as any) : 0
 
     try {
       if (editingAscent) {
@@ -813,17 +815,17 @@ export function ProfilePage() {
                 />
               </div>
 
-              {/* Duplicate warning */}
+              {/* Repeat info (not blocking) */}
               {SCORED_STYLES.includes(style) && hasScoredAscent && (
-                <div className="bg-red-50 text-red-600 text-xs rounded-lg px-3 py-2 mb-3">
-                  {t('profile.duplicateScored')}
+                <div className="bg-gray-50 text-gray-600 text-xs rounded-lg px-3 py-2 mb-3">
+                  {t('profile.repeatAscent')}
                 </div>
               )}
 
               {/* Save */}
               <button
                 onClick={handleSaveAscent}
-                disabled={saving || (SCORED_STYLES.includes(style) && hasScoredAscent)}
+                disabled={saving}
                 className="w-full bg-green-600 text-white rounded-lg py-2.5 font-medium disabled:opacity-50"
               >
                 {saving ? t('saving') : editingAscent ? t('profile.updateAscent') : t('save')}
