@@ -5,6 +5,7 @@ import { db } from '../lib/db/schema'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 import { TranslatedName } from '../components/ui/TranslatedName'
+import { isAdminLoggedIn, adminFetch } from '../lib/adminAuth'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -149,6 +150,12 @@ function PostCard({ post, isOwner, sectorMap, td, t, onZoom, onChange, userId }:
   onZoom: (url: string) => void; onChange: () => void; userId?: string
 }) {
   const sector = post.sectorId ? sectorMap.get(post.sectorId) : null
+  const isAdmin = isAdminLoggedIn()
+  const [editing, setEditing] = useState(false)
+  const [eTitle, setETitle] = useState(post.title)
+  const [eDesc, setEDesc] = useState(post.description || '')
+  const [ePrice, setEPrice] = useState(post.price?.toString() || '')
+  const [eEventDate, setEEventDate] = useState(post.eventDate || '')
 
   const close = async () => {
     await fetch(`${API_BASE}/posts/${post.id}`, {
@@ -168,6 +175,38 @@ function PostCard({ post, isOwner, sectorMap, td, t, onZoom, onChange, userId }:
     if (!confirm(t('board.confirmDelete'))) return
     await fetch(`${API_BASE}/posts/${post.id}?authorId=${userId}`, { method: 'DELETE' }).catch(() => {})
     onChange()
+  }
+  const adminRemove = async () => {
+    if (!confirm(t('board.confirmAdminDelete'))) return
+    await adminFetch(`${API_BASE}/posts/${post.id}`, { method: 'DELETE' }).catch(() => {})
+    onChange()
+  }
+  const saveEdit = async () => {
+    await fetch(`${API_BASE}/posts/${post.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        authorId: userId, title: eTitle.trim(),
+        description: eDesc.trim() || null,
+        price: ePrice ? parseInt(ePrice) : null,
+        eventDate: eEventDate || null,
+      }),
+    }).catch(() => {})
+    setEditing(false); onChange()
+  }
+
+  if (editing && isOwner) {
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+        <input value={eTitle} onChange={e => setETitle(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" placeholder={t('board.fieldTitle')} />
+        <textarea value={eDesc} onChange={e => setEDesc(e.target.value)} rows={3} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm resize-none" placeholder={t('board.fieldDescription')} />
+        {post.type === 'gear' && <input type="number" value={ePrice} onChange={e => setEPrice(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" placeholder={t('board.fieldPrice')} />}
+        {(post.type === 'partner' || post.type === 'ride') && <input type="date" value={eEventDate} onChange={e => setEEventDate(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />}
+        <div className="flex gap-2">
+          <button onClick={saveEdit} disabled={!eTitle.trim()} className="flex-1 bg-blue-600 text-white rounded py-1.5 text-xs font-medium disabled:opacity-50">{t('save')}</button>
+          <button onClick={() => setEditing(false)} className="bg-gray-200 text-gray-600 rounded px-3 text-xs">{t('cancel')}</button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -260,11 +299,20 @@ function PostCard({ post, isOwner, sectorMap, td, t, onZoom, onChange, userId }:
 
       {/* Owner actions */}
       {isOwner && (
-        <div className="flex gap-2 text-xs">
+        <div className="flex gap-3 text-xs mt-2">
+          <button onClick={() => setEditing(true)} className="text-blue-600">{t('board.edit')}</button>
           {post.status === 'active'
             ? <button onClick={close} className="text-gray-500">{t('board.close')}</button>
             : <button onClick={reopen} className="text-blue-600">{t('board.reopen')}</button>}
           <button onClick={remove} className="text-red-500 ml-auto">{t('board.delete')}</button>
+        </div>
+      )}
+
+      {/* Admin actions (visible to admin on any post) */}
+      {!isOwner && isAdmin && (
+        <div className="flex gap-3 text-xs mt-2 pt-2 border-t border-gray-100">
+          <span className="text-gray-400">🛡 {t('board.adminTools')}</span>
+          <button onClick={adminRemove} className="text-red-500 ml-auto">{t('board.delete')}</button>
         </div>
       )}
     </div>
@@ -345,8 +393,8 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
-      <div className="bg-white w-full rounded-t-2xl p-4 pb-8 animate-slide-up max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-end" style={{ paddingBottom: '4rem' }}>
+      <div className="bg-white w-full rounded-t-2xl p-4 pb-6 animate-slide-up max-h-[80vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-lg font-bold">
             {TYPES.find(x => x.value === type)?.emoji} {t(`board.create_${type}` as any)}

@@ -136,21 +136,34 @@ postsRouter.post('/', async (c) => {
   return c.json({ status: 'created', id })
 })
 
-// Update own post status (close/reopen)
+// Update post (status, title, description, type-specific fields) — author or admin
 postsRouter.patch('/:id', async (c) => {
   const db = getDb()
   const body = await c.req.json()
-  const { authorId, status } = body
-  if (!authorId) return c.json({ error: 'authorId required' }, 400)
+  const { authorId, ...patch } = body
+  const adminToken = c.req.header('X-Admin-Token')
+  const isAdmin = adminToken && adminToken === (process.env.ADMIN_PASSWORD || 'tamgaly2024')
+  if (!authorId && !isAdmin) return c.json({ error: 'authorId required' }, 400)
 
   const post = db.prepare('SELECT author_id FROM post WHERE id = ?').get(c.req.param('id')) as any
   if (!post) return c.json({ error: 'not found' }, 404)
-  if (post.author_id !== authorId) return c.json({ error: 'forbidden' }, 403)
+  if (!isAdmin && post.author_id !== authorId) return c.json({ error: 'forbidden' }, 403)
 
+  const allowed = ['status', 'title', 'description', 'price', 'currency', 'event_date',
+                   'sector_id', 'route_id', 'from_location', 'to_location', 'seats',
+                   'grade_min', 'grade_max']
+  const camelToSnake: Record<string, string> = {
+    eventDate: 'event_date', sectorId: 'sector_id', routeId: 'route_id',
+    fromLocation: 'from_location', toLocation: 'to_location',
+    gradeMin: 'grade_min', gradeMax: 'grade_max',
+  }
   const fields: string[] = []
   const params: unknown[] = []
-  if (status && ['active', 'closed'].includes(status)) {
-    fields.push('status = ?'); params.push(status)
+  for (const [k, v] of Object.entries(patch)) {
+    const col = camelToSnake[k] || k
+    if (!allowed.includes(col)) continue
+    if (col === 'status' && !['active', 'closed'].includes(v as string)) continue
+    fields.push(`${col} = ?`); params.push(v ?? null)
   }
   if (fields.length === 0) return c.json({ status: 'no changes' })
   fields.push('updated_at = ?'); params.push(new Date().toISOString())
@@ -159,14 +172,18 @@ postsRouter.patch('/:id', async (c) => {
   return c.json({ status: 'ok' })
 })
 
-// Delete own post
+// Delete post — author or admin (X-Admin-Token)
 postsRouter.delete('/:id', async (c) => {
   const db = getDb()
+  const adminToken = c.req.header('X-Admin-Token')
+  const isAdmin = adminToken && adminToken === (process.env.ADMIN_PASSWORD || 'tamgaly2024')
   const authorId = c.req.query('authorId')
-  if (!authorId) return c.json({ error: 'authorId required' }, 400)
-  const post = db.prepare('SELECT author_id FROM post WHERE id = ?').get(c.req.param('id')) as any
+  const post = db.prepare('SELECT author_id, photos FROM post WHERE id = ?').get(c.req.param('id')) as any
   if (!post) return c.json({ error: 'not found' }, 404)
-  if (post.author_id !== authorId) return c.json({ error: 'forbidden' }, 403)
+  if (!isAdmin) {
+    if (!authorId) return c.json({ error: 'authorId required' }, 400)
+    if (post.author_id !== authorId) return c.json({ error: 'forbidden' }, 403)
+  }
   db.prepare('DELETE FROM post WHERE id = ?').run(c.req.param('id'))
-  return c.json({ status: 'deleted' })
+  return c.json({ status: 'deleted', byAdmin: !!isAdmin })
 })
