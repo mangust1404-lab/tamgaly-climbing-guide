@@ -57,6 +57,8 @@ const translations = {
   'board.loginRequired': { ru: 'Войдите чтобы создать объявление.', en: 'Sign in to post.', kk: 'Хабарландыру жасау үшін кіріңіз.' },
   'board.goToProfile': { ru: 'В профиль', en: 'To profile', kk: 'Профильге' },
   'board.fieldTitle': { ru: 'Заголовок', en: 'Title', kk: 'Тақырып' },
+  'board.fieldTitleOptional': { ru: 'Заголовок (необязательно — будет создан автоматически)', en: 'Title (optional — auto-generated)', kk: 'Тақырып (міндетті емес)' },
+  'board.needContent': { ru: 'Заполните описание или поля ниже', en: 'Fill in description or fields below', kk: 'Сипаттаманы немесе төмендегі өрістерді толтырыңыз' },
   'board.fieldDescription': { ru: 'Описание', en: 'Description', kk: 'Сипаттама' },
   'board.fieldPrice': { ru: 'Цена', en: 'Price', kk: 'Бағасы' },
   'board.fieldAnySector': { ru: 'Любой сектор', en: 'Any sector', kk: 'Кез келген сектор' },

@@ -421,13 +421,42 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
     setPhotos(p => [...p, dataUrl])
   }
 
+  const generateTitle = () => {
+    if (type === 'gear') {
+      const desc = description.trim()
+      if (desc) return desc.split('\n')[0].slice(0, 60)
+      if (price) return `${t('board.gear')} · ${price} ₸`
+      return t('board.gear')
+    }
+    if (type === 'partner') {
+      const parts: string[] = ['🤝']
+      if (eventDate) parts.push(eventDate)
+      if (gradeMin || gradeMax) parts.push(`${gradeMin || '?'}–${gradeMax || '?'}`)
+      return parts.length > 1 ? parts.join(' · ') : t('board.create_partner')
+    }
+    if (type === 'ride') {
+      const icon = rideRole === 'driver' ? '🚙' : '🧳'
+      const parts: string[] = [icon]
+      if (fromLoc || toLoc) parts.push(`${fromLoc || '?'} → ${toLoc || '?'}`)
+      if (eventDate) parts.push(eventDate)
+      return parts.length > 1 ? parts.join(' · ') : t('board.create_ride')
+    }
+    return ''
+  }
+
   const submit = async () => {
-    if (!title.trim() || saving) return
+    if (saving) return
+    const finalTitle = title.trim() || generateTitle()
+    const finalDesc = description.trim()
+    if (!finalTitle && !finalDesc) {
+      alert(t('board.needContent'))
+      return
+    }
     setSaving(true)
     const payload: any = {
       type, authorId: userId,
-      title: title.trim(),
-      description: description.trim() || null,
+      title: finalTitle || finalDesc.slice(0, 60),
+      description: finalDesc || null,
       photos,
     }
     if (type === 'gear') {
@@ -466,17 +495,17 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
           <button onClick={onClose} className="text-gray-400 text-2xl leading-none">&times;</button>
         </div>
 
-        <input
-          value={title} onChange={e => setTitle(e.target.value)}
-          placeholder={t('board.fieldTitle')}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2"
-        />
-
         <textarea
           value={description} onChange={e => setDescription(e.target.value)}
           rows={3}
           placeholder={t('board.fieldDescription')}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 resize-none"
+        />
+
+        <input
+          value={title} onChange={e => setTitle(e.target.value)}
+          placeholder={t('board.fieldTitleOptional')}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs mb-2 text-gray-600"
         />
 
         {type === 'gear' && (
@@ -581,7 +610,7 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
 
         <button
           onClick={submit}
-          disabled={!title.trim() || saving}
+          disabled={saving}
           className="w-full bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-50"
         >
           {saving ? t('saving') : t('board.publish')}
