@@ -10,6 +10,7 @@ import { sectorsRouter } from './routes/sectors'
 import { routesRouter } from './routes/routes'
 import { syncRouter } from './routes/sync'
 import { downloadRouter } from './routes/download'
+import { postsRouter } from './routes/posts'
 import { exportTopoDataFromDb } from './db/export-topo-data'
 import { startBotPolling } from './telegram'
 import { getDb } from './db/connection'
@@ -404,6 +405,7 @@ app.route('/api/sectors', sectorsRouter)
 app.route('/api/routes', routesRouter)
 app.route('/api/sync', syncRouter)
 app.route('/api/download', downloadRouter)
+app.route('/api/posts', postsRouter)
 
 const port = parseInt(process.env.PORT || '3001')
 console.log(`Server running on http://localhost:${port}`)

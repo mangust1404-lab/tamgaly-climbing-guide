@@ -271,6 +271,34 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_friendship_friend ON friendship(friend_id);
 `)
 
+// Posts table (board: gear/partner/ride)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS post (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    photos TEXT,
+    price INTEGER,
+    currency TEXT,
+    event_date TEXT,
+    sector_id TEXT,
+    route_id TEXT,
+    from_location TEXT,
+    to_location TEXT,
+    seats INTEGER,
+    grade_min TEXT,
+    grade_max TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_post_type ON post(type, status);
+  CREATE INDEX IF NOT EXISTS idx_post_author ON post(author_id);
+  CREATE INDEX IF NOT EXISTS idx_post_created ON post(created_at DESC);
+`)
+
 // User column migrations (PIN protection)
 const userCols = db.prepare("PRAGMA table_info(app_user)").all() as { name: string }[]
 const userColNames = new Set(userCols.map(c => c.name))

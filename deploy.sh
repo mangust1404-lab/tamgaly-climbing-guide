@@ -60,6 +60,7 @@ deploy_server() {
       -v /var/www/tamgaly/data:/var/www/tamgaly/data \
       -v /var/www/tamgaly/topo-images:/var/www/tamgaly/topo-images \
       -v /var/www/tamgaly/avatars:/var/www/tamgaly/avatars \
+      -v /var/www/tamgaly/posts:/var/www/tamgaly/posts \
       -e PORT=3001 \
       -e ADMIN_PASSWORD="${ADMIN_PASSWORD:-tamgaly2024}" \
       -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-8285918522:AAE8rGYFTJUWa2lMf3t-mFjL-rE1rPTNTCw}" \

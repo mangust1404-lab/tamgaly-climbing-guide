@@ -16,6 +16,7 @@ export function Layout() {
   const bottomNav = [
     { to: '/leaderboard', label: t('nav.leaderboard'), icon: '🏆' },
     { to: '/activity', label: t('nav.activity'), icon: '📡' },
+    { to: '/board', label: t('nav.board'), icon: '📋' },
     { to: '/map', label: t('nav.map'), icon: '🗺' },
     { to: '/', label: t('nav.home'), icon: '🏔' },
   ]
@@ -101,12 +102,12 @@ export function Layout() {
             to={item.to}
             end={item.to === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center px-3 py-1 text-xs transition-colors ${
+              `flex flex-col items-center px-2 py-1 text-xs transition-colors ${
                 isActive ? 'text-blue-600' : 'text-gray-500'
               }`
             }
           >
-            <span className="text-lg">{item.icon}</span>
+            <span className="text-base">{item.icon}</span>
             <span className="text-[10px]">{item.label}</span>
           </NavLink>
         ))}
