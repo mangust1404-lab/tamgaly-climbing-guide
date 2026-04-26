@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { getDb } from '../db/connection'
-import { notifyAdmin, notifyChannel } from '../telegram'
+import { notifyAdmin, notifyChannel, notifyChannelPhotos } from '../telegram'
 
 export const postsRouter = new Hono()
 
@@ -153,7 +153,15 @@ postsRouter.post('/', async (c) => {
   if (meta.length > 0) channelLines.push(meta.join(' · '))
   channelLines.push(`\n<i>От: ${author?.display_name || 'Anonymous'}</i>`)
   channelLines.push(`<a href="https://tamgalyclimb.alexanderlobanov.de/install">📱 Открыть в приложении</a>`)
-  notifyChannel(channelLines.join('\n'), { disablePreview: true }).catch(() => {})
+  const channelText = channelLines.join('\n')
+
+  // If post has photos, send as media group with caption; otherwise text only
+  if (photoUrls.length > 0) {
+    const fullPhotoUrls = photoUrls.map(p => p.startsWith('http') ? p : `https://tamgalyclimb.alexanderlobanov.de${p}`)
+    notifyChannelPhotos(fullPhotoUrls, channelText).catch(() => {})
+  } else {
+    notifyChannel(channelText, { disablePreview: true }).catch(() => {})
+  }
 
   return c.json({ status: 'created', id })
 })

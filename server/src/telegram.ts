@@ -42,6 +42,39 @@ export async function notifyChannel(text: string, options?: { disablePreview?: b
   }
 }
 
+/** Post photos with caption to the channel. photos = absolute URLs. */
+export async function notifyChannelPhotos(photos: string[], caption: string): Promise<void> {
+  if (!BOT_TOKEN || !CHANNEL_ID || photos.length === 0) return
+  try {
+    if (photos.length === 1) {
+      await fetch(`${API}/sendPhoto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: CHANNEL_ID,
+          photo: photos[0],
+          caption,
+          parse_mode: 'HTML',
+        }),
+      })
+    } else {
+      // Telegram limit: 10 photos per media group, caption only on first
+      const media = photos.slice(0, 10).map((url, i) => ({
+        type: 'photo',
+        media: url,
+        ...(i === 0 ? { caption, parse_mode: 'HTML' } : {}),
+      }))
+      await fetch(`${API}/sendMediaGroup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: CHANNEL_ID, media }),
+      })
+    }
+  } catch (err) {
+    console.error('Telegram channel photos error:', err)
+  }
+}
+
 /** Send moderation alert */
 export async function notifyModeration(userName: string, type: string, sectorId: string | null, comment: string | null): Promise<void> {
   const typeNames: Record<string, string> = {
