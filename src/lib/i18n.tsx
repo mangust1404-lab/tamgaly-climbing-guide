@@ -53,6 +53,8 @@ const translations = {
   'board.confirmAdminDelete': { ru: 'Удалить чужое объявление как администратор?', en: 'Delete this post as admin?', kk: 'Әкімші ретінде жою керек пе?' },
   'board.edit': { ru: 'Редактировать', en: 'Edit', kk: 'Өзгерту' },
   'board.adminTools': { ru: 'Админ:', en: 'Admin:', kk: 'Әкімші:' },
+  'board.enterAdminPw': { ru: 'Введи пароль администратора', en: 'Enter admin password', kk: 'Әкімші паролін енгізіңіз' },
+  'board.adminEnabled': { ru: 'Режим админа включён. Теперь можно удалять чужие объявления.', en: 'Admin mode enabled', kk: 'Әкімші режимі қосылды' },
   'board.openProfile': { ru: 'Открыть профиль', en: 'Open profile', kk: 'Профильді ашу' },
   'board.loginRequired': { ru: 'Войдите чтобы создать объявление.', en: 'Sign in to post.', kk: 'Хабарландыру жасау үшін кіріңіз.' },
   'board.goToProfile': { ru: 'В профиль', en: 'To profile', kk: 'Профильге' },

@@ -5,7 +5,7 @@ import { db } from '../lib/db/schema'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
 import { TranslatedName } from '../components/ui/TranslatedName'
-import { isAdminLoggedIn, adminFetch } from '../lib/adminAuth'
+import { isAdminLoggedIn, adminFetch, adminLogin } from '../lib/adminAuth'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -51,6 +51,7 @@ export function BoardPage() {
   const { user } = useUser()
   const [activeType, setActiveType] = useState<PostType>('gear')
   const [rideFilter, setRideFilter] = useState<'all' | 'driver' | 'passenger'>('all')
+  const [adminMode, setAdminMode] = useState(isAdminLoggedIn())
   const [counts, setCounts] = useState<Record<PostType, { fresh: number; active: number }>>({
     gear: { fresh: 0, active: 0 }, partner: { fresh: 0, active: 0 }, ride: { fresh: 0, active: 0 },
   })
@@ -113,14 +114,30 @@ export function BoardPage() {
     <div className="p-4 pt-12">
       <div className="flex items-baseline justify-between mb-3">
         <h1 className="text-2xl font-bold">{t('board.title')}</h1>
-        {user && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="bg-blue-600 text-white rounded-full px-3 py-1 text-xs font-medium"
-          >
-            + {t('board.create')}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!adminMode ? (
+            <button
+              onClick={async () => {
+                const pw = prompt(t('board.enterAdminPw'))
+                if (!pw) return
+                const r = await adminLogin(pw)
+                if (r.ok) { setAdminMode(true); alert(t('board.adminEnabled')) }
+                else alert(r.error || 'Wrong password')
+              }}
+              className="text-xs text-gray-400"
+            >🛡</button>
+          ) : (
+            <span className="text-xs text-red-500 font-medium">🛡 admin</span>
+          )}
+          {user && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="bg-blue-600 text-white rounded-full px-3 py-1 text-xs font-medium"
+            >
+              + {t('board.create')}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Type tabs */}
@@ -189,12 +206,12 @@ export function BoardPage() {
             <div className="mb-4">
               <h3 className="text-xs font-semibold text-gray-500 mb-2">{t('board.yours')}</h3>
               <div className="space-y-2">
-                {myPosts.map(p => <PostCard key={p.id} post={p} isOwner sectorMap={sectorMap} td={td} t={t} onZoom={setZoomed} onChange={loadPosts} userId={user?.id} />)}
+                {myPosts.map(p => <PostCard key={p.id} post={p} isOwner isAdmin={adminMode} sectorMap={sectorMap} td={td} t={t} onZoom={setZoomed} onChange={loadPosts} userId={user?.id} />)}
               </div>
             </div>
           )}
           <div className="space-y-2">
-            {otherPosts.map(p => <PostCard key={p.id} post={p} sectorMap={sectorMap} td={td} t={t} onZoom={setZoomed} onChange={loadPosts} userId={user?.id} />)}
+            {otherPosts.map(p => <PostCard key={p.id} post={p} isAdmin={adminMode} sectorMap={sectorMap} td={td} t={t} onZoom={setZoomed} onChange={loadPosts} userId={user?.id} />)}
           </div>
         </>
       )}
@@ -217,13 +234,12 @@ export function BoardPage() {
   )
 }
 
-function PostCard({ post, isOwner, sectorMap, td, t, onZoom, onChange, userId }: {
-  post: Post; isOwner?: boolean; sectorMap: Map<string, any>;
+function PostCard({ post, isOwner, isAdmin, sectorMap, td, t, onZoom, onChange, userId }: {
+  post: Post; isOwner?: boolean; isAdmin?: boolean; sectorMap: Map<string, any>;
   td: (s: string) => string; t: (k: any) => string;
   onZoom: (url: string) => void; onChange: () => void; userId?: string
 }) {
   const sector = post.sectorId ? sectorMap.get(post.sectorId) : null
-  const isAdmin = isAdminLoggedIn()
   const [editing, setEditing] = useState(false)
   const [eTitle, setETitle] = useState(post.title)
   const [eDesc, setEDesc] = useState(post.description || '')

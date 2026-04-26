@@ -121,14 +121,21 @@ export function ProfilePage() {
   const [findResults, setFindResults] = useState<Array<{ id: string; display_name: string; avatar_url: string | null }>>([])
   const [findStatus, setFindStatus] = useState<Record<string, 'sent' | 'friends' | 'incoming' | 'outgoing' | 'none'>>({})
 
-  const searchUsers = async () => {
-    if (!findQuery.trim() || !user?.id) return
+  const searchUsers = async (q?: string) => {
+    if (!user?.id) return
     const API_BASE = import.meta.env.VITE_API_URL || '/api'
     try {
       const r = await fetch(`${API_BASE}/sync/users`)
       const all: any[] = await r.json()
-      const q = findQuery.trim().toLowerCase()
-      const matches = all.filter(u => u.id !== user.id && u.display_name.toLowerCase().includes(q)).slice(0, 20)
+      const query = (q ?? findQuery).trim().toLowerCase()
+      let matches = all.filter(u => u.id !== user.id)
+      if (query) matches = matches.filter(u => u.display_name.toLowerCase().includes(query))
+      // Sort: with avatars first, then alphabetic
+      matches.sort((a, b) => {
+        if (!!a.avatar_url !== !!b.avatar_url) return a.avatar_url ? -1 : 1
+        return a.display_name.localeCompare(b.display_name)
+      })
+      matches = matches.slice(0, 50)
       setFindResults(matches)
       // Get friend status for each
       const statuses: Record<string, any> = {}
@@ -782,7 +789,7 @@ export function ProfilePage() {
             {t('friend.title')}{friends.length > 0 ? ` (${friends.length})` : ''}
           </h3>
           <button
-            onClick={() => { setFindFriendOpen(true); setFindQuery(''); setFindResults([]) }}
+            onClick={() => { setFindFriendOpen(true); setFindQuery(''); setFindResults([]); setTimeout(() => searchUsers(''), 50) }}
             className="text-xs text-blue-600 font-medium"
           >+ {t('friend.find')}</button>
         </div>
@@ -811,8 +818,8 @@ export function ProfilePage() {
 
       {/* Find friend modal */}
       {findFriendOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setFindFriendOpen(false)}>
-          <div className="bg-white w-full rounded-t-2xl p-4 pb-6 animate-slide-up max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-end" onClick={() => setFindFriendOpen(false)}>
+          <div className="bg-white w-full rounded-t-2xl p-4 animate-slide-up max-h-[85vh] overflow-y-auto" style={{ paddingBottom: '5rem' }} onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-lg font-bold">{t('friend.findTitle')}</h3>
               <button onClick={() => setFindFriendOpen(false)} className="text-gray-400 text-2xl leading-none">&times;</button>
@@ -821,16 +828,12 @@ export function ProfilePage() {
               <input
                 autoFocus
                 value={findQuery}
-                onChange={e => setFindQuery(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && searchUsers()}
+                onChange={e => { setFindQuery(e.target.value); searchUsers(e.target.value) }}
                 placeholder={t('friend.findPlaceholder')}
                 className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
-              <button onClick={searchUsers} disabled={!findQuery.trim()} className="bg-blue-600 text-white rounded-lg px-3 text-sm font-medium disabled:opacity-50">
-                {t('friend.search')}
-              </button>
             </div>
-            {findResults.length === 0 && findQuery && (
+            {findResults.length === 0 && (
               <p className="text-xs text-gray-400 text-center py-4">{t('friend.noResults')}</p>
             )}
             <div className="space-y-2">
