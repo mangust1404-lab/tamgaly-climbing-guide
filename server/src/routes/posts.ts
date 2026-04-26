@@ -2,11 +2,43 @@ import { Hono } from 'hono'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { getDb } from '../db/connection'
-import { notifyAdmin, notifyChannel, notifyChannelPhotos } from '../telegram'
+import { notifyAdmin, notifyChannelText, notifyChannelPhotos, editChannelMessage, deleteChannelMessages } from '../telegram'
 
 export const postsRouter = new Hono()
 
 const POSTS_DIR = '/var/www/tamgaly/posts'
+
+/** Build channel post text from post fields */
+function buildChannelText(post: any, authorName: string): string {
+  const typeNames: Record<string, string> = { gear: '🛒 Барахолка', partner: '🤝 Напарник', ride: '🚗 Попутчик' }
+  const subtypeNames: Record<string, string> = {
+    'gear:rent': '— аренда',
+    'partner:instructor': '— тренер/инструктор',
+  }
+  const tags: Record<string, string> = { gear: '#барахолка', partner: '#напарник', ride: '#попутчик' }
+  const subtypeTags: Record<string, string> = {
+    'gear:rent': '#аренда',
+    'partner:instructor': '#тренер',
+  }
+  const subKey = post.subtype ? `${post.type}:${post.subtype}` : ''
+  const lines: string[] = []
+  const header = `<b>${typeNames[post.type] || post.type}${subKey && subtypeNames[subKey] ? ' ' + subtypeNames[subKey] : ''}</b>`
+  const tagLine = `${tags[post.type] || ''}${subKey && subtypeTags[subKey] ? ' ' + subtypeTags[subKey] : ''}`
+  lines.push(header + ' ' + tagLine)
+  if (post.description && post.description.trim()) lines.push(post.description.trim())
+  const meta: string[] = []
+  if (post.type === 'gear' && post.price) meta.push(`💰 ${post.price} ${post.currency || '₸'}`)
+  if (post.type === 'partner' && post.event_date) meta.push(`📅 ${post.event_date}`)
+  if (post.type === 'partner' && (post.grade_min || post.grade_max)) meta.push(`📊 ${post.grade_min || '?'}–${post.grade_max || '?'}`)
+  if (post.type === 'ride' && post.ride_role) meta.push(post.ride_role === 'driver' ? '🚙 за рулём' : '🧳 ищу машину')
+  if (post.type === 'ride' && post.event_date) meta.push(`📅 ${post.event_date}`)
+  if (post.type === 'ride' && (post.from_location || post.to_location)) meta.push(`🗺 ${post.from_location || '?'} → ${post.to_location || '?'}`)
+  if (post.type === 'ride' && post.seats) meta.push(`💺 ${post.seats}`)
+  if (meta.length > 0) lines.push(meta.join(' · '))
+  lines.push(`\n<i>От: ${authorName || 'Anonymous'}</i>`)
+  lines.push(`<a href="https://tamgalyclimb.alexanderlobanov.de/install">📱 Открыть в приложении</a>`)
+  return lines.join('\n')
+}
 
 function savePhoto(dataUrl: string, postId: string, idx: number): string {
   mkdirSync(POSTS_DIR, { recursive: true })
@@ -57,6 +89,7 @@ postsRouter.get('/', async (c) => {
     gradeMin: r.grade_min,
     gradeMax: r.grade_max,
     rideRole: r.ride_role,
+    subtype: r.subtype,
     status: r.status,
     createdAt: r.created_at,
   }))
@@ -82,6 +115,7 @@ postsRouter.get('/:id', async (c) => {
     fromLocation: r.from_location, toLocation: r.to_location,
     seats: r.seats, gradeMin: r.grade_min, gradeMax: r.grade_max,
     rideRole: r.ride_role,
+    subtype: r.subtype,
     status: r.status, createdAt: r.created_at,
   })
 })
@@ -93,7 +127,7 @@ postsRouter.post('/', async (c) => {
   const {
     type, authorId, title, description, photos, // photos is array of base64 data URLs
     price, currency, eventDate, sectorId, routeId,
-    fromLocation, toLocation, seats, gradeMin, gradeMax, rideRole,
+    fromLocation, toLocation, seats, gradeMin, gradeMax, rideRole, subtype,
   } = body
 
   if (!type || !authorId || !title) return c.json({ error: 'type, authorId, title required' }, 400)
@@ -118,8 +152,8 @@ postsRouter.post('/', async (c) => {
   db.prepare(`
     INSERT INTO post (id, type, author_id, title, description, photos, price, currency,
                       event_date, sector_id, route_id, from_location, to_location, seats,
-                      grade_min, grade_max, ride_role, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+                      grade_min, grade_max, ride_role, subtype, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
   `).run(
     id, type, authorId, title, description || null,
     photoUrls.length > 0 ? JSON.stringify(photoUrls) : null,
@@ -128,40 +162,30 @@ postsRouter.post('/', async (c) => {
     fromLocation || null, toLocation || null, seats || null,
     gradeMin || null, gradeMax || null,
     type === 'ride' ? (rideRole || null) : null,
+    subtype || null,
     now, now,
   )
 
-  // Get author name for channel post (no admin DM — posts go to public channel only)
+  // Get author + post for channel
   const author = db.prepare('SELECT display_name FROM app_user WHERE id = ?').get(authorId) as any
-  const typeNames: Record<string, string> = { gear: '🛒 Барахолка', partner: '🤝 Напарник', ride: '🚗 Попутчик' }
-
-  // Post to public channel — clean format with hashtags, no duplicate info
-  const tags: Record<string, string> = { gear: '#барахолка', partner: '#напарник', ride: '#попутчик' }
-  const channelLines: string[] = [`<b>${typeNames[type] || type}</b> ${tags[type] || ''}`]
-  // Show description only if user explicitly wrote it (not auto-generated title)
-  if (description && description.trim()) {
-    channelLines.push(description.trim())
-  }
-  const meta: string[] = []
-  if (type === 'gear' && price) meta.push(`💰 ${price} ${currency || '₸'}`)
-  if (type === 'partner' && eventDate) meta.push(`📅 ${eventDate}`)
-  if (type === 'partner' && (gradeMin || gradeMax)) meta.push(`📊 ${gradeMin || '?'}–${gradeMax || '?'}`)
-  if (type === 'ride' && rideRole) meta.push(rideRole === 'driver' ? '🚙 за рулём' : '🧳 ищу машину')
-  if (type === 'ride' && eventDate) meta.push(`📅 ${eventDate}`)
-  if (type === 'ride' && (fromLocation || toLocation)) meta.push(`🗺 ${fromLocation || '?'} → ${toLocation || '?'}`)
-  if (type === 'ride' && seats) meta.push(`💺 ${seats}`)
-  if (meta.length > 0) channelLines.push(meta.join(' · '))
-  channelLines.push(`\n<i>От: ${author?.display_name || 'Anonymous'}</i>`)
-  channelLines.push(`<a href="https://tamgalyclimb.alexanderlobanov.de/install">📱 Открыть в приложении</a>`)
-  const channelText = channelLines.join('\n')
+  const fullPost = db.prepare('SELECT * FROM post WHERE id = ?').get(id) as any
+  const channelText = buildChannelText(fullPost, author?.display_name)
 
   // If post has photos, send as media group with caption; otherwise text only
-  if (photoUrls.length > 0) {
-    const fullPhotoUrls = photoUrls.map(p => p.startsWith('http') ? p : `https://tamgalyclimb.alexanderlobanov.de${p}`)
-    notifyChannelPhotos(fullPhotoUrls, channelText).catch(() => {})
-  } else {
-    notifyChannel(channelText, { disablePreview: true }).catch(() => {})
-  }
+  ;(async () => {
+    let messageIds: number[] = []
+    if (photoUrls.length > 0) {
+      const fullPhotoUrls = photoUrls.map(p => p.startsWith('http') ? p : `https://tamgalyclimb.alexanderlobanov.de${p}`)
+      messageIds = await notifyChannelPhotos(fullPhotoUrls, channelText)
+    } else {
+      messageIds = await notifyChannelText(channelText, { disablePreview: true })
+    }
+    if (messageIds.length > 0) {
+      try {
+        getDb().prepare('UPDATE post SET tg_message_ids = ? WHERE id = ?').run(JSON.stringify(messageIds), id)
+      } catch {}
+    }
+  })().catch(() => {})
 
   return c.json({ status: 'created', id })
 })
@@ -181,7 +205,7 @@ postsRouter.patch('/:id', async (c) => {
 
   const allowed = ['status', 'title', 'description', 'price', 'currency', 'event_date',
                    'sector_id', 'route_id', 'from_location', 'to_location', 'seats',
-                   'grade_min', 'grade_max', 'ride_role']
+                   'grade_min', 'grade_max', 'ride_role', 'subtype']
   const camelToSnake: Record<string, string> = {
     eventDate: 'event_date', sectorId: 'sector_id', routeId: 'route_id',
     fromLocation: 'from_location', toLocation: 'to_location',
@@ -200,6 +224,19 @@ postsRouter.patch('/:id', async (c) => {
   fields.push('updated_at = ?'); params.push(new Date().toISOString())
   params.push(c.req.param('id'))
   db.prepare(`UPDATE post SET ${fields.join(', ')} WHERE id = ?`).run(...params)
+
+  // Sync to channel: edit caption/text of channel message(s)
+  ;(async () => {
+    const fresh = db.prepare('SELECT p.*, u.display_name as author_name FROM post p LEFT JOIN app_user u ON p.author_id = u.id WHERE p.id = ?').get(c.req.param('id')) as any
+    if (!fresh || !fresh.tg_message_ids) return
+    let ids: number[] = []
+    try { ids = JSON.parse(fresh.tg_message_ids) } catch { return }
+    if (ids.length === 0) return
+    const newText = buildChannelText(fresh, fresh.author_name)
+    const hasPhotos = fresh.photos && JSON.parse(fresh.photos).length > 0
+    await editChannelMessage(ids[0], newText, hasPhotos)
+  })().catch(() => {})
+
   return c.json({ status: 'ok' })
 })
 
@@ -209,12 +246,21 @@ postsRouter.delete('/:id', async (c) => {
   const adminToken = c.req.header('X-Admin-Token')
   const isAdmin = adminToken && adminToken === (process.env.ADMIN_PASSWORD || 'tamgaly2024')
   const authorId = c.req.query('authorId')
-  const post = db.prepare('SELECT author_id, photos FROM post WHERE id = ?').get(c.req.param('id')) as any
+  const post = db.prepare('SELECT author_id, photos, tg_message_ids FROM post WHERE id = ?').get(c.req.param('id')) as any
   if (!post) return c.json({ error: 'not found' }, 404)
   if (!isAdmin) {
     if (!authorId) return c.json({ error: 'authorId required' }, 400)
     if (post.author_id !== authorId) return c.json({ error: 'forbidden' }, 403)
   }
   db.prepare('DELETE FROM post WHERE id = ?').run(c.req.param('id'))
+
+  // Delete from channel too
+  if (post.tg_message_ids) {
+    try {
+      const ids = JSON.parse(post.tg_message_ids)
+      deleteChannelMessages(ids).catch(() => {})
+    } catch {}
+  }
+
   return c.json({ status: 'deleted', byAdmin: !!isAdmin })
 })

@@ -33,6 +33,7 @@ interface Post {
   gradeMin?: string | null
   gradeMax?: string | null
   rideRole?: 'driver' | 'passenger' | null
+  subtype?: string | null  // 'rent' for gear, 'instructor' for partner
   status: 'active' | 'closed'
   createdAt: string
 }
@@ -51,6 +52,8 @@ export function BoardPage() {
   const { user } = useUser()
   const [activeType, setActiveType] = useState<PostType>('gear')
   const [rideFilter, setRideFilter] = useState<'all' | 'driver' | 'passenger'>('all')
+  const [gearFilter, setGearFilter] = useState<'all' | 'sale' | 'rent'>('all')
+  const [partnerFilter, setPartnerFilter] = useState<'all' | 'partner' | 'instructor'>('all')
   const [adminMode, setAdminMode] = useState(isAdminLoggedIn())
   const [counts, setCounts] = useState<Record<PostType, { fresh: number; active: number }>>({
     gear: { fresh: 0, active: 0 }, partner: { fresh: 0, active: 0 }, ride: { fresh: 0, active: 0 },
@@ -104,9 +107,14 @@ export function BoardPage() {
     computeCounts(allActivePosts)
   }, [activeType])
 
-  const visiblePosts = activeType === 'ride' && rideFilter !== 'all'
-    ? posts.filter(p => p.rideRole === rideFilter)
-    : posts
+  let visiblePosts = posts
+  if (activeType === 'ride' && rideFilter !== 'all') visiblePosts = visiblePosts.filter(p => p.rideRole === rideFilter)
+  if (activeType === 'gear' && gearFilter !== 'all') {
+    visiblePosts = visiblePosts.filter(p => gearFilter === 'rent' ? p.subtype === 'rent' : (p.subtype !== 'rent'))
+  }
+  if (activeType === 'partner' && partnerFilter !== 'all') {
+    visiblePosts = visiblePosts.filter(p => partnerFilter === 'instructor' ? p.subtype === 'instructor' : (p.subtype !== 'instructor'))
+  }
   const myPosts = visiblePosts.filter(p => p.authorId === user?.id)
   const otherPosts = visiblePosts.filter(p => p.authorId !== user?.id)
 
@@ -168,20 +176,34 @@ export function BoardPage() {
         })}
       </div>
 
-      {/* Ride role sub-tabs */}
+      {/* Sub-tabs */}
+      {activeType === 'gear' && (
+        <div className="flex gap-1 mb-3">
+          {([['all', '🛒 Все'], ['sale', '💰 Продажа'], ['rent', '🔑 Аренда']] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setGearFilter(k)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium ${gearFilter === k ? 'bg-emerald-500 text-white' : 'bg-emerald-50 text-emerald-700'}`}
+            >{label}</button>
+          ))}
+        </div>
+      )}
+      {activeType === 'partner' && (
+        <div className="flex gap-1 mb-3">
+          {([['all', '🤝 Все'], ['partner', '🧗 Напарник'], ['instructor', '🎓 Тренер']] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setPartnerFilter(k)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium ${partnerFilter === k ? 'bg-purple-500 text-white' : 'bg-purple-50 text-purple-700'}`}
+            >{label}</button>
+          ))}
+        </div>
+      )}
       {activeType === 'ride' && (
-        <div className="flex gap-1 mb-3 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-1 mb-3">
           {([
             ['all', '🚗 ' + t('board.rideAll')],
             ['driver', '🚙 ' + t('board.rideDriver')],
             ['passenger', '🧳 ' + t('board.ridePassenger')],
           ] as const).map(([k, label]) => (
-            <button
-              key={k}
-              onClick={() => setRideFilter(k)}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                rideFilter === k ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-700'
-              }`}
+            <button key={k} onClick={() => setRideFilter(k)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium ${rideFilter === k ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-700'}`}
             >{label}</button>
           ))}
         </div>
@@ -336,6 +358,12 @@ function PostCard({ post, isOwner, isAdmin, sectorMap, td, t, onZoom, onChange, 
 
       {/* Type-specific info */}
       <div className="flex flex-wrap gap-2 text-xs text-gray-600 mb-2">
+        {post.type === 'gear' && post.subtype === 'rent' && (
+          <span className="bg-amber-100 text-amber-800 rounded px-1.5 py-0.5 font-medium">🔑 аренда</span>
+        )}
+        {post.type === 'partner' && post.subtype === 'instructor' && (
+          <span className="bg-pink-100 text-pink-800 rounded px-1.5 py-0.5 font-medium">🎓 тренер</span>
+        )}
         {post.type === 'gear' && post.price && (
           <span className="bg-green-50 text-green-700 rounded px-1.5 py-0.5 font-medium">
             {post.price} {post.currency || '₸'}
@@ -430,6 +458,8 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
   const [gradeMin, setGradeMin] = useState('')
   const [gradeMax, setGradeMax] = useState('')
   const [rideRole, setRideRole] = useState<'driver' | 'passenger'>('driver')
+  const [gearSubtype, setGearSubtype] = useState<'sale' | 'rent'>('sale')
+  const [partnerSubtype, setPartnerSubtype] = useState<'partner' | 'instructor'>('partner')
   const [photos, setPhotos] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
@@ -494,10 +524,12 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
       photos,
     }
     if (type === 'gear') {
+      payload.subtype = gearSubtype
       payload.price = price ? parseInt(price) : null
       payload.currency = '₸'
     }
     if (type === 'partner') {
+      payload.subtype = partnerSubtype
       payload.eventDate = eventDate || null
       payload.sectorId = sectorId || null
       payload.gradeMin = gradeMin || null
@@ -543,8 +575,20 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
         />
 
         {type === 'gear' && (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button type="button" onClick={() => setGearSubtype('sale')}
+                className={`py-2 rounded-lg text-xs font-medium ${gearSubtype === 'sale' ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >💰 Продажа</button>
+              <button type="button" onClick={() => setGearSubtype('rent')}
+                className={`py-2 rounded-lg text-xs font-medium ${gearSubtype === 'rent' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >🔑 Аренда</button>
+            </div>
+          </>
+        )}
+        {type === 'gear' && (
           <div className="mb-3">
-            <label className="text-xs text-gray-500 mb-1 block">{t('board.labelPrice')}</label>
+            <label className="text-xs text-gray-500 mb-1 block">{gearSubtype === 'rent' ? 'Цена аренды (за день)' : t('board.labelPrice')}</label>
             <div className="flex gap-2">
               <input
                 type="number" inputMode="numeric" value={price} onChange={e => setPrice(e.target.value)}
@@ -558,6 +602,14 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
 
         {type === 'partner' && (
           <>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <button type="button" onClick={() => setPartnerSubtype('partner')}
+                className={`py-2 rounded-lg text-xs font-medium ${partnerSubtype === 'partner' ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >🧗 Напарник</button>
+              <button type="button" onClick={() => setPartnerSubtype('instructor')}
+                className={`py-2 rounded-lg text-xs font-medium ${partnerSubtype === 'instructor' ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >🎓 Тренер/инструктор</button>
+            </div>
             <div className="mb-3">
               <label className="text-xs text-gray-500 mb-1 block">{t('board.labelDate')}</label>
               <input

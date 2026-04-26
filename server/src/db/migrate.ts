@@ -271,11 +271,13 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_friendship_friend ON friendship(friend_id);
 `)
 
-// Posts: ride_role column migration (driver/passenger)
+// Posts: extra columns
 try {
   const postCols = db.prepare("PRAGMA table_info(post)").all() as { name: string }[]
-  if (postCols.length > 0 && !postCols.some(c => c.name === 'ride_role')) {
-    db.exec('ALTER TABLE post ADD COLUMN ride_role TEXT')
+  if (postCols.length > 0) {
+    if (!postCols.some(c => c.name === 'ride_role')) db.exec('ALTER TABLE post ADD COLUMN ride_role TEXT')
+    if (!postCols.some(c => c.name === 'subtype')) db.exec('ALTER TABLE post ADD COLUMN subtype TEXT')
+    if (!postCols.some(c => c.name === 'tg_message_ids')) db.exec('ALTER TABLE post ADD COLUMN tg_message_ids TEXT')
   }
 } catch {}
 
@@ -299,6 +301,8 @@ db.exec(`
     grade_min TEXT,
     grade_max TEXT,
     ride_role TEXT,
+    subtype TEXT,
+    tg_message_ids TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL

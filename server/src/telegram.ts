@@ -42,36 +42,70 @@ export async function notifyChannel(text: string, options?: { disablePreview?: b
   }
 }
 
-/** Post photos with caption to the channel. photos = absolute URLs. */
-export async function notifyChannelPhotos(photos: string[], caption: string): Promise<void> {
-  if (!BOT_TOKEN || !CHANNEL_ID || photos.length === 0) return
+/** Post text to channel, returns message_ids array (length 1) */
+export async function notifyChannelText(text: string, options?: { disablePreview?: boolean }): Promise<number[]> {
+  if (!BOT_TOKEN || !CHANNEL_ID) return []
+  try {
+    const r = await fetch(`${API}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: CHANNEL_ID, text, parse_mode: 'HTML', disable_web_page_preview: options?.disablePreview ?? false }),
+    })
+    const data = await r.json() as any
+    return data.ok && data.result ? [data.result.message_id] : []
+  } catch (err) { console.error('TG send error:', err); return [] }
+}
+
+/** Post photos with caption. Returns array of message_ids. */
+export async function notifyChannelPhotos(photos: string[], caption: string): Promise<number[]> {
+  if (!BOT_TOKEN || !CHANNEL_ID || photos.length === 0) return []
   try {
     if (photos.length === 1) {
-      await fetch(`${API}/sendPhoto`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: CHANNEL_ID,
-          photo: photos[0],
-          caption,
-          parse_mode: 'HTML',
-        }),
+      const r = await fetch(`${API}/sendPhoto`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: CHANNEL_ID, photo: photos[0], caption, parse_mode: 'HTML' }),
       })
+      const data = await r.json() as any
+      return data.ok && data.result ? [data.result.message_id] : []
     } else {
-      // Telegram limit: 10 photos per media group, caption only on first
       const media = photos.slice(0, 10).map((url, i) => ({
-        type: 'photo',
-        media: url,
+        type: 'photo', media: url,
         ...(i === 0 ? { caption, parse_mode: 'HTML' } : {}),
       }))
-      await fetch(`${API}/sendMediaGroup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const r = await fetch(`${API}/sendMediaGroup`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chat_id: CHANNEL_ID, media }),
       })
+      const data = await r.json() as any
+      return data.ok && Array.isArray(data.result) ? data.result.map((m: any) => m.message_id) : []
     }
-  } catch (err) {
-    console.error('Telegram channel photos error:', err)
+  } catch (err) { console.error('TG photos error:', err); return [] }
+}
+
+/** Edit a message in channel. For media-group, edits caption of first message. */
+export async function editChannelMessage(messageId: number, newText: string, isMediaGroup: boolean): Promise<void> {
+  if (!BOT_TOKEN || !CHANNEL_ID) return
+  try {
+    const endpoint = isMediaGroup ? 'editMessageCaption' : 'editMessageText'
+    const body: any = { chat_id: CHANNEL_ID, message_id: messageId, parse_mode: 'HTML' }
+    if (isMediaGroup) body.caption = newText
+    else { body.text = newText; body.disable_web_page_preview = true }
+    await fetch(`${API}/${endpoint}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+  } catch (err) { console.error('TG edit error:', err) }
+}
+
+/** Delete one or more messages from channel. */
+export async function deleteChannelMessages(messageIds: number[]): Promise<void> {
+  if (!BOT_TOKEN || !CHANNEL_ID || messageIds.length === 0) return
+  for (const id of messageIds) {
+    try {
+      await fetch(`${API}/deleteMessage`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: CHANNEL_ID, message_id: id }),
+      })
+    } catch (err) { console.error('TG delete error:', err) }
   }
 }
 
