@@ -173,11 +173,20 @@ export function startBotPolling(getDb: () => any): void {
             continue
           }
           const sdb = getDb()
-          sdb.prepare('INSERT INTO news (title, body, created_at) VALUES (?, ?, ?)').run(
+          const insertResult = sdb.prepare('INSERT INTO news (title, body, created_at) VALUES (?, ?, ?)').run(
             newsText.slice(0, 100),
             newsText,
             new Date().toISOString(),
           )
+          // Auto-translate (fire and forget)
+          ;(async () => {
+            try {
+              const { autoTranslate } = await import('./translate')
+              const en = await autoTranslate(newsText, 'en')
+              const kk = await autoTranslate(newsText, 'kk')
+              sdb.prepare('UPDATE news SET body_en=?, body_kk=? WHERE id=?').run(en, kk, insertResult.lastInsertRowid)
+            } catch {}
+          })().catch(() => {})
           const userCount = (sdb.prepare('SELECT COUNT(*) as cnt FROM app_user').get() as any).cnt
           // Also post to public channel
           if (CHANNEL_ID) {

@@ -34,6 +34,10 @@ interface Post {
   gradeMax?: string | null
   rideRole?: 'driver' | 'passenger' | null
   subtype?: string | null  // 'rent' for gear, 'instructor' for partner
+  titleEn?: string | null
+  titleKk?: string | null
+  descriptionEn?: string | null
+  descriptionKk?: string | null
   status: 'active' | 'closed'
   createdAt: string
 }
@@ -261,7 +265,11 @@ function PostCard({ post, isOwner, isAdmin, sectorMap, td, t, onZoom, onChange, 
   td: (s: string) => string; t: (k: any) => string;
   onZoom: (url: string) => void; onChange: () => void; userId?: string
 }) {
+  const { lang } = useI18n()
   const sector = post.sectorId ? sectorMap.get(post.sectorId) : null
+  // Pick localized title/description if available; fallback to original
+  const localizedTitle = lang === 'en' ? (post.titleEn || post.title) : lang === 'kk' ? (post.titleKk || post.title) : post.title
+  const localizedDesc = lang === 'en' ? (post.descriptionEn || post.description) : lang === 'kk' ? (post.descriptionKk || post.description) : post.description
   const [editing, setEditing] = useState(false)
   const [eTitle, setETitle] = useState(post.title)
   const [eDesc, setEDesc] = useState(post.description || '')
@@ -335,7 +343,7 @@ function PostCard({ post, isOwner, isAdmin, sectorMap, td, t, onZoom, onChange, 
             </Link>
             <span className="text-[10px] text-gray-400">{new Date(post.createdAt).toLocaleDateString()}</span>
           </div>
-          <h3 className="text-sm font-semibold mt-0.5">{post.title}</h3>
+          <h3 className="text-sm font-semibold mt-0.5">{localizedTitle}</h3>
         </div>
         {post.status === 'closed' && <span className="text-[10px] text-gray-500 bg-gray-100 rounded px-1.5 py-0.5">{t('board.closed')}</span>}
       </div>
@@ -354,7 +362,7 @@ function PostCard({ post, isOwner, isAdmin, sectorMap, td, t, onZoom, onChange, 
         </div>
       )}
 
-      {post.description && <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap">{post.description}</p>}
+      {localizedDesc && <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap">{localizedDesc}</p>}
 
       {/* Type-specific info */}
       <div className="flex flex-wrap gap-2 text-xs text-gray-600 mb-2">

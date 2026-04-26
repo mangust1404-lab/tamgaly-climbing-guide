@@ -35,7 +35,7 @@ function sunCategory(_sunExposure?: string, sunFrom?: number, sunTo?: number): S
 }
 
 export function HomePage() {
-  const { t, td } = useI18n()
+  const { t, td, lang } = useI18n()
   const { user } = useUser()
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
   const routes = useLiveQuery(() => db.routes.toArray())
@@ -69,7 +69,7 @@ export function HomePage() {
   const [routeTypeFilter, setRouteTypeFilter] = useState<string | null>(null) // 'multi-pitch' | 'trad' | null
   const [ascentRoute, setAscentRoute] = useState<Route | null>(null)
   const [projectToast, setProjectToast] = useState('')
-  const [newsItems, setNewsItems] = useState<Array<{ id: number; body: string; created_at: string }>>([])
+  const [newsItems, setNewsItems] = useState<Array<{ id: number; body: string; body_en?: string; body_kk?: string; created_at: string }>>([])
   const [dismissedNews, setDismissedNews] = useState<Set<number>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('dismissedNews') || '[]')) } catch { return new Set() }
   })
@@ -360,7 +360,7 @@ export function HomePage() {
           {visibleNews.slice(0, 3).map(n => (
             <div key={n.id} className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-start gap-2">
               <span className="text-sm flex-shrink-0">📢</span>
-              <p className="text-sm text-blue-800 flex-1">{n.body}</p>
+              <p className="text-sm text-blue-800 flex-1">{lang === 'en' ? (n.body_en || n.body) : lang === 'kk' ? (n.body_kk || n.body) : n.body}</p>
               <button onClick={() => dismissNews(n.id)} className="text-blue-400 text-xs flex-shrink-0 mt-0.5">✕</button>
             </div>
           ))}

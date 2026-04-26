@@ -3,6 +3,7 @@ import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { getDb } from '../db/connection'
 import { notifyAdmin, notifyChannelText, notifyChannelPhotos, editChannelMessage, deleteChannelMessages } from '../telegram'
+import { autoTranslate } from '../translate'
 
 export const postsRouter = new Hono()
 
@@ -90,6 +91,10 @@ postsRouter.get('/', async (c) => {
     gradeMax: r.grade_max,
     rideRole: r.ride_role,
     subtype: r.subtype,
+    titleEn: r.title_en,
+    titleKk: r.title_kk,
+    descriptionEn: r.description_en,
+    descriptionKk: r.description_kk,
     status: r.status,
     createdAt: r.created_at,
   }))
@@ -116,6 +121,10 @@ postsRouter.get('/:id', async (c) => {
     seats: r.seats, gradeMin: r.grade_min, gradeMax: r.grade_max,
     rideRole: r.ride_role,
     subtype: r.subtype,
+    titleEn: r.title_en,
+    titleKk: r.title_kk,
+    descriptionEn: r.description_en,
+    descriptionKk: r.description_kk,
     status: r.status, createdAt: r.created_at,
   })
 })
@@ -165,6 +174,18 @@ postsRouter.post('/', async (c) => {
     subtype || null,
     now, now,
   )
+
+  // Auto-translate title and description (fire and forget — don't block response)
+  ;(async () => {
+    try {
+      const titleEn = title ? await autoTranslate(title, 'en') : null
+      const titleKk = title ? await autoTranslate(title, 'kk') : null
+      const descEn = description ? await autoTranslate(description, 'en') : null
+      const descKk = description ? await autoTranslate(description, 'kk') : null
+      getDb().prepare('UPDATE post SET title_en=?, title_kk=?, description_en=?, description_kk=? WHERE id=?')
+        .run(titleEn, titleKk, descEn, descKk, id)
+    } catch {}
+  })().catch(() => {})
 
   // Get author + post for channel
   const author = db.prepare('SELECT display_name FROM app_user WHERE id = ?').get(authorId) as any
@@ -224,6 +245,31 @@ postsRouter.patch('/:id', async (c) => {
   fields.push('updated_at = ?'); params.push(new Date().toISOString())
   params.push(c.req.param('id'))
   db.prepare(`UPDATE post SET ${fields.join(', ')} WHERE id = ?`).run(...params)
+
+  // Re-translate if title or description changed
+  const titleChanged = patch.title !== undefined
+  const descChanged = patch.description !== undefined
+  if (titleChanged || descChanged) {
+    ;(async () => {
+      try {
+        const fresh = getDb().prepare('SELECT title, description FROM post WHERE id = ?').get(c.req.param('id')) as any
+        const updates: string[] = []
+        const vals: any[] = []
+        if (titleChanged && fresh?.title) {
+          updates.push('title_en=?', 'title_kk=?')
+          vals.push(await autoTranslate(fresh.title, 'en'), await autoTranslate(fresh.title, 'kk'))
+        }
+        if (descChanged && fresh?.description) {
+          updates.push('description_en=?', 'description_kk=?')
+          vals.push(await autoTranslate(fresh.description, 'en'), await autoTranslate(fresh.description, 'kk'))
+        }
+        if (updates.length > 0) {
+          vals.push(c.req.param('id'))
+          getDb().prepare(`UPDATE post SET ${updates.join(', ')} WHERE id=?`).run(...vals)
+        }
+      } catch {}
+    })().catch(() => {})
+  }
 
   // Sync to channel: edit caption/text of channel message(s)
   ;(async () => {

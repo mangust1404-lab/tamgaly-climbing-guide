@@ -278,6 +278,17 @@ try {
     if (!postCols.some(c => c.name === 'ride_role')) db.exec('ALTER TABLE post ADD COLUMN ride_role TEXT')
     if (!postCols.some(c => c.name === 'subtype')) db.exec('ALTER TABLE post ADD COLUMN subtype TEXT')
     if (!postCols.some(c => c.name === 'tg_message_ids')) db.exec('ALTER TABLE post ADD COLUMN tg_message_ids TEXT')
+    if (!postCols.some(c => c.name === 'title_en')) db.exec('ALTER TABLE post ADD COLUMN title_en TEXT')
+    if (!postCols.some(c => c.name === 'title_kk')) db.exec('ALTER TABLE post ADD COLUMN title_kk TEXT')
+    if (!postCols.some(c => c.name === 'description_en')) db.exec('ALTER TABLE post ADD COLUMN description_en TEXT')
+    if (!postCols.some(c => c.name === 'description_kk')) db.exec('ALTER TABLE post ADD COLUMN description_kk TEXT')
+
+  // News translations
+  const newsCols = db.prepare("PRAGMA table_info(news)").all() as { name: string }[]
+  if (newsCols.length > 0) {
+    if (!newsCols.some(c => c.name === 'body_en')) db.exec('ALTER TABLE news ADD COLUMN body_en TEXT')
+    if (!newsCols.some(c => c.name === 'body_kk')) db.exec('ALTER TABLE news ADD COLUMN body_kk TEXT')
+  }
   }
 } catch {}
 
