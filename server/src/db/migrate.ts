@@ -256,6 +256,21 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_achievement_unique ON achievement(user_id, type, target_id);
 `)
 
+// Friendship table (mutual confirmation)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS friendship (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    friend_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    accepted_at TEXT,
+    UNIQUE(user_id, friend_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_friendship_user ON friendship(user_id);
+  CREATE INDEX IF NOT EXISTS idx_friendship_friend ON friendship(friend_id);
+`)
+
 // User column migrations (PIN protection)
 const userCols = db.prepare("PRAGMA table_info(app_user)").all() as { name: string }[]
 const userColNames = new Set(userCols.map(c => c.name))

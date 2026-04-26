@@ -464,18 +464,37 @@ syncRouter.get('/user/:id/public-profile', async (c) => {
   let privacy = defaults
   try { privacy = { ...defaults, ...JSON.parse(u.privacy_settings || '{}') } } catch {}
   const isSelf = viewerId === userId
+  const isFriend = viewerId && viewerId !== userId ? areFriends(db, viewerId, userId) : false
   // Helper: check if a field is visible to current viewer
   const visible = (field: keyof typeof defaults) => {
     if (isSelf) return true
     const level = (privacy as any)[field]
-    return level === 'all'  // friends-level treated as nobody until friend system implemented
+    if (level === 'all') return true
+    if (level === 'friends' && isFriend) return true
+    return false
   }
+  // Friend relationship status
+  let friendStatus: 'self' | 'none' | 'pending_outgoing' | 'pending_incoming' | 'friends' = 'none'
+  if (isSelf) friendStatus = 'self'
+  else if (viewerId) {
+    const row = db.prepare(
+      `SELECT user_id, friend_id, status FROM friendship WHERE
+       (user_id=? AND friend_id=?) OR (user_id=? AND friend_id=?)`
+    ).get(viewerId, userId, userId, viewerId) as any
+    if (row) {
+      if (row.status === 'accepted') friendStatus = 'friends'
+      else if (row.user_id === viewerId) friendStatus = 'pending_outgoing'
+      else friendStatus = 'pending_incoming'
+    }
+  }
+
   const result: any = {
     id: u.id,
     displayName: u.display_name,
     avatarUrl: u.avatar_url,
     createdAt: u.created_at,
     privacy,
+    friendStatus,
     fields: {
       routes: visible('routes'),
       achievements: visible('achievements'),
@@ -491,6 +510,132 @@ syncRouter.get('/user/:id/public-profile', async (c) => {
     result.whatsappPhone = u.whatsapp_phone || null
   }
   return c.json(result)
+})
+
+// --- Friends system ---
+
+// Helper: check if two users are accepted friends
+function areFriends(db: any, a: string, b: string): boolean {
+  const row = db.prepare(
+    `SELECT id FROM friendship WHERE status='accepted' AND
+     ((user_id=? AND friend_id=?) OR (user_id=? AND friend_id=?))`
+  ).get(a, b, b, a)
+  return !!row
+}
+
+// Send friend request
+syncRouter.post('/friend/request', async (c) => {
+  const body = await c.req.json()
+  const db = getDb()
+  const { fromId, toId } = body
+  if (!fromId || !toId || fromId === toId) return c.json({ error: 'invalid users' }, 400)
+
+  // Already friends or request exists?
+  const existing = db.prepare(
+    `SELECT id, status FROM friendship WHERE
+     (user_id=? AND friend_id=?) OR (user_id=? AND friend_id=?)`
+  ).get(fromId, toId, toId, fromId) as any
+  if (existing) return c.json({ status: existing.status, existing: true })
+
+  const id = crypto.randomUUID()
+  db.prepare(
+    'INSERT INTO friendship (id, user_id, friend_id, status, created_at) VALUES (?, ?, ?, ?, ?)'
+  ).run(id, fromId, toId, 'pending', new Date().toISOString())
+  return c.json({ status: 'pending', id })
+})
+
+// Accept friend request (toId is the one accepting, fromId is requester)
+syncRouter.post('/friend/accept', async (c) => {
+  const body = await c.req.json()
+  const db = getDb()
+  const { userId, fromId } = body  // userId accepts request from fromId
+  if (!userId || !fromId) return c.json({ error: 'invalid' }, 400)
+  const result = db.prepare(
+    `UPDATE friendship SET status='accepted', accepted_at=? WHERE user_id=? AND friend_id=? AND status='pending'`
+  ).run(new Date().toISOString(), fromId, userId)
+  return c.json({ status: result.changes > 0 ? 'accepted' : 'not_found' })
+})
+
+// Reject or cancel friend request, or unfriend
+syncRouter.post('/friend/remove', async (c) => {
+  const body = await c.req.json()
+  const db = getDb()
+  const { userId, otherId } = body
+  if (!userId || !otherId) return c.json({ error: 'invalid' }, 400)
+  db.prepare(
+    `DELETE FROM friendship WHERE
+     (user_id=? AND friend_id=?) OR (user_id=? AND friend_id=?)`
+  ).run(userId, otherId, otherId, userId)
+  return c.json({ status: 'removed' })
+})
+
+// List friends and pending requests for a user
+syncRouter.get('/friend/list', async (c) => {
+  const db = getDb()
+  const userId = c.req.query('userId')
+  if (!userId) return c.json({ error: 'userId required' }, 400)
+
+  const accepted = db.prepare(`
+    SELECT f.*, u1.display_name as user_name, u1.avatar_url as user_avatar,
+           u2.display_name as friend_name, u2.avatar_url as friend_avatar
+    FROM friendship f
+    LEFT JOIN app_user u1 ON f.user_id = u1.id
+    LEFT JOIN app_user u2 ON f.friend_id = u2.id
+    WHERE status='accepted' AND (user_id=? OR friend_id=?)
+  `).all(userId, userId) as any[]
+
+  const friends = accepted.map(r => {
+    const isRequester = r.user_id === userId
+    return {
+      id: isRequester ? r.friend_id : r.user_id,
+      name: isRequester ? r.friend_name : r.user_name,
+      avatarUrl: isRequester ? r.friend_avatar : r.user_avatar,
+      since: r.accepted_at,
+    }
+  })
+
+  // Incoming pending: someone requested ME (I'm friend_id, status pending)
+  const incoming = db.prepare(`
+    SELECT f.*, u.display_name as from_name, u.avatar_url as from_avatar
+    FROM friendship f
+    LEFT JOIN app_user u ON f.user_id = u.id
+    WHERE friend_id=? AND status='pending'
+    ORDER BY created_at DESC
+  `).all(userId) as any[]
+
+  // Outgoing pending: I requested someone (I'm user_id, status pending)
+  const outgoing = db.prepare(`
+    SELECT f.*, u.display_name as to_name, u.avatar_url as to_avatar
+    FROM friendship f
+    LEFT JOIN app_user u ON f.friend_id = u.id
+    WHERE user_id=? AND status='pending'
+    ORDER BY created_at DESC
+  `).all(userId) as any[]
+
+  return c.json({
+    friends,
+    incoming: incoming.map(r => ({ fromId: r.user_id, name: r.from_name, avatarUrl: r.from_avatar, createdAt: r.created_at })),
+    outgoing: outgoing.map(r => ({ toId: r.friend_id, name: r.to_name, avatarUrl: r.to_avatar, createdAt: r.created_at })),
+  })
+})
+
+// Get relationship status between two users
+syncRouter.get('/friend/status', async (c) => {
+  const db = getDb()
+  const a = c.req.query('a')
+  const b = c.req.query('b')
+  if (!a || !b) return c.json({ status: 'none' })
+  if (a === b) return c.json({ status: 'self' })
+
+  const row = db.prepare(
+    `SELECT user_id, friend_id, status FROM friendship WHERE
+     (user_id=? AND friend_id=?) OR (user_id=? AND friend_id=?)`
+  ).get(a, b, b, a) as any
+  if (!row) return c.json({ status: 'none' })
+  if (row.status === 'accepted') return c.json({ status: 'friends' })
+  // pending — direction matters
+  if (row.user_id === a) return c.json({ status: 'outgoing' })
+  return c.json({ status: 'incoming' })
 })
 
 // Push achievement

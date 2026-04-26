@@ -8,11 +8,14 @@ import { useUser } from '../lib/userContext'
 import { gradeColor } from '../lib/utils'
 import { TranslatedName } from '../components/ui/TranslatedName'
 
+type FriendStatus = 'self' | 'none' | 'pending_outgoing' | 'pending_incoming' | 'friends'
+
 interface PublicProfile {
   id: string
   displayName: string
   avatarUrl?: string | null
   createdAt: string
+  friendStatus: FriendStatus
   fields: {
     routes: boolean
     achievements: boolean
@@ -124,6 +127,19 @@ export function PublicProfilePage() {
   const climbedRouteIds = new Set((ascents || []).filter(a => SCORED_STYLES.includes(a.style)).map(a => a.routeId))
   const climbedRoutes = [...climbedRouteIds].map(id => routeMap.get(id)).filter(Boolean) as any[]
 
+  const friendAction = async (action: 'request' | 'accept' | 'remove') => {
+    if (!user?.id || !profile) return
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    let url = '', body: any = {}
+    if (action === 'request') { url = `${API_BASE}/sync/friend/request`; body = { fromId: user.id, toId: profile.id } }
+    else if (action === 'accept') { url = `${API_BASE}/sync/friend/accept`; body = { userId: user.id, fromId: profile.id } }
+    else { url = `${API_BASE}/sync/friend/remove`; body = { userId: user.id, otherId: profile.id } }
+    await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {})
+    // Reload profile to get fresh status & visibility
+    const viewer = user?.id ? `?viewer=${user.id}` : ''
+    fetch(`${API_BASE}/sync/user/${profile.id}/public-profile${viewer}`).then(r => r.json()).then(setProfile).catch(() => {})
+  }
+
   return (
     <div className="p-4">
       <div className="flex items-center gap-3 mb-4">
@@ -144,6 +160,35 @@ export function PublicProfilePage() {
           </p>
         </div>
       </div>
+
+      {/* Friend action buttons */}
+      {!isSelf && user?.id && (
+        <div className="mb-4">
+          {profile.friendStatus === 'none' && (
+            <button onClick={() => friendAction('request')} className="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium">
+              👥 {t('friend.add')}
+            </button>
+          )}
+          {profile.friendStatus === 'pending_outgoing' && (
+            <div className="flex gap-2">
+              <div className="flex-1 bg-gray-100 text-gray-500 rounded-lg py-2 text-center text-sm">⏳ {t('friend.requestSent')}</div>
+              <button onClick={() => friendAction('remove')} className="bg-gray-200 text-gray-600 rounded-lg px-3 text-xs">{t('friend.cancel')}</button>
+            </div>
+          )}
+          {profile.friendStatus === 'pending_incoming' && (
+            <div className="flex gap-2">
+              <button onClick={() => friendAction('accept')} className="flex-1 bg-green-600 text-white rounded-lg py-2 text-sm font-medium">✓ {t('friend.accept')}</button>
+              <button onClick={() => friendAction('remove')} className="bg-gray-200 text-gray-600 rounded-lg px-3 text-xs">{t('friend.reject')}</button>
+            </div>
+          )}
+          {profile.friendStatus === 'friends' && (
+            <div className="flex gap-2">
+              <div className="flex-1 bg-green-50 text-green-700 rounded-lg py-2 text-center text-sm font-medium">👥 {t('friend.statusFriends')}</div>
+              <button onClick={() => friendAction('remove')} className="bg-gray-100 text-gray-500 rounded-lg px-3 text-xs">{t('friend.unfriend')}</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Contacts */}
       {f.contacts && (profile.telegramHandle || profile.whatsappPhone) && (

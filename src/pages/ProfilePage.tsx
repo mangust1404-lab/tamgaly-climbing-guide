@@ -63,6 +63,23 @@ export function ProfilePage() {
     stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody',
   })
   const [settingsSaved, setSettingsSaved] = useState(false)
+  const [friends, setFriends] = useState<Array<{ id: string; name: string; avatarUrl: string | null; since: string }>>([])
+  const [incoming, setIncoming] = useState<Array<{ fromId: string; name: string; avatarUrl: string | null }>>([])
+  const [outgoing, setOutgoing] = useState<Array<{ toId: string; name: string; avatarUrl: string | null }>>([])
+
+  const loadFriends = async () => {
+    if (!user?.id) return
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    try {
+      const r = await fetch(`${API_BASE}/sync/friend/list?userId=${user.id}`)
+      const data = await r.json()
+      setFriends(data.friends || [])
+      setIncoming(data.incoming || [])
+      setOutgoing(data.outgoing || [])
+    } catch {}
+  }
+
+  useEffect(() => { loadFriends() }, [user?.id])
   const [motivationMessages, setMotivationMessages] = useState<any[]>([])
   const [expandedProgress, setExpandedProgress] = useState<string | null>(null)
   const [expandedPyramid, setExpandedPyramid] = useState<string | null>(null)
@@ -97,6 +114,26 @@ export function ProfilePage() {
     }).catch(() => {})
     setSettingsSaved(true)
     setTimeout(() => setSettingsSaved(false), 2500)
+  }
+
+  const acceptFriend = async (fromId: string) => {
+    if (!user?.id) return
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    await fetch(`${API_BASE}/sync/friend/accept`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, fromId }),
+    }).catch(() => {})
+    loadFriends()
+  }
+
+  const rejectFriend = async (otherId: string) => {
+    if (!user?.id) return
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    await fetch(`${API_BASE}/sync/friend/remove`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, otherId }),
+    }).catch(() => {})
+    loadFriends()
   }
 
   const savePrivacy = async (next: typeof privacy) => {
@@ -683,6 +720,49 @@ export function ProfilePage() {
           >
             ⚙ {t('profile.settings')}
           </button>
+        </div>
+      )}
+
+      {/* Incoming friend requests */}
+      {incoming.length > 0 && (
+        <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 space-y-2">
+          <h3 className="text-xs font-semibold text-yellow-800">{t('friend.incomingTitle')} ({incoming.length})</h3>
+          {incoming.map(req => (
+            <div key={req.fromId} className="flex items-center gap-2">
+              {req.avatarUrl
+                ? <img src={req.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                : <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm">👤</div>}
+              <Link to={`/user/${req.fromId}`} className="flex-1 text-sm font-medium text-blue-700 truncate">{req.name}</Link>
+              <button onClick={() => acceptFriend(req.fromId)} className="text-xs bg-green-600 text-white rounded px-2 py-1">{t('friend.accept')}</button>
+              <button onClick={() => rejectFriend(req.fromId)} className="text-xs bg-gray-200 text-gray-600 rounded px-2 py-1">{t('friend.reject')}</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Friends section */}
+      {(friends.length > 0 || outgoing.length > 0) && (
+        <div className="mb-4">
+          <h3 className="text-xs font-semibold text-gray-500 mb-2">
+            {t('friend.title')}{friends.length > 0 ? ` (${friends.length})` : ''}
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {friends.map(f => (
+              <Link key={f.id} to={`/user/${f.id}`} className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full pl-1 pr-2.5 py-0.5">
+                {f.avatarUrl
+                  ? <img src={f.avatarUrl} alt="" className="w-5 h-5 rounded-full object-cover" />
+                  : <span className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px]">👤</span>}
+                <span className="text-xs font-medium text-blue-700">{f.name}</span>
+              </Link>
+            ))}
+            {outgoing.map(o => (
+              <div key={o.toId} className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-2.5 py-0.5">
+                <span className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px]">👤</span>
+                <span className="text-xs text-gray-500">{o.name}</span>
+                <span className="text-[9px] text-gray-400">⏳</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
