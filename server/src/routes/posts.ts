@@ -131,21 +131,22 @@ postsRouter.post('/', async (c) => {
     now, now,
   )
 
-  // Get author name for notification
+  // Get author name for channel post (no admin DM — posts go to public channel only)
   const author = db.prepare('SELECT display_name FROM app_user WHERE id = ?').get(authorId) as any
   const typeNames: Record<string, string> = { gear: '🛒 Барахолка', partner: '🤝 Напарник', ride: '🚗 Попутчик' }
-  const adminMsg = `📋 <b>Новое объявление</b>\n${typeNames[type] || type}\nОт: ${author?.display_name || 'Anonymous'}\nЗаголовок: ${title}`
-  notifyAdmin(adminMsg).catch(() => {})
 
-  // Post to public channel — formatted for readers (no auto-title duplication)
-  const channelLines: string[] = [`<b>${typeNames[type] || type}</b>`]
-  // Use description as the main text; if it's empty, use title (likely user-provided)
-  const mainText = (description && description.trim()) || title
-  if (mainText) channelLines.push(mainText)
+  // Post to public channel — clean format with hashtags, no duplicate info
+  const tags: Record<string, string> = { gear: '#барахолка', partner: '#напарник', ride: '#попутчик' }
+  const channelLines: string[] = [`<b>${typeNames[type] || type}</b> ${tags[type] || ''}`]
+  // Show description only if user explicitly wrote it (not auto-generated title)
+  if (description && description.trim()) {
+    channelLines.push(description.trim())
+  }
   const meta: string[] = []
   if (type === 'gear' && price) meta.push(`💰 ${price} ${currency || '₸'}`)
   if (type === 'partner' && eventDate) meta.push(`📅 ${eventDate}`)
   if (type === 'partner' && (gradeMin || gradeMax)) meta.push(`📊 ${gradeMin || '?'}–${gradeMax || '?'}`)
+  if (type === 'ride' && rideRole) meta.push(rideRole === 'driver' ? '🚙 за рулём' : '🧳 ищу машину')
   if (type === 'ride' && eventDate) meta.push(`📅 ${eventDate}`)
   if (type === 'ride' && (fromLocation || toLocation)) meta.push(`🗺 ${fromLocation || '?'} → ${toLocation || '?'}`)
   if (type === 'ride' && seats) meta.push(`💺 ${seats}`)

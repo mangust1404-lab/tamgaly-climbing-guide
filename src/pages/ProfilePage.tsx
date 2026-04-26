@@ -1204,19 +1204,6 @@ export function ProfilePage() {
             </div>
           </div>
 
-          {/* Style breakdown */}
-          <h2 className="text-sm font-semibold mb-2">{t('profile.byStyle')}</h2>
-          <div className="flex flex-wrap gap-2 mb-6">
-            {Object.entries(stats.byStyle).map(([style, count]) => (
-              <span
-                key={style}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium ${STYLE_COLORS[style] || 'bg-gray-100'}`}
-              >
-                {t(`style.${style}` as any)}: {count}
-              </span>
-            ))}
-          </div>
-
           {/* Grade pyramid */}
           {stats.pyramid.length > 0 && (
             <details className="mb-6 group" open>
@@ -1269,6 +1256,24 @@ export function ProfilePage() {
               </div>
             </details>
           )}
+
+          {/* Style breakdown */}
+          <details className="mb-6 group">
+            <summary className="text-sm font-semibold mb-2 cursor-pointer list-none flex items-center justify-between">
+              <span>{t('profile.byStyle')}</span>
+              <span className="text-gray-300 group-open:rotate-180 transition-transform text-xs">▼</span>
+            </summary>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(stats.byStyle).map(([style, count]) => (
+                <span
+                  key={style}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium ${STYLE_COLORS[style] || 'bg-gray-100'}`}
+                >
+                  {t(`style.${style}` as any)}: {count}
+                </span>
+              ))}
+            </div>
+          </details>
 
           {/* Period filter + reset */}
           <div className="flex flex-wrap gap-1 mb-1.5">
