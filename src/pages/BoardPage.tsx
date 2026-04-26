@@ -43,6 +43,9 @@ const TYPES: { value: PostType; emoji: string; key: string }[] = [
   { value: 'ride', emoji: '🚗', key: 'board.ride' },
 ]
 
+const GRADES = ['4', '5a', '5a+', '5b', '5b+', '5c', '5c+', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b', '7b+', '7c', '7c+', '8a', '8a+']
+const COMMON_LOCATIONS = ['Алматы', 'Тамгалы', 'Капшагай']
+
 export function BoardPage() {
   const { t, td } = useI18n()
   const { user } = useUser()
@@ -139,7 +142,7 @@ export function BoardPage() {
                 }`}>{c.active}</span>
               )}
               {c.fresh > 0 && activeType !== tt.value && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center leading-none border border-white">
                   +{c.fresh}
                 </span>
               )}
@@ -524,48 +527,64 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
         />
 
         {type === 'gear' && (
-          <div className="flex gap-2 mb-2">
-            <input
-              type="number" value={price} onChange={e => setPrice(e.target.value)}
-              placeholder={t('board.fieldPrice')}
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            />
-            <span className="self-center text-sm text-gray-500">₸</span>
+          <div className="mb-3">
+            <label className="text-xs text-gray-500 mb-1 block">{t('board.labelPrice')}</label>
+            <div className="flex gap-2">
+              <input
+                type="number" inputMode="numeric" value={price} onChange={e => setPrice(e.target.value)}
+                placeholder="0"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <span className="self-center text-sm text-gray-500">₸</span>
+            </div>
           </div>
         )}
 
         {type === 'partner' && (
           <>
-            <input
-              type="date" value={eventDate} onChange={e => setEventDate(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2"
-            />
-            <select
-              value={sectorId} onChange={e => setSectorId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2 bg-white"
-            >
-              <option value="">{t('board.fieldAnySector')}</option>
-              {sectors?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            <div className="flex gap-2 mb-2">
+            <div className="mb-3">
+              <label className="text-xs text-gray-500 mb-1 block">{t('board.labelDate')}</label>
               <input
-                value={gradeMin} onChange={e => setGradeMin(e.target.value)}
-                placeholder={t('board.fieldGradeFrom')}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                type="date" value={eventDate} onChange={e => setEventDate(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
-              <span className="self-center text-sm text-gray-400">—</span>
-              <input
-                value={gradeMax} onChange={e => setGradeMax(e.target.value)}
-                placeholder={t('board.fieldGradeTo')}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              />
+            </div>
+            <div className="mb-3">
+              <label className="text-xs text-gray-500 mb-1 block">{t('board.labelSector')}</label>
+              <select
+                value={sectorId} onChange={e => setSectorId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+              >
+                <option value="">{t('board.fieldAnySector')}</option>
+                {sectors?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div className="mb-3">
+              <label className="text-xs text-gray-500 mb-1 block">{t('board.labelGradeRange')}</label>
+              <div className="flex gap-2">
+                <select
+                  value={gradeMin} onChange={e => setGradeMin(e.target.value)}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">{t('board.fieldGradeFrom')}</option>
+                  {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <span className="self-center text-sm text-gray-400">—</span>
+                <select
+                  value={gradeMax} onChange={e => setGradeMax(e.target.value)}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">{t('board.fieldGradeTo')}</option>
+                  {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
             </div>
           </>
         )}
 
         {type === 'ride' && (
           <>
-            <div className="grid grid-cols-2 gap-2 mb-2">
+            <div className="grid grid-cols-2 gap-2 mb-3">
               <button
                 type="button"
                 onClick={() => setRideRole('driver')}
@@ -577,28 +596,52 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
                 className={`py-2 rounded-lg text-xs font-medium ${rideRole === 'passenger' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600'}`}
               >🧳 {t('board.ridePassenger')}</button>
             </div>
-            <input
-              type="date" value={eventDate} onChange={e => setEventDate(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2"
-            />
-            <div className="flex gap-2 mb-2">
+            <div className="mb-3">
+              <label className="text-xs text-gray-500 mb-1 block">{t('board.labelDate')}</label>
               <input
-                value={fromLoc} onChange={e => setFromLoc(e.target.value)}
-                placeholder={t('board.fieldFrom')}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              />
-              <span className="self-center text-sm">→</span>
-              <input
-                value={toLoc} onChange={e => setToLoc(e.target.value)}
-                placeholder={t('board.fieldTo')}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                type="date" value={eventDate} onChange={e => setEventDate(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
             </div>
-            <input
-              type="number" value={seats} onChange={e => setSeats(e.target.value)}
-              placeholder={rideRole === 'driver' ? t('board.fieldSeats') : t('board.fieldPassengersCount')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2"
-            />
+            <div className="mb-3">
+              <label className="text-xs text-gray-500 mb-1 block">{t('board.labelRoute')}</label>
+              <div className="flex gap-2 mb-1.5">
+                <input
+                  value={fromLoc} onChange={e => setFromLoc(e.target.value)}
+                  placeholder={t('board.fieldFrom')}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+                <span className="self-center text-sm">→</span>
+                <input
+                  value={toLoc} onChange={e => setToLoc(e.target.value)}
+                  placeholder={t('board.fieldTo')}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-wrap gap-1">
+                <span className="text-[10px] text-gray-400 self-center mr-1">{t('board.quickFrom')}</span>
+                {COMMON_LOCATIONS.map(loc => (
+                  <button
+                    key={loc}
+                    type="button"
+                    onClick={() => setFromLoc(loc)}
+                    className="text-[10px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5"
+                  >{loc}</button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-3">
+              <label className="text-xs text-gray-500 mb-1 block">
+                {rideRole === 'driver' ? t('board.labelFreeSeats') : t('board.labelPeopleCount')}
+              </label>
+              <select
+                value={seats} onChange={e => setSeats(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+              >
+                <option value="">—</option>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
           </>
         )}
 
