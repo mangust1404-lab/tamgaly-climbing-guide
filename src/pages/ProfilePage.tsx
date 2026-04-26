@@ -818,8 +818,9 @@ export function ProfilePage() {
 
       {/* Find friend modal */}
       {findFriendOpen && (
-        <div className="fixed inset-0 bg-black/60 z-[100] flex items-end" onClick={() => setFindFriendOpen(false)}>
-          <div className="bg-white w-full rounded-t-2xl p-4 animate-slide-up max-h-[85vh] overflow-y-auto" style={{ paddingBottom: '5rem' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 z-[100] flex flex-col" onClick={() => setFindFriendOpen(false)}>
+          <div className="flex-1" onClick={() => setFindFriendOpen(false)} />
+          <div className="bg-white w-full rounded-t-2xl p-4 animate-slide-up overflow-y-auto" style={{ maxHeight: 'calc(100vh - 8rem)', marginBottom: '4rem' }} onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-lg font-bold">{t('friend.findTitle')}</h3>
               <button onClick={() => setFindFriendOpen(false)} className="text-gray-400 text-2xl leading-none">&times;</button>
