@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
@@ -179,7 +179,7 @@ export function BoardPage() {
       {/* Sub-tabs */}
       {activeType === 'gear' && (
         <div className="flex gap-1 mb-3">
-          {([['all', '🛒 Все'], ['sale', '💰 Продажа'], ['rent', '🔑 Аренда']] as const).map(([k, label]) => (
+          {([['all', '🛒 Все'], ['sale', '💰 Продажа'], ['rent', '🎒 Аренда']] as const).map(([k, label]) => (
             <button key={k} onClick={() => setGearFilter(k)}
               className={`px-2.5 py-1 rounded-full text-xs font-medium ${gearFilter === k ? 'bg-emerald-500 text-white' : 'bg-emerald-50 text-emerald-700'}`}
             >{label}</button>
@@ -188,7 +188,7 @@ export function BoardPage() {
       )}
       {activeType === 'partner' && (
         <div className="flex gap-1 mb-3">
-          {([['all', '🤝 Все'], ['partner', '🧗 Напарник'], ['instructor', '🎓 Тренер']] as const).map(([k, label]) => (
+          {([['all', '🤝 Все'], ['partner', '🧗 Напарник'], ['instructor', '📣 Тренер']] as const).map(([k, label]) => (
             <button key={k} onClick={() => setPartnerFilter(k)}
               className={`px-2.5 py-1 rounded-full text-xs font-medium ${partnerFilter === k ? 'bg-purple-500 text-white' : 'bg-purple-50 text-purple-700'}`}
             >{label}</button>
@@ -359,10 +359,10 @@ function PostCard({ post, isOwner, isAdmin, sectorMap, td, t, onZoom, onChange, 
       {/* Type-specific info */}
       <div className="flex flex-wrap gap-2 text-xs text-gray-600 mb-2">
         {post.type === 'gear' && post.subtype === 'rent' && (
-          <span className="bg-amber-100 text-amber-800 rounded px-1.5 py-0.5 font-medium">🔑 аренда</span>
+          <span className="bg-amber-100 text-amber-800 rounded px-1.5 py-0.5 font-medium">🎒 аренда</span>
         )}
         {post.type === 'partner' && post.subtype === 'instructor' && (
-          <span className="bg-pink-100 text-pink-800 rounded px-1.5 py-0.5 font-medium">🎓 тренер</span>
+          <span className="bg-pink-100 text-pink-800 rounded px-1.5 py-0.5 font-medium">📣 тренер</span>
         )}
         {post.type === 'gear' && post.price && (
           <span className="bg-green-50 text-green-700 rounded px-1.5 py-0.5 font-medium">
@@ -582,7 +582,7 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
               >💰 Продажа</button>
               <button type="button" onClick={() => setGearSubtype('rent')}
                 className={`py-2 rounded-lg text-xs font-medium ${gearSubtype === 'rent' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600'}`}
-              >🔑 Аренда</button>
+              >🎒 Аренда</button>
             </div>
           </>
         )}
@@ -608,7 +608,7 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
               >🧗 Напарник</button>
               <button type="button" onClick={() => setPartnerSubtype('instructor')}
                 className={`py-2 rounded-lg text-xs font-medium ${partnerSubtype === 'instructor' ? 'bg-pink-500 text-white' : 'bg-gray-100 text-gray-600'}`}
-              >🎓 Тренер/инструктор</button>
+              >📣 Тренер/инструктор</button>
             </div>
             <div className="mb-3">
               <label className="text-xs text-gray-500 mb-1 block">{t('board.labelDate')}</label>
