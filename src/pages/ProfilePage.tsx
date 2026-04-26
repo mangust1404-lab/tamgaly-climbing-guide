@@ -783,16 +783,17 @@ export function ProfilePage() {
       )}
 
       {/* Friends section */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
+      <details className="mb-4 group" open={friends.length > 0 || outgoing.length > 0}>
+        <summary className="flex items-center justify-between mb-2 cursor-pointer list-none">
           <h3 className="text-xs font-semibold text-gray-500">
             {t('friend.title')}{friends.length > 0 ? ` (${friends.length})` : ''}
+            <span className="text-gray-300 ml-1 group-open:rotate-180 inline-block transition-transform">▼</span>
           </h3>
           <button
-            onClick={() => { setFindFriendOpen(true); setFindQuery(''); setFindResults([]); setTimeout(() => searchUsers(''), 50) }}
+            onClick={(e) => { e.preventDefault(); setFindFriendOpen(true); setFindQuery(''); setFindResults([]); setTimeout(() => searchUsers(''), 50) }}
             className="text-xs text-blue-600 font-medium"
           >+ {t('friend.find')}</button>
-        </div>
+        </summary>
         {(friends.length > 0 || outgoing.length > 0) ? (
           <div className="flex flex-wrap gap-2">
             {friends.map(f => (
@@ -814,7 +815,7 @@ export function ProfilePage() {
         ) : (
           <p className="text-xs text-gray-400">{t('friend.empty')}</p>
         )}
-      </div>
+      </details>
 
       {/* Find friend modal */}
       {findFriendOpen && (
@@ -948,8 +949,11 @@ export function ProfilePage() {
         )
         if (progress.length === 0) return null
         return (
-          <div className="mb-4">
-            <h3 className="text-xs font-semibold text-gray-500 mb-2">{t('profile.progressTitle')}</h3>
+          <details className="mb-3 group" open>
+            <summary className="text-xs font-semibold text-gray-500 mb-2 cursor-pointer list-none flex items-center justify-between">
+              <span>{t('profile.progressTitle')} ({progress.length})</span>
+              <span className="text-gray-300 group-open:rotate-180 transition-transform">▼</span>
+            </summary>
             <div className="space-y-1.5">
               {progress.map((p, i) => {
                 const key = `${p.type}:${p.label}`
@@ -987,7 +991,7 @@ export function ProfilePage() {
                 )
               })}
             </div>
-          </div>
+          </details>
         )
       })()}
 
@@ -1215,9 +1219,12 @@ export function ProfilePage() {
 
           {/* Grade pyramid */}
           {stats.pyramid.length > 0 && (
-            <>
-              <h2 id="grade-pyramid" className="text-sm font-semibold mb-2">{t('profile.gradePyramid')}</h2>
-              <div className="space-y-1 mb-6">
+            <details className="mb-6 group" open>
+              <summary id="grade-pyramid" className="text-sm font-semibold mb-2 cursor-pointer list-none flex items-center justify-between">
+                <span>{t('profile.gradePyramid')} ({stats.pyramid.length})</span>
+                <span className="text-gray-300 group-open:rotate-180 transition-transform text-xs">▼</span>
+              </summary>
+              <div className="space-y-1">
                 {stats.pyramid.map(({ grade, count, routes: pyramidRoutes }) => {
                   const maxCount = Math.max(...stats.pyramid.map((p) => p.count))
                   const width = Math.max(20, (count / maxCount) * 100)
@@ -1260,7 +1267,7 @@ export function ProfilePage() {
                   )
                 })}
               </div>
-            </>
+            </details>
           )}
 
           {/* Period filter + reset */}
@@ -1356,8 +1363,12 @@ export function ProfilePage() {
           </div>
 
           {/* Ascent history */}
-          <h2 id="ascent-history" className="text-sm font-semibold mb-2">{t('profile.ascentHistory')}</h2>
-          <div className="space-y-2">
+          <details className="group" open>
+            <summary id="ascent-history" className="text-sm font-semibold mb-2 cursor-pointer list-none flex items-center justify-between">
+              <span>{t('profile.ascentHistory')}</span>
+              <span className="text-gray-300 group-open:rotate-180 transition-transform text-xs">▼</span>
+            </summary>
+            <div className="space-y-2">
             {ascents?.filter(a => {
               if (a.userId !== user?.id) return false
               if (styleFilter && a.style !== styleFilter) return false
@@ -1406,7 +1417,8 @@ export function ProfilePage() {
                 </Link>
               )
             })}
-          </div>
+            </div>
+          </details>
         </>
       )}
 

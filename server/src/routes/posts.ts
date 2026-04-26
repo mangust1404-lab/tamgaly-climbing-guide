@@ -137,9 +137,11 @@ postsRouter.post('/', async (c) => {
   const adminMsg = `📋 <b>Новое объявление</b>\n${typeNames[type] || type}\nОт: ${author?.display_name || 'Anonymous'}\nЗаголовок: ${title}`
   notifyAdmin(adminMsg).catch(() => {})
 
-  // Post to public channel — formatted for readers
-  const channelLines: string[] = [`${typeNames[type] || type}`, `<b>${title}</b>`]
-  if (description) channelLines.push(description)
+  // Post to public channel — formatted for readers (no auto-title duplication)
+  const channelLines: string[] = [`<b>${typeNames[type] || type}</b>`]
+  // Use description as the main text; if it's empty, use title (likely user-provided)
+  const mainText = (description && description.trim()) || title
+  if (mainText) channelLines.push(mainText)
   const meta: string[] = []
   if (type === 'gear' && price) meta.push(`💰 ${price} ${currency || '₸'}`)
   if (type === 'partner' && eventDate) meta.push(`📅 ${eventDate}`)
@@ -149,8 +151,8 @@ postsRouter.post('/', async (c) => {
   if (type === 'ride' && seats) meta.push(`💺 ${seats}`)
   if (meta.length > 0) channelLines.push(meta.join(' · '))
   channelLines.push(`\n<i>От: ${author?.display_name || 'Anonymous'}</i>`)
-  channelLines.push(`📱 https://tamgalyclimb.alexanderlobanov.de/board`)
-  notifyChannel(channelLines.join('\n')).catch(() => {})
+  channelLines.push(`<a href="https://tamgalyclimb.alexanderlobanov.de/install">📱 Открыть в приложении</a>`)
+  notifyChannel(channelLines.join('\n'), { disablePreview: true }).catch(() => {})
 
   return c.json({ status: 'created', id })
 })
