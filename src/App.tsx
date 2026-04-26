@@ -18,6 +18,7 @@ const AdminPhotoTagger = lazy(() => import('./pages/admin/AdminPhotoTagger').the
 const ModerationPage = lazy(() => import('./pages/admin/ModerationPage').then(m => ({ default: m.ModerationPage })))
 const AdminSectorsPage = lazy(() => import('./pages/admin/AdminSectorsPage').then(m => ({ default: m.AdminSectorsPage })))
 const ActivityPage = lazy(() => import('./pages/ActivityPage').then(m => ({ default: m.ActivityPage })))
+const PublicProfilePage = lazy(() => import('./pages/PublicProfilePage').then(m => ({ default: m.PublicProfilePage })))
 
 function Loading() {
   return (
@@ -71,6 +72,7 @@ function App() {
             <Route path="/leaderboard" element={<Suspense fallback={<Loading />}><LeaderboardPage /></Suspense>} />
             <Route path="/activity" element={<Suspense fallback={<Loading />}><ActivityPage /></Suspense>} />
             <Route path="/profile" element={<Suspense fallback={<Loading />}><ProfilePage /></Suspense>} />
+            <Route path="/user/:userId" element={<Suspense fallback={<Loading />}><PublicProfilePage /></Suspense>} />
             <Route path="/admin/topo" element={<AdminGuard><Suspense fallback={<Loading />}><AdminTopoPage /></Suspense></AdminGuard>} />
             <Route path="/admin/photos" element={<AdminGuard><Suspense fallback={<Loading />}><AdminPhotoTagger /></Suspense></AdminGuard>} />
             <Route path="/admin/moderation" element={<AdminGuard><Suspense fallback={<Loading />}><ModerationPage /></Suspense></AdminGuard>} />

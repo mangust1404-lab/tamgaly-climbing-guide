@@ -105,6 +105,18 @@ export interface TopoRoute {
   routeNumber?: number
 }
 
+export type PrivacyLevel = 'all' | 'friends' | 'nobody'
+
+export interface PrivacySettings {
+  routes?: PrivacyLevel
+  achievements?: PrivacyLevel
+  maxGrade?: PrivacyLevel
+  stats?: PrivacyLevel
+  pyramid?: PrivacyLevel
+  dates?: PrivacyLevel
+  contacts?: PrivacyLevel
+}
+
 export interface User {
   id: string
   email?: string
@@ -112,6 +124,9 @@ export interface User {
   avatarUrl?: string
   homeArea?: string
   climbingSince?: number
+  telegramHandle?: string
+  whatsappPhone?: string
+  privacySettings?: PrivacySettings
   createdAt: string
   updatedAt: string
 }

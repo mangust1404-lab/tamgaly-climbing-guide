@@ -266,5 +266,14 @@ if (!userColNames.has('pin_hash')) {
 if (!userColNames.has('avatar_url')) {
   db.exec('ALTER TABLE app_user ADD COLUMN avatar_url TEXT')
 }
+if (!userColNames.has('telegram_handle')) {
+  db.exec('ALTER TABLE app_user ADD COLUMN telegram_handle TEXT')
+}
+if (!userColNames.has('whatsapp_phone')) {
+  db.exec('ALTER TABLE app_user ADD COLUMN whatsapp_phone TEXT')
+}
+if (!userColNames.has('privacy_settings')) {
+  db.exec('ALTER TABLE app_user ADD COLUMN privacy_settings TEXT')
+}
 
 console.log('Database tables created successfully.')

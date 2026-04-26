@@ -426,6 +426,73 @@ syncRouter.post('/user/avatar', async (c) => {
   return c.json({ status: 'ok', avatarUrl })
 })
 
+// Update user contacts (Telegram, WhatsApp)
+syncRouter.post('/user/contacts', async (c) => {
+  const body = await c.req.json()
+  const db = getDb()
+  const { userId, telegramHandle, whatsappPhone } = body
+  if (!userId) return c.json({ error: 'userId required' }, 400)
+  // Normalize Telegram handle: strip @, https://t.me/, whitespace
+  const tg = telegramHandle ? String(telegramHandle).trim().replace(/^https?:\/\/t\.me\//, '').replace(/^@/, '') : null
+  // Normalize WhatsApp: strip non-digits except leading +
+  const wa = whatsappPhone ? String(whatsappPhone).trim().replace(/[^\d+]/g, '') : null
+  db.prepare('UPDATE app_user SET telegram_handle = ?, whatsapp_phone = ?, updated_at = ? WHERE id = ?')
+    .run(tg, wa, new Date().toISOString(), userId)
+  return c.json({ status: 'ok', telegramHandle: tg, whatsappPhone: wa })
+})
+
+// Update privacy settings
+syncRouter.post('/user/privacy', async (c) => {
+  const body = await c.req.json()
+  const db = getDb()
+  const { userId, settings } = body
+  if (!userId || !settings) return c.json({ error: 'userId and settings required' }, 400)
+  db.prepare('UPDATE app_user SET privacy_settings = ?, updated_at = ? WHERE id = ?')
+    .run(JSON.stringify(settings), new Date().toISOString(), userId)
+  return c.json({ status: 'ok' })
+})
+
+// Get public profile (applies privacy settings)
+syncRouter.get('/user/:id/public-profile', async (c) => {
+  const db = getDb()
+  const userId = c.req.param('id')
+  const viewerId = c.req.query('viewer') || null
+  const u = db.prepare('SELECT id, display_name, avatar_url, telegram_handle, whatsapp_phone, privacy_settings, created_at FROM app_user WHERE id = ?').get(userId) as any
+  if (!u) return c.json({ error: 'not found' }, 404)
+  // Defaults: routes/achievements/maxGrade visible to all; stats/dates/contacts hidden
+  const defaults = { routes: 'all', achievements: 'all', maxGrade: 'all', stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody' }
+  let privacy = defaults
+  try { privacy = { ...defaults, ...JSON.parse(u.privacy_settings || '{}') } } catch {}
+  const isSelf = viewerId === userId
+  // Helper: check if a field is visible to current viewer
+  const visible = (field: keyof typeof defaults) => {
+    if (isSelf) return true
+    const level = (privacy as any)[field]
+    return level === 'all'  // friends-level treated as nobody until friend system implemented
+  }
+  const result: any = {
+    id: u.id,
+    displayName: u.display_name,
+    avatarUrl: u.avatar_url,
+    createdAt: u.created_at,
+    privacy,
+    fields: {
+      routes: visible('routes'),
+      achievements: visible('achievements'),
+      maxGrade: visible('maxGrade'),
+      stats: visible('stats'),
+      pyramid: visible('pyramid'),
+      dates: visible('dates'),
+      contacts: visible('contacts'),
+    },
+  }
+  if (visible('contacts')) {
+    result.telegramHandle = u.telegram_handle || null
+    result.whatsappPhone = u.whatsapp_phone || null
+  }
+  return c.json(result)
+})
+
 // Push achievement
 syncRouter.post('/achievement', async (c) => {
   const body = await c.req.json()

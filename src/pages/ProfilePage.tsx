@@ -55,6 +55,14 @@ export function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const [tgHandle, setTgHandle] = useState('')
+  const [waPhone, setWaPhone] = useState('')
+  const [privacy, setPrivacy] = useState<Record<string, 'all' | 'friends' | 'nobody'>>({
+    routes: 'all', achievements: 'all', maxGrade: 'all',
+    stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody',
+  })
+  const [settingsSaved, setSettingsSaved] = useState(false)
   const [motivationMessages, setMotivationMessages] = useState<any[]>([])
   const [expandedProgress, setExpandedProgress] = useState<string | null>(null)
   const [expandedPyramid, setExpandedPyramid] = useState<string | null>(null)
@@ -72,7 +80,34 @@ export function ProfilePage() {
       const me = users.find((u: any) => u.id === user.id)
       if (me?.avatar_url) setAvatarUrl(me.avatar_url + '?t=' + Date.now())
     }).catch(() => {})
+    // Load contacts + privacy from public-profile (self sees everything)
+    fetch(`${API_BASE}/sync/user/${user.id}/public-profile?viewer=${user.id}`).then(r => r.json()).then((p: any) => {
+      if (p.telegramHandle) setTgHandle(p.telegramHandle)
+      if (p.whatsappPhone) setWaPhone(p.whatsappPhone)
+      if (p.privacy) setPrivacy(prev => ({ ...prev, ...p.privacy }))
+    }).catch(() => {})
   }, [user?.id])
+
+  const saveContacts = async () => {
+    if (!user?.id) return
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    await fetch(`${API_BASE}/sync/user/contacts`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, telegramHandle: tgHandle, whatsappPhone: waPhone }),
+    }).catch(() => {})
+    setSettingsSaved(true)
+    setTimeout(() => setSettingsSaved(false), 2500)
+  }
+
+  const savePrivacy = async (next: typeof privacy) => {
+    if (!user?.id) return
+    setPrivacy(next)
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    await fetch(`${API_BASE}/sync/user/privacy`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.id, settings: next }),
+    }).catch(() => {})
+  }
 
   const ascents = useLiveQuery(() =>
     db.ascents.orderBy('date').reverse().toArray(),
@@ -635,12 +670,83 @@ export function ProfilePage() {
           <button onClick={() => setSettingPin(false)} className="text-xs text-gray-400">{t('cancel')}</button>
         </div>
       ) : (
-        <button
-          onClick={() => setSettingPin(true)}
-          className="text-xs text-gray-400 mb-2 flex items-center gap-1"
-        >
-          🔒 {pinSaved ? t('profile.pinSaved') : t('profile.setPin')}
-        </button>
+        <div className="flex gap-3 mb-2">
+          <button
+            onClick={() => setSettingPin(true)}
+            className="text-xs text-gray-400 flex items-center gap-1"
+          >
+            🔒 {pinSaved ? t('profile.pinSaved') : t('profile.setPin')}
+          </button>
+          <button
+            onClick={() => setShowSettings(s => !s)}
+            className="text-xs text-gray-400 flex items-center gap-1"
+          >
+            ⚙ {t('profile.settings')}
+          </button>
+        </div>
+      )}
+
+      {/* Contacts + privacy settings panel */}
+      {showSettings && (
+        <div className="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-200 space-y-3">
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 mb-2">{t('profile.contacts')}</h3>
+            <div className="flex gap-2 mb-2">
+              <span className="text-sm self-center w-6">📱</span>
+              <input
+                type="text"
+                value={tgHandle}
+                onChange={e => setTgHandle(e.target.value)}
+                placeholder="@username"
+                className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm"
+              />
+            </div>
+            <div className="flex gap-2 mb-2">
+              <span className="text-sm self-center w-6">💬</span>
+              <input
+                type="tel"
+                value={waPhone}
+                onChange={e => setWaPhone(e.target.value)}
+                placeholder="+7..."
+                className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm"
+              />
+            </div>
+            <button
+              onClick={saveContacts}
+              className="w-full bg-blue-600 text-white rounded px-3 py-1.5 text-xs font-medium"
+            >
+              {settingsSaved ? '✓ ' + t('saved') : t('save')}
+            </button>
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-gray-500 mb-2">{t('profile.privacy')}</h3>
+            <div className="space-y-1.5">
+              {([
+                ['routes', t('profile.privacyRoutes')],
+                ['achievements', t('profile.privacyAchievements')],
+                ['maxGrade', t('profile.privacyMaxGrade')],
+                ['stats', t('profile.privacyStats')],
+                ['pyramid', t('profile.privacyPyramid')],
+                ['dates', t('profile.privacyDates')],
+                ['contacts', t('profile.privacyContacts')],
+              ] as const).map(([key, label]) => (
+                <div key={key} className="flex items-center justify-between text-xs">
+                  <span className="text-gray-600">{label}</span>
+                  <select
+                    value={privacy[key]}
+                    onChange={e => savePrivacy({ ...privacy, [key]: e.target.value as any })}
+                    className="border border-gray-200 rounded px-1.5 py-0.5 text-xs bg-white"
+                  >
+                    <option value="all">🌍 {t('profile.privacyAll')}</option>
+                    <option value="friends">👥 {t('profile.privacyFriends')}</option>
+                    <option value="nobody">🔒 {t('profile.privacyNobody')}</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Progress towards achievements */}

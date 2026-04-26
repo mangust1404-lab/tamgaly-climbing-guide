@@ -234,7 +234,13 @@ export function LeaderboardPage() {
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{entry.displayName}</div>
+                    <Link
+                      to={`/user/${entry.userId}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-medium text-sm truncate text-blue-700 hover:underline block"
+                    >
+                      {entry.displayName}
+                    </Link>
                     {/* Achievement badges */}
                     {achievementMap[entry.userId]?.length > 0 && (
                       <div

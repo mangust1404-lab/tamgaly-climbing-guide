@@ -206,9 +206,13 @@ export function ActivityPage() {
                   {/* User info + follow */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-sm truncate">
+                      <Link
+                        to={`/user/${ascent.userId}`}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/user/${ascent.userId}` }}
+                        className="font-medium text-sm truncate text-blue-700 hover:underline"
+                      >
                         {user?.displayName || t('activity.unknownUser')}
-                      </span>
+                      </Link>
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollow(ascent.userId) }}
                         className={`text-xs px-1.5 py-0.5 rounded transition-colors flex-shrink-0 ${
