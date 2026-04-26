@@ -6,6 +6,7 @@
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || ''
 const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID || ''
+const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || ''  // e.g. "@TamgalyClimbing"
 const API = `https://api.telegram.org/bot${BOT_TOKEN}`
 
 /** Send a message to the admin */
@@ -19,6 +20,25 @@ export async function notifyAdmin(text: string): Promise<void> {
     })
   } catch (err) {
     console.error('Telegram notify error:', err)
+  }
+}
+
+/** Post a message to the public channel (visible to all subscribers) */
+export async function notifyChannel(text: string, options?: { disablePreview?: boolean }): Promise<void> {
+  if (!BOT_TOKEN || !CHANNEL_ID) return
+  try {
+    await fetch(`${API}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: CHANNEL_ID,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: options?.disablePreview ?? false,
+      }),
+    })
+  } catch (err) {
+    console.error('Telegram channel error:', err)
   }
 }
 
@@ -92,10 +112,18 @@ export function startBotPolling(getDb: () => any): void {
             new Date().toISOString(),
           )
           const userCount = (sdb.prepare('SELECT COUNT(*) as cnt FROM app_user').get() as any).cnt
+          // Also post to public channel
+          if (CHANNEL_ID) {
+            await fetch(`${API}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: CHANNEL_ID, text: `📢 ${newsText}`, parse_mode: 'HTML' }),
+            }).catch(() => {})
+          }
           await fetch(`${API}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: `✅ Новость опубликована! Увидят ${userCount} пользователей при открытии приложения.` }),
+            body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: `✅ Новость опубликована в приложении (${userCount} польз.) и в канале.` }),
           })
         } else if (msg.text.startsWith('/testnews ')) {
           const newsText = msg.text.slice(10).trim()

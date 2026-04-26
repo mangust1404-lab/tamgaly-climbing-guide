@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { getDb } from '../db/connection'
-import { notifyAdmin } from '../telegram'
+import { notifyAdmin, notifyChannel } from '../telegram'
 
 export const postsRouter = new Hono()
 
@@ -134,7 +134,23 @@ postsRouter.post('/', async (c) => {
   // Get author name for notification
   const author = db.prepare('SELECT display_name FROM app_user WHERE id = ?').get(authorId) as any
   const typeNames: Record<string, string> = { gear: '🛒 Барахолка', partner: '🤝 Напарник', ride: '🚗 Попутчик' }
-  notifyAdmin(`📋 <b>Новое объявление</b>\n${typeNames[type] || type}\nОт: ${author?.display_name || 'Anonymous'}\nЗаголовок: ${title}`).catch(() => {})
+  const adminMsg = `📋 <b>Новое объявление</b>\n${typeNames[type] || type}\nОт: ${author?.display_name || 'Anonymous'}\nЗаголовок: ${title}`
+  notifyAdmin(adminMsg).catch(() => {})
+
+  // Post to public channel — formatted for readers
+  const channelLines: string[] = [`${typeNames[type] || type}`, `<b>${title}</b>`]
+  if (description) channelLines.push(description)
+  const meta: string[] = []
+  if (type === 'gear' && price) meta.push(`💰 ${price} ${currency || '₸'}`)
+  if (type === 'partner' && eventDate) meta.push(`📅 ${eventDate}`)
+  if (type === 'partner' && (gradeMin || gradeMax)) meta.push(`📊 ${gradeMin || '?'}–${gradeMax || '?'}`)
+  if (type === 'ride' && eventDate) meta.push(`📅 ${eventDate}`)
+  if (type === 'ride' && (fromLocation || toLocation)) meta.push(`🗺 ${fromLocation || '?'} → ${toLocation || '?'}`)
+  if (type === 'ride' && seats) meta.push(`💺 ${seats}`)
+  if (meta.length > 0) channelLines.push(meta.join(' · '))
+  channelLines.push(`\n<i>От: ${author?.display_name || 'Anonymous'}</i>`)
+  channelLines.push(`📱 https://tamgalyclimb.alexanderlobanov.de/board`)
+  notifyChannel(channelLines.join('\n')).catch(() => {})
 
   return c.json({ status: 'created', id })
 })

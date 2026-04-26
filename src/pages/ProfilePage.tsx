@@ -116,6 +116,41 @@ export function ProfilePage() {
     setTimeout(() => setSettingsSaved(false), 2500)
   }
 
+  const [findFriendOpen, setFindFriendOpen] = useState(false)
+  const [findQuery, setFindQuery] = useState('')
+  const [findResults, setFindResults] = useState<Array<{ id: string; display_name: string; avatar_url: string | null }>>([])
+  const [findStatus, setFindStatus] = useState<Record<string, 'sent' | 'friends' | 'incoming' | 'outgoing' | 'none'>>({})
+
+  const searchUsers = async () => {
+    if (!findQuery.trim() || !user?.id) return
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    try {
+      const r = await fetch(`${API_BASE}/sync/users`)
+      const all: any[] = await r.json()
+      const q = findQuery.trim().toLowerCase()
+      const matches = all.filter(u => u.id !== user.id && u.display_name.toLowerCase().includes(q)).slice(0, 20)
+      setFindResults(matches)
+      // Get friend status for each
+      const statuses: Record<string, any> = {}
+      await Promise.all(matches.map(async u => {
+        const sr = await fetch(`${API_BASE}/sync/friend/status?a=${user.id}&b=${u.id}`).then(r => r.json()).catch(() => ({ status: 'none' }))
+        statuses[u.id] = sr.status === 'friends' ? 'friends' : sr.status === 'pending_outgoing' ? 'outgoing' : sr.status === 'pending_incoming' ? 'incoming' : 'none'
+      }))
+      setFindStatus(statuses)
+    } catch {}
+  }
+
+  const sendFriendRequest = async (toId: string) => {
+    if (!user?.id) return
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    await fetch(`${API_BASE}/sync/friend/request`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromId: user.id, toId }),
+    }).catch(() => {})
+    setFindStatus(prev => ({ ...prev, [toId]: 'outgoing' }))
+    loadFriends()
+  }
+
   const acceptFriend = async (fromId: string) => {
     if (!user?.id) return
     const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -741,11 +776,17 @@ export function ProfilePage() {
       )}
 
       {/* Friends section */}
-      {(friends.length > 0 || outgoing.length > 0) && (
-        <div className="mb-4">
-          <h3 className="text-xs font-semibold text-gray-500 mb-2">
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-semibold text-gray-500">
             {t('friend.title')}{friends.length > 0 ? ` (${friends.length})` : ''}
           </h3>
+          <button
+            onClick={() => { setFindFriendOpen(true); setFindQuery(''); setFindResults([]) }}
+            className="text-xs text-blue-600 font-medium"
+          >+ {t('friend.find')}</button>
+        </div>
+        {(friends.length > 0 || outgoing.length > 0) ? (
           <div className="flex flex-wrap gap-2">
             {friends.map(f => (
               <Link key={f.id} to={`/user/${f.id}`} className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full pl-1 pr-2.5 py-0.5">
@@ -762,6 +803,61 @@ export function ProfilePage() {
                 <span className="text-[9px] text-gray-400">⏳</span>
               </div>
             ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">{t('friend.empty')}</p>
+        )}
+      </div>
+
+      {/* Find friend modal */}
+      {findFriendOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end" onClick={() => setFindFriendOpen(false)}>
+          <div className="bg-white w-full rounded-t-2xl p-4 pb-6 animate-slide-up max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-bold">{t('friend.findTitle')}</h3>
+              <button onClick={() => setFindFriendOpen(false)} className="text-gray-400 text-2xl leading-none">&times;</button>
+            </div>
+            <div className="flex gap-2 mb-3">
+              <input
+                autoFocus
+                value={findQuery}
+                onChange={e => setFindQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && searchUsers()}
+                placeholder={t('friend.findPlaceholder')}
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <button onClick={searchUsers} disabled={!findQuery.trim()} className="bg-blue-600 text-white rounded-lg px-3 text-sm font-medium disabled:opacity-50">
+                {t('friend.search')}
+              </button>
+            </div>
+            {findResults.length === 0 && findQuery && (
+              <p className="text-xs text-gray-400 text-center py-4">{t('friend.noResults')}</p>
+            )}
+            <div className="space-y-2">
+              {findResults.map(u => {
+                const status = findStatus[u.id] || 'none'
+                return (
+                  <div key={u.id} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
+                    <Link to={`/user/${u.id}`} onClick={() => setFindFriendOpen(false)}>
+                      {u.avatar_url
+                        ? <img src={u.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                        : <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center">👤</div>}
+                    </Link>
+                    <Link to={`/user/${u.id}`} onClick={() => setFindFriendOpen(false)} className="flex-1 text-sm font-medium text-blue-700 truncate">
+                      {u.display_name}
+                    </Link>
+                    {status === 'none' && (
+                      <button onClick={() => sendFriendRequest(u.id)} className="text-xs bg-blue-600 text-white rounded px-2 py-1 font-medium">
+                        + {t('friend.add')}
+                      </button>
+                    )}
+                    {status === 'outgoing' && <span className="text-xs text-gray-500">⏳ {t('friend.requestSent')}</span>}
+                    {status === 'incoming' && <button onClick={() => acceptFriend(u.id)} className="text-xs bg-green-600 text-white rounded px-2 py-1">✓ {t('friend.accept')}</button>}
+                    {status === 'friends' && <span className="text-xs text-green-700">✓ {t('friend.statusFriends')}</span>}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -781,6 +877,14 @@ export function ProfilePage() {
                 className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm"
               />
             </div>
+            <a
+              href="https://t.me/TamgalyClimbing"
+              target="_blank"
+              rel="noreferrer"
+              className="block bg-sky-50 text-sky-700 rounded px-3 py-1.5 text-xs text-center mb-2"
+            >
+              📢 {t('profile.subscribeChannel')} → @TamgalyClimbing
+            </a>
             <div className="flex gap-2 mb-2">
               <span className="text-sm self-center w-6">💬</span>
               <input

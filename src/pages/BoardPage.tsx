@@ -124,7 +124,7 @@ export function BoardPage() {
       </div>
 
       {/* Type tabs */}
-      <div className="flex gap-1 mb-4 overflow-x-auto scrollbar-hide">
+      <div className="flex flex-wrap gap-2 mb-4 pt-1">
         {TYPES.map(tt => {
           const c = counts[tt.value]
           return (
