@@ -59,7 +59,7 @@ export function ProfilePage() {
   const [tgHandle, setTgHandle] = useState('')
   const [waPhone, setWaPhone] = useState('')
   const [privacy, setPrivacy] = useState<Record<string, 'all' | 'friends' | 'nobody'>>({
-    routes: 'all', achievements: 'all', maxGrade: 'all',
+    routes: 'all', achievements: 'all', maxGrade: 'all', projects: 'all', gradeVotes: 'all',
     stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody',
   })
   const [settingsSaved, setSettingsSaved] = useState(false)
@@ -806,6 +806,8 @@ export function ProfilePage() {
                 ['routes', t('profile.privacyRoutes')],
                 ['achievements', t('profile.privacyAchievements')],
                 ['maxGrade', t('profile.privacyMaxGrade')],
+                ['projects', t('profile.privacyProjects')],
+                ['gradeVotes', t('profile.privacyGradeVotes')],
                 ['stats', t('profile.privacyStats')],
                 ['pyramid', t('profile.privacyPyramid')],
                 ['dates', t('profile.privacyDates')],

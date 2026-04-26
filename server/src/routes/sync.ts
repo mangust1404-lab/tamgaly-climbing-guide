@@ -460,7 +460,7 @@ syncRouter.get('/user/:id/public-profile', async (c) => {
   const u = db.prepare('SELECT id, display_name, avatar_url, telegram_handle, whatsapp_phone, privacy_settings, created_at FROM app_user WHERE id = ?').get(userId) as any
   if (!u) return c.json({ error: 'not found' }, 404)
   // Defaults: routes/achievements/maxGrade visible to all; stats/dates/contacts hidden
-  const defaults = { routes: 'all', achievements: 'all', maxGrade: 'all', stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody' }
+  const defaults = { routes: 'all', achievements: 'all', maxGrade: 'all', stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody', projects: 'all', gradeVotes: 'all' }
   let privacy = defaults
   try { privacy = { ...defaults, ...JSON.parse(u.privacy_settings || '{}') } } catch {}
   const isSelf = viewerId === userId
@@ -503,6 +503,8 @@ syncRouter.get('/user/:id/public-profile', async (c) => {
       pyramid: visible('pyramid'),
       dates: visible('dates'),
       contacts: visible('contacts'),
+      projects: visible('projects'),
+      gradeVotes: visible('gradeVotes'),
     },
   }
   if (visible('contacts')) {

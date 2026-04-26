@@ -24,6 +24,8 @@ interface PublicProfile {
     pyramid: boolean
     dates: boolean
     contacts: boolean
+    projects: boolean
+    gradeVotes: boolean
   }
   telegramHandle?: string | null
   whatsappPhone?: string | null
@@ -46,6 +48,14 @@ export function PublicProfilePage() {
   const routes = useLiveQuery(() => db.routes.toArray())
   const achievements = useLiveQuery(
     () => userId ? db.achievements.where('userId').equals(userId).toArray() : [],
+    [userId],
+  )
+  const wishlist = useLiveQuery(
+    () => userId ? db.wishlist.where('userId').equals(userId).toArray() : [],
+    [userId],
+  )
+  const reviews = useLiveQuery(
+    () => userId ? db.reviews.where('userId').equals(userId).toArray() : [],
     [userId],
   )
 
@@ -300,8 +310,49 @@ export function PublicProfilePage() {
         </div>
       )}
 
+      {/* Projects (wishlist of type 'project') */}
+      {f.projects && wishlist && wishlist.filter(w => w.type === 'project').length > 0 && (
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold mb-2">{t('publicProfile.projects')}</h2>
+          <div className="space-y-1">
+            {wishlist.filter(w => w.type === 'project').map(w => {
+              const r = routeMap.get(w.routeId)
+              if (!r) return null
+              return (
+                <Link key={w.id} to={`/route/${r.id}`} className="flex items-center gap-2 text-xs py-1 px-2 bg-amber-50 rounded">
+                  <span className={`font-mono font-bold rounded px-1 py-0.5 ${gradeColor(r.grade)}`}>{r.grade}</span>
+                  <TranslatedName name={td(r.name)} className="flex-1 truncate text-amber-800" />
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Grade votes */}
+      {f.gradeVotes && reviews && reviews.filter(r => r.gradeOpinion).length > 0 && (
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold mb-2">
+            {t('publicProfile.gradeVotes')} ({reviews.filter(r => r.gradeOpinion).length})
+          </h2>
+          <div className="space-y-1">
+            {reviews.filter(r => r.gradeOpinion).slice(0, 20).map(rv => {
+              const r = routeMap.get(rv.routeId)
+              if (!r) return null
+              return (
+                <Link key={rv.id} to={`/route/${r.id}`} className="flex items-center gap-2 text-xs py-1 px-2 bg-purple-50 rounded">
+                  <span className={`font-mono font-bold rounded px-1 py-0.5 ${gradeColor(r.grade)}`}>{r.grade}</span>
+                  <TranslatedName name={td(r.name)} className="flex-1 truncate text-purple-700" />
+                  <span className="text-purple-500 font-mono text-[10px]">→ {rv.gradeOpinion}</span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Empty state */}
-      {!f.routes && !f.achievements && !f.stats && !f.maxGrade && !f.pyramid && !f.contacts && (
+      {!f.routes && !f.achievements && !f.stats && !f.maxGrade && !f.pyramid && !f.contacts && !f.projects && !f.gradeVotes && (
         <div className="text-center py-12 text-gray-400">
           <p className="text-4xl mb-3">🔒</p>
           <p className="text-sm">{t('publicProfile.private')}</p>

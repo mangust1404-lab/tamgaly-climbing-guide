@@ -51,6 +51,14 @@ export function HomePage() {
     [user?.id],
   )
   const allAscents = useLiveQuery(() => db.ascents.toArray())
+  const [friendRequests, setFriendRequests] = useState<Array<{ fromId: string; name: string }>>([])
+  useEffect(() => {
+    if (!user?.id) return
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    fetch(`${API_BASE}/sync/friend/list?userId=${user.id}`).then(r => r.json()).then((data: any) => {
+      if (data.incoming) setFriendRequests(data.incoming.map((x: any) => ({ fromId: x.fromId, name: x.name })))
+    }).catch(() => {})
+  }, [user?.id])
   const [dl, setDl] = useState<DownloadProgress | null>(null)
   const [search, setSearch] = useState('')
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
@@ -329,6 +337,22 @@ export function HomePage() {
           </div>
         )
       })()}
+
+      {/* Friend requests banner */}
+      {friendRequests.length > 0 && (
+        <Link
+          to="/profile"
+          className="mb-3 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 flex items-center gap-2"
+        >
+          <span className="text-lg">👥</span>
+          <span className="text-sm text-yellow-800 flex-1">
+            {friendRequests.length === 1
+              ? `${friendRequests[0].name} ${t('home.friendRequestOne')}`
+              : `${friendRequests.length} ${t('home.friendRequestMany')}`}
+          </span>
+          <span className="text-yellow-600 text-xs">→</span>
+        </Link>
+      )}
 
       {/* News banner */}
       {visibleNews.length > 0 && (
