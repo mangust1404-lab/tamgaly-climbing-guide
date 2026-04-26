@@ -56,6 +56,7 @@ postsRouter.get('/', async (c) => {
     seats: r.seats,
     gradeMin: r.grade_min,
     gradeMax: r.grade_max,
+    rideRole: r.ride_role,
     status: r.status,
     createdAt: r.created_at,
   }))
@@ -80,6 +81,7 @@ postsRouter.get('/:id', async (c) => {
     sectorId: r.sector_id, routeId: r.route_id,
     fromLocation: r.from_location, toLocation: r.to_location,
     seats: r.seats, gradeMin: r.grade_min, gradeMax: r.grade_max,
+    rideRole: r.ride_role,
     status: r.status, createdAt: r.created_at,
   })
 })
@@ -91,7 +93,7 @@ postsRouter.post('/', async (c) => {
   const {
     type, authorId, title, description, photos, // photos is array of base64 data URLs
     price, currency, eventDate, sectorId, routeId,
-    fromLocation, toLocation, seats, gradeMin, gradeMax,
+    fromLocation, toLocation, seats, gradeMin, gradeMax, rideRole,
   } = body
 
   if (!type || !authorId || !title) return c.json({ error: 'type, authorId, title required' }, 400)
@@ -116,8 +118,8 @@ postsRouter.post('/', async (c) => {
   db.prepare(`
     INSERT INTO post (id, type, author_id, title, description, photos, price, currency,
                       event_date, sector_id, route_id, from_location, to_location, seats,
-                      grade_min, grade_max, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+                      grade_min, grade_max, ride_role, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
   `).run(
     id, type, authorId, title, description || null,
     photoUrls.length > 0 ? JSON.stringify(photoUrls) : null,
@@ -125,6 +127,7 @@ postsRouter.post('/', async (c) => {
     sectorId || null, routeId || null,
     fromLocation || null, toLocation || null, seats || null,
     gradeMin || null, gradeMax || null,
+    type === 'ride' ? (rideRole || null) : null,
     now, now,
   )
 
@@ -151,11 +154,12 @@ postsRouter.patch('/:id', async (c) => {
 
   const allowed = ['status', 'title', 'description', 'price', 'currency', 'event_date',
                    'sector_id', 'route_id', 'from_location', 'to_location', 'seats',
-                   'grade_min', 'grade_max']
+                   'grade_min', 'grade_max', 'ride_role']
   const camelToSnake: Record<string, string> = {
     eventDate: 'event_date', sectorId: 'sector_id', routeId: 'route_id',
     fromLocation: 'from_location', toLocation: 'to_location',
     gradeMin: 'grade_min', gradeMax: 'grade_max',
+    rideRole: 'ride_role',
   }
   const fields: string[] = []
   const params: unknown[] = []

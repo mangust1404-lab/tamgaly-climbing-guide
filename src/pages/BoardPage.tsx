@@ -32,6 +32,7 @@ interface Post {
   seats?: number | null
   gradeMin?: string | null
   gradeMax?: string | null
+  rideRole?: 'driver' | 'passenger' | null
   status: 'active' | 'closed'
   createdAt: string
 }
@@ -46,6 +47,28 @@ export function BoardPage() {
   const { t, td } = useI18n()
   const { user } = useUser()
   const [activeType, setActiveType] = useState<PostType>('gear')
+  const [rideFilter, setRideFilter] = useState<'all' | 'driver' | 'passenger'>('all')
+  const [counts, setCounts] = useState<Record<PostType, { active: number; total: number }>>({
+    gear: { active: 0, total: 0 }, partner: { active: 0, total: 0 }, ride: { active: 0, total: 0 },
+  })
+
+  const loadCounts = async () => {
+    try {
+      const [active, all] = await Promise.all([
+        fetch(`${API_BASE}/posts?status=active`).then(r => r.json()),
+        fetch(`${API_BASE}/posts?status=closed`).then(r => r.json()),
+      ])
+      const next = { gear: { active: 0, total: 0 }, partner: { active: 0, total: 0 }, ride: { active: 0, total: 0 } }
+      for (const p of (Array.isArray(active) ? active : [])) {
+        if (next[p.type as PostType]) { next[p.type as PostType].active++; next[p.type as PostType].total++ }
+      }
+      for (const p of (Array.isArray(all) ? all : [])) {
+        if (next[p.type as PostType]) next[p.type as PostType].total++
+      }
+      setCounts(next)
+    } catch {}
+  }
+  useEffect(() => { loadCounts() }, [])
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -64,12 +87,17 @@ export function BoardPage() {
     setLoading(false)
   }
   useEffect(() => { loadPosts() }, [activeType])
+  // Refresh counts after any change
+  useEffect(() => { loadCounts() }, [posts])
 
-  const myPosts = posts.filter(p => p.authorId === user?.id)
-  const otherPosts = posts.filter(p => p.authorId !== user?.id)
+  const visiblePosts = activeType === 'ride' && rideFilter !== 'all'
+    ? posts.filter(p => p.rideRole === rideFilter)
+    : posts
+  const myPosts = visiblePosts.filter(p => p.authorId === user?.id)
+  const otherPosts = visiblePosts.filter(p => p.authorId !== user?.id)
 
   return (
-    <div className="p-4">
+    <div className="p-4 pt-12">
       <div className="flex items-baseline justify-between mb-3">
         <h1 className="text-2xl font-bold">{t('board.title')}</h1>
         {user && (
@@ -84,18 +112,45 @@ export function BoardPage() {
 
       {/* Type tabs */}
       <div className="flex gap-1 mb-4 overflow-x-auto scrollbar-hide">
-        {TYPES.map(tt => (
-          <button
-            key={tt.value}
-            onClick={() => setActiveType(tt.value)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-              activeType === tt.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
-            }`}
-          >
-            {tt.emoji} {t(tt.key as any)}
-          </button>
-        ))}
+        {TYPES.map(tt => {
+          const c = counts[tt.value]
+          return (
+            <button
+              key={tt.value}
+              onClick={() => setActiveType(tt.value)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1 ${
+                activeType === tt.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              <span>{tt.emoji} {t(tt.key as any)}</span>
+              {c.total > 0 && (
+                <span className={`text-[10px] font-mono px-1.5 py-0 rounded-full ${
+                  activeType === tt.value ? 'bg-white/20' : 'bg-white text-gray-500'
+                }`}>{c.active}/{c.total}</span>
+              )}
+            </button>
+          )
+        })}
       </div>
+
+      {/* Ride role sub-tabs */}
+      {activeType === 'ride' && (
+        <div className="flex gap-1 mb-3 overflow-x-auto scrollbar-hide">
+          {([
+            ['all', '🚗 ' + t('board.rideAll')],
+            ['driver', '🚙 ' + t('board.rideDriver')],
+            ['passenger', '🧳 ' + t('board.ridePassenger')],
+          ] as const).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setRideFilter(k)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                rideFilter === k ? 'bg-orange-500 text-white' : 'bg-orange-50 text-orange-700'
+              }`}
+            >{label}</button>
+          ))}
+        </div>
+      )}
 
       {!user && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3 text-sm text-yellow-800">
@@ -261,6 +316,11 @@ function PostCard({ post, isOwner, sectorMap, td, t, onZoom, onChange, userId }:
           </span>
         )}
         {sector && <span className="bg-gray-50 rounded px-1.5 py-0.5">📍 <TranslatedName name={td(sector.name)} /></span>}
+        {post.type === 'ride' && post.rideRole && (
+          <span className={`rounded px-1.5 py-0.5 font-medium ${post.rideRole === 'driver' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+            {post.rideRole === 'driver' ? '🚙 ' + t('board.rideDriver') : '🧳 ' + t('board.ridePassenger')}
+          </span>
+        )}
         {post.type === 'ride' && post.eventDate && (
           <span className="bg-blue-50 text-blue-700 rounded px-1.5 py-0.5">📅 {post.eventDate}</span>
         )}
@@ -270,7 +330,9 @@ function PostCard({ post, isOwner, sectorMap, td, t, onZoom, onChange, userId }:
           </span>
         )}
         {post.type === 'ride' && post.seats != null && (
-          <span className="bg-gray-50 rounded px-1.5 py-0.5">💺 {post.seats}</span>
+          <span className="bg-gray-50 rounded px-1.5 py-0.5">
+            💺 {post.rideRole === 'passenger' ? `${t('board.passengersCount')} ${post.seats}` : post.seats}
+          </span>
         )}
       </div>
 
@@ -333,6 +395,7 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
   const [seats, setSeats] = useState('')
   const [gradeMin, setGradeMin] = useState('')
   const [gradeMax, setGradeMax] = useState('')
+  const [rideRole, setRideRole] = useState<'driver' | 'passenger'>('driver')
   const [photos, setPhotos] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
@@ -378,6 +441,7 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
       payload.gradeMax = gradeMax || null
     }
     if (type === 'ride') {
+      payload.rideRole = rideRole
       payload.eventDate = eventDate || null
       payload.fromLocation = fromLoc.trim() || null
       payload.toLocation = toLoc.trim() || null
@@ -457,6 +521,18 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
 
         {type === 'ride' && (
           <>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setRideRole('driver')}
+                className={`py-2 rounded-lg text-xs font-medium ${rideRole === 'driver' ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >🚙 {t('board.rideDriver')}</button>
+              <button
+                type="button"
+                onClick={() => setRideRole('passenger')}
+                className={`py-2 rounded-lg text-xs font-medium ${rideRole === 'passenger' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+              >🧳 {t('board.ridePassenger')}</button>
+            </div>
             <input
               type="date" value={eventDate} onChange={e => setEventDate(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2"
@@ -476,7 +552,7 @@ function CreatePostModal({ type, userId, onClose, onCreated }: {
             </div>
             <input
               type="number" value={seats} onChange={e => setSeats(e.target.value)}
-              placeholder={t('board.fieldSeats')}
+              placeholder={rideRole === 'driver' ? t('board.fieldSeats') : t('board.fieldPassengersCount')}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-2"
             />
           </>

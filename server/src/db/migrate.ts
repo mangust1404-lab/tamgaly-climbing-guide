@@ -271,6 +271,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_friendship_friend ON friendship(friend_id);
 `)
 
+// Posts: ride_role column migration (driver/passenger)
+try {
+  const postCols = db.prepare("PRAGMA table_info(post)").all() as { name: string }[]
+  if (postCols.length > 0 && !postCols.some(c => c.name === 'ride_role')) {
+    db.exec('ALTER TABLE post ADD COLUMN ride_role TEXT')
+  }
+} catch {}
+
 // Posts table (board: gear/partner/ride)
 db.exec(`
   CREATE TABLE IF NOT EXISTS post (
@@ -290,6 +298,7 @@ db.exec(`
     seats INTEGER,
     grade_min TEXT,
     grade_max TEXT,
+    ride_role TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL

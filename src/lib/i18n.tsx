@@ -65,6 +65,11 @@ const translations = {
   'board.fieldFrom': { ru: 'Откуда', en: 'From', kk: 'Қайдан' },
   'board.fieldTo': { ru: 'Куда', en: 'To', kk: 'Қайда' },
   'board.fieldSeats': { ru: 'Свободных мест', en: 'Free seats', kk: 'Бос орындар' },
+  'board.fieldPassengersCount': { ru: 'Сколько вас человек', en: 'How many of you', kk: 'Қанша адам' },
+  'board.rideAll': { ru: 'Все', en: 'All', kk: 'Барлығы' },
+  'board.rideDriver': { ru: 'За рулём', en: 'Driver', kk: 'Жүргізуші' },
+  'board.ridePassenger': { ru: 'Ищу водителя', en: 'Need a ride', kk: 'Жүргізуші іздеймін' },
+  'board.passengersCount': { ru: 'нас', en: 'we are', kk: 'бізде' },
   'nav.leaderboard': { ru: 'Рейтинг', en: 'Leaderboard', kk: 'Рейтинг' },
   'nav.profile': { ru: 'Профиль', en: 'Profile', kk: 'Профиль' },
 
