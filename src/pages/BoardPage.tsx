@@ -48,28 +48,26 @@ export function BoardPage() {
   const { user } = useUser()
   const [activeType, setActiveType] = useState<PostType>('gear')
   const [rideFilter, setRideFilter] = useState<'all' | 'driver' | 'passenger'>('all')
-  const [counts, setCounts] = useState<Record<PostType, { active: number; total: number }>>({
-    gear: { active: 0, total: 0 }, partner: { active: 0, total: 0 }, ride: { active: 0, total: 0 },
+  const [counts, setCounts] = useState<Record<PostType, { fresh: number; active: number }>>({
+    gear: { fresh: 0, active: 0 }, partner: { fresh: 0, active: 0 }, ride: { fresh: 0, active: 0 },
   })
 
-  const loadCounts = async () => {
-    try {
-      const [active, all] = await Promise.all([
-        fetch(`${API_BASE}/posts?status=active`).then(r => r.json()),
-        fetch(`${API_BASE}/posts?status=closed`).then(r => r.json()),
-      ])
-      const next = { gear: { active: 0, total: 0 }, partner: { active: 0, total: 0 }, ride: { active: 0, total: 0 } }
-      for (const p of (Array.isArray(active) ? active : [])) {
-        if (next[p.type as PostType]) { next[p.type as PostType].active++; next[p.type as PostType].total++ }
-      }
-      for (const p of (Array.isArray(all) ? all : [])) {
-        if (next[p.type as PostType]) next[p.type as PostType].total++
-      }
-      setCounts(next)
-    } catch {}
+  // Compute fresh/active counts from a single fetch of active posts
+  const computeCounts = (allActive: Post[]) => {
+    const lastSeen: Record<PostType, number> = {
+      gear: parseInt(localStorage.getItem('board:seen:gear') || '0'),
+      partner: parseInt(localStorage.getItem('board:seen:partner') || '0'),
+      ride: parseInt(localStorage.getItem('board:seen:ride') || '0'),
+    }
+    const next = { gear: { fresh: 0, active: 0 }, partner: { fresh: 0, active: 0 }, ride: { fresh: 0, active: 0 } }
+    for (const p of allActive) {
+      const t = p.type as PostType
+      if (!next[t]) continue
+      next[t].active++
+      if (new Date(p.createdAt).getTime() > lastSeen[t]) next[t].fresh++
+    }
+    setCounts(next)
   }
-  useEffect(() => { loadCounts() }, [])
-  const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [zoomed, setZoomed] = useState<string | null>(null)
@@ -77,18 +75,30 @@ export function BoardPage() {
   const sectors = useLiveQuery(() => db.sectors.orderBy('sortOrder').toArray())
   const sectorMap = useMemo(() => new Map((sectors || []).map(s => [s.id, s])), [sectors])
 
+  const [allActivePosts, setAllActivePosts] = useState<Post[]>([])
+
   const loadPosts = async () => {
     setLoading(true)
     try {
-      const r = await fetch(`${API_BASE}/posts?type=${activeType}`)
+      const r = await fetch(`${API_BASE}/posts?status=active`)
       const data = await r.json()
-      setPosts(Array.isArray(data) ? data : [])
-    } catch { setPosts([]) }
+      const all = Array.isArray(data) ? data : []
+      setAllActivePosts(all)
+      computeCounts(all)
+    } catch { setAllActivePosts([]) }
     setLoading(false)
   }
-  useEffect(() => { loadPosts() }, [activeType])
-  // Refresh counts after any change
-  useEffect(() => { loadCounts() }, [posts])
+  useEffect(() => { loadPosts() }, [])
+
+  // Filter posts by activeType from already-fetched list
+  const posts = allActivePosts.filter(p => p.type === activeType)
+
+  // Mark current type as "seen" when user switches to it
+  useEffect(() => {
+    localStorage.setItem(`board:seen:${activeType}`, String(Date.now()))
+    // Recompute fresh counts for other types
+    computeCounts(allActivePosts)
+  }, [activeType])
 
   const visiblePosts = activeType === 'ride' && rideFilter !== 'all'
     ? posts.filter(p => p.rideRole === rideFilter)
@@ -118,15 +128,20 @@ export function BoardPage() {
             <button
               key={tt.value}
               onClick={() => setActiveType(tt.value)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1 ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1 relative ${
                 activeType === tt.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
               }`}
             >
               <span>{tt.emoji} {t(tt.key as any)}</span>
-              {c.total > 0 && (
+              {c.active > 0 && (
                 <span className={`text-[10px] font-mono px-1.5 py-0 rounded-full ${
                   activeType === tt.value ? 'bg-white/20' : 'bg-white text-gray-500'
-                }`}>{c.active}/{c.total}</span>
+                }`}>{c.active}</span>
+              )}
+              {c.fresh > 0 && activeType !== tt.value && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                  +{c.fresh}
+                </span>
               )}
             </button>
           )
