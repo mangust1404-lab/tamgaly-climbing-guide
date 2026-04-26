@@ -783,7 +783,7 @@ export function ProfilePage() {
       )}
 
       {/* Friends section */}
-      <details className="mb-4 group" open={friends.length > 0 || outgoing.length > 0}>
+      <details className="mb-4 group" open>
         <summary className="flex items-center justify-between mb-2 cursor-pointer list-none">
           <h3 className="text-xs font-semibold text-gray-500">
             {t('friend.title')}{friends.length > 0 ? ` (${friends.length})` : ''}
@@ -1258,7 +1258,7 @@ export function ProfilePage() {
           )}
 
           {/* Style breakdown */}
-          <details className="mb-6 group">
+          <details className="mb-6 group" open>
             <summary className="text-sm font-semibold mb-2 cursor-pointer list-none flex items-center justify-between">
               <span>{t('profile.byStyle')}</span>
               <span className="text-gray-300 group-open:rotate-180 transition-transform text-xs">▼</span>
