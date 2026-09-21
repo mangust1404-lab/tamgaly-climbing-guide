@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../lib/db/schema'
 import { calculateTotalScore, calculatePoints } from '../lib/scoring/points'
 import { useI18n } from '../lib/i18n'
-import { gradeColor } from '../lib/utils'
+import { gradeColor, ascentDedupKey } from '../lib/utils'
 
 type Period = 'all' | 'month' | 'week'
 
@@ -81,12 +81,11 @@ export function LeaderboardPage() {
     const SCORED_STYLES = ['onsight', 'flash', 'redpoint']
     const entries = Array.from(byUser.entries()).map(([userId, userAscents]) => {
       // Deduplicate: keep only FIRST scored ascent per route (earliest date)
-      // Use route name as key because same route may have different IDs across syncs
       const firstPerRoute = new Map<string, typeof userAscents[number]>()
       for (const a of userAscents) {
         if (!SCORED_STYLES.includes(a.style)) continue
         const route = routeMap.get(a.routeId)
-        const routeKey = route?.name || a.routeId
+        const routeKey = ascentDedupKey(route, a.routeId)
         const existing = firstPerRoute.get(routeKey)
         if (!existing || a.date < existing.date) {
           firstPerRoute.set(routeKey, a)

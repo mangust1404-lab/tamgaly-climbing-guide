@@ -70,3 +70,22 @@ export function gradeGroups(grades: string[]): string[] {
     return a.localeCompare(b)
   })
 }
+
+/**
+ * Dedup key for scoring: only the first scored ascent per route counts.
+ *
+ * Keyed by sector + name + grade rather than by route id, because the same
+ * route can get a new id across syncs (re-import, moved to another sector).
+ * The grade is part of the key on purpose: two routes may share a name and
+ * still be different climbs (e.g. the 6a and 6b+ "Гоголь-моголь"), and each
+ * must be scored on its own grade.
+ *
+ * Falls back to the route id when the route is unknown to the client
+ * (archived routes are not shipped to the app).
+ */
+export function ascentDedupKey(
+  route: { sectorId: string; name: string; grade: string } | undefined,
+  routeId: string,
+): string {
+  return route ? `${route.sectorId}|${route.name}|${route.grade}` : routeId
+}

@@ -8,7 +8,7 @@ import { getMotivationMessages, getAchievementProgress } from '../lib/scoring/mo
 import { MotivationToast } from '../components/ui/MotivationToast'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
-import { gradeColor } from '../lib/utils'
+import { gradeColor, ascentDedupKey } from '../lib/utils'
 import { TranslatedName } from '../components/ui/TranslatedName'
 
 const STYLE_COLORS: Record<string, string> = {
@@ -224,7 +224,7 @@ export function ProfilePage() {
     for (const a of completed) {
       if (!SCORED_STYLES.includes(a.style)) continue
       const route = routeMap.get(a.routeId)
-      const key = route?.name || a.routeId
+      const key = ascentDedupKey(route, a.routeId)
       const existing = firstScoredPerRoute.get(key)
       if (!existing || a.date < existing.date) firstScoredPerRoute.set(key, a)
     }

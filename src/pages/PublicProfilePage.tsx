@@ -5,7 +5,7 @@ import { db } from '../lib/db/schema'
 import { calculatePoints, calculateTotalScore } from '../lib/scoring/points'
 import { useI18n } from '../lib/i18n'
 import { useUser } from '../lib/userContext'
-import { gradeColor } from '../lib/utils'
+import { gradeColor, ascentDedupKey } from '../lib/utils'
 import { TranslatedName } from '../components/ui/TranslatedName'
 
 type FriendStatus = 'self' | 'none' | 'pending_outgoing' | 'pending_incoming' | 'friends'
@@ -82,7 +82,7 @@ export function PublicProfilePage() {
     for (const a of completed) {
       if (!SCORED_STYLES.includes(a.style)) continue
       const route = routeMap.get(a.routeId)
-      const key = route?.name || a.routeId
+      const key = ascentDedupKey(route, a.routeId)
       const existing = firstPer.get(key)
       if (!existing || a.date < existing.date) firstPer.set(key, a)
     }
