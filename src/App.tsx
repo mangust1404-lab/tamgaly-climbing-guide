@@ -77,7 +77,8 @@ function App() {
             <Route path="/user/:userId" element={<Suspense fallback={<Loading />}><PublicProfilePage /></Suspense>} />
             <Route path="/board" element={<Suspense fallback={<Loading />}><BoardPage /></Suspense>} />
             <Route path="/install" element={<Suspense fallback={<Loading />}><InstallPage /></Suspense>} />
-            <Route path="/admin/topo" element={<AdminGuard><Suspense fallback={<Loading />}><AdminTopoPage /></Suspense></AdminGuard>} />
+            <Route path="/admin" element={<Navigate to="/admin/topo" replace />} />
+            <Route path="/admin/topo"element={<AdminGuard><Suspense fallback={<Loading />}><AdminTopoPage /></Suspense></AdminGuard>} />
             <Route path="/admin/photos" element={<AdminGuard><Suspense fallback={<Loading />}><AdminPhotoTagger /></Suspense></AdminGuard>} />
             <Route path="/admin/moderation" element={<AdminGuard><Suspense fallback={<Loading />}><ModerationPage /></Suspense></AdminGuard>} />
             <Route path="/admin/sectors" element={<AdminGuard><Suspense fallback={<Loading />}><AdminSectorsPage /></Suspense></AdminGuard>} />
