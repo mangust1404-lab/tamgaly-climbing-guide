@@ -82,29 +82,39 @@ async function autoTranslate(text: string, targetLang: string): Promise<string> 
 }
 
 /**
- * Auto-translate sector and route descriptions/names to en/kk.
- * Only translates fields that are missing or whose source text changed.
+ * Auto-translate sector descriptions to en/kk.
+ *
+ * The admin client sends every sector on every save, so "has the Russian text
+ * changed" is decided against the value stored in SQLite, not against the
+ * payload. A failed translation comes back as the untranslated source text and
+ * is never written — otherwise one Google Translate hiccup replaces the real
+ * EN/KK text of every sector with Russian.
  */
 async function autoTranslateSectors(sectors: any[]): Promise<number> {
   let count = 0
-  const fields = ['description', 'approachDescription', 'sunExposure']
+  const fields: [string, string][] = [
+    ['description', 'description'],
+    ['approachDescription', 'approach_description'],
+    ['sunExposure', 'sun_exposure'],
+  ]
+  const getStored = getDb().prepare('SELECT * FROM sector WHERE id = ?')
   for (const sector of sectors) {
-    for (const field of fields) {
+    const stored = (getStored.get(sector.id) || {}) as Record<string, unknown>
+    for (const [field, column] of fields) {
       const ruText = sector[field]
       if (!ruText) continue
-      const enKey = `${field}En`
-      const kkKey = `${field}Kk`
-      const srcKey = `${field}_src` // track source text to detect changes
-      const needsTranslation = !sector[enKey] || sector[srcKey] !== ruText
-      if (needsTranslation) {
-        const [en, kk] = await Promise.all([
-          autoTranslate(ruText, 'en'),
-          autoTranslate(ruText, 'kk'),
-        ])
-        sector[enKey] = en
-        sector[kkKey] = kk
-        sector[srcKey] = ruText
-        count++
+      const ruChanged = stored[column] !== ruText
+      for (const lang of ['en', 'kk'] as const) {
+        const key = `${field}${lang === 'en' ? 'En' : 'Kk'}`
+        const current = sector[key] ?? stored[`${column}_${lang}`]
+        const missing = !current || current === ruText
+        if (!ruChanged && !missing) continue
+        // On failure keep whatever is there: a stale translation beats Russian
+        const translated = await autoTranslate(ruText, lang)
+        if (translated && translated !== ruText) {
+          sector[key] = translated
+          count++
+        }
       }
     }
   }
