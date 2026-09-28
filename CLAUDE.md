@@ -12,6 +12,7 @@ Offline-first PWA climbing guide (React 19 + Vite + Dexie) with a Hono + SQLite 
 
 ## Rules
 
+- This checkout lives ON the production VPS: the `tamgaly-api` Docker container (port 3001), `/var/www/tamgaly/` and `/opt/tamgaly-api/` are live prod. Local test servers: other port, temp `DATABASE_PATH`, never write under `/var/www/tamgaly`. Stop them by exact PID — never `pkill -f`/`killall` on node/tsx (it kills the prod API).
 - `data/topo-data.json` in the repo is NOT the source of truth in prod — the admin panel saves to `/var/www/tamgaly/data/` on the VPS. Never overwrite the prod copy from the repo.
 - Never run `./deploy.sh` or ssh to the VPS without explicit user confirmation — it is production.
 - `deploy.sh` must only ever delete `/var/www/tamgaly/assets/`; never `data/`, `topo-images/`, `avatars/`, `posts/`.

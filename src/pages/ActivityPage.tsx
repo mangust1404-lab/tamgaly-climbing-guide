@@ -79,6 +79,7 @@ interface AscentFeedItem {
   routeGrade: string | null
   style: string
   rating: number | null
+  date: string
   createdAt: string
 }
 
@@ -116,6 +117,9 @@ export function ActivityPage() {
 
   const [remoteAscents, setRemoteAscents] = useState<ServerAscent[]>([])
   const [remoteComments, setRemoteComments] = useState<ServerComment[]>([])
+  // Which viewer the current remote feed belongs to (null until the first response)
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
+  const feedLoaded = loadedFor === (user?.id ?? 'anon')
 
   // Fetch the privacy-aware merged feed from the server. Falls back to the
   // last cached response (or nothing) when offline / the request fails.
@@ -123,6 +127,8 @@ export function ActivityPage() {
     let cancelled = false
     const API_BASE = import.meta.env.VITE_API_URL || '/api'
     const viewerParam = user?.id ? `?viewer=${encodeURIComponent(user.id)}` : ''
+    // Per viewer: a friends-only ascent cached for one user must not be shown to another
+    const cacheKey = `${FEED_CACHE_KEY}:${user?.id ?? 'anon'}`
 
     fetch(`${API_BASE}/sync/feed${viewerParam}`)
       .then(res => {
@@ -133,14 +139,16 @@ export function ActivityPage() {
         if (cancelled) return
         setRemoteAscents(data.ascents || [])
         setRemoteComments(data.comments || [])
+        setLoadedFor(user?.id ?? 'anon')
         try {
-          localStorage.setItem(FEED_CACHE_KEY, JSON.stringify(data))
+          localStorage.setItem(cacheKey, JSON.stringify(data))
         } catch { /* storage full/unavailable: ignore */ }
       })
       .catch(() => {
         if (cancelled) return
+        setLoadedFor(user?.id ?? 'anon')
         try {
-          const raw = localStorage.getItem(FEED_CACHE_KEY)
+          const raw = localStorage.getItem(cacheKey)
           if (raw) {
             const cached = JSON.parse(raw) as FeedResponse
             setRemoteAscents(cached.ascents || [])
@@ -218,6 +226,7 @@ export function ActivityPage() {
         routeGrade: a.route_grade,
         style: a.style,
         rating: a.rating,
+        date: a.date,
         createdAt: a.created_at,
       })
     }
@@ -254,6 +263,7 @@ export function ActivityPage() {
           routeGrade: route?.grade ?? null,
           style: a.style,
           rating: a.rating ?? null,
+          date: a.date,
           createdAt: a.createdAt,
         })
       }
@@ -277,8 +287,10 @@ export function ActivityPage() {
       }
     }
 
-    // Newest first
-    items.sort((x, y) => y.createdAt.localeCompare(x.createdAt))
+    // Newest first. Ascents go by the climb date the user entered (they are
+    // often logged or synced days later); comments by when they were written.
+    const day = (i: FeedItem) => i.kind === 'ascent' ? i.date : i.createdAt.slice(0, 10)
+    items.sort((x, y) => day(y).localeCompare(day(x)) || y.createdAt.localeCompare(x.createdAt))
     return items
   }, [remoteAscents, remoteComments, ownAscents, ownReviews, user, routeMap])
 
@@ -356,7 +368,9 @@ export function ActivityPage() {
       </div>
 
       {/* Activity feed */}
-      {filteredItems.length === 0 ? (
+      {filteredItems.length === 0 && !feedLoaded ? (
+        <p className="text-center py-12 text-sm text-gray-400">{t('loading')}</p>
+      ) : filteredItems.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <p className="text-4xl mb-3">{'📡'}</p>
           <p className="text-sm">{t('activity.noActivity')}</p>
@@ -417,7 +431,7 @@ export function ActivityPage() {
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <span>{STYLE_EMOJI[item.style] || ''} {t(`style.${item.style}` as 'style.onsight' | 'style.flash' | 'style.redpoint' | 'style.toprope' | 'style.attempt')}</span>
                           <span>{'·'}</span>
-                          <span>{formatDate(item.createdAt)}</span>
+                          <span>{formatDate(item.date)}</span>
                         </div>
 
                         {/* Rating stars */}
