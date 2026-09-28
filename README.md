@@ -8,10 +8,12 @@ Offline-first электронный гайд по скалолазному ра
 - **Карта секторов** — Leaflet с GPS-навигацией, маркеры секторов с цветовым градиентом по категориям трасс
 - **Интерактивные топо** — зумируемые фото скал с линиями маршрутов (OpenSeadragon)
 - **Логирование пролазов** — onsight/flash/redpoint/toprope/attempt, офлайн очередь с синхронизацией
-- **Таблица лидеров** — рейтинг по топ-10 лучших маршрутов, дедупликация по имени трассы
+- **Таблица лидеров** — рейтинг по топ-10 лучших маршрутов, дедупликация по сектору + имени + категории (`ascentDedupKey`)
 - **Профиль** — личная статистика, история пролазов
 - **Фильтр солнце/тень** — выбор сектора по времени дня (sunFrom/sunTo)
-- **Админ-панель** — редактор секторов, маршрутов, топо-фото, загрузка на сервер
+- **Админ-панель** — редактор секторов, маршрутов, топо-фото, модерация, загрузка на сервер
+- **Посты и новости** — лента постов с автопереводом RU → EN/KK (бесплатный endpoint Google Translate, без ключа; при ошибке остаётся оригинал)
+- **Telegram** — уведомления админу о новых элементах модерации, публикация в канал, команда `/news` для рассылки новостей
 - **i18n** — русский, английский, казахский
 - **Auto-refresh** — topo-data.json обновляется при возврате в приложение (visibilitychange)
 
@@ -52,7 +54,11 @@ npm test
 
 **VPS:** 89.167.90.248
 **Продакшн:** https://tamgalyclimb.alexanderlobanov.de/
-**Админка:** https://tamgalyclimb.alexanderlobanov.de/admin
+**Админка:** https://tamgalyclimb.alexanderlobanov.de/admin/topo (также /admin/sectors, /admin/photos, /admin/moderation)
+
+### Секреты
+
+Секреты сервера (`ADMIN_PASSWORD`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_ID`, `TELEGRAM_CHANNEL_ID`) хранятся только на VPS в `/opt/tamgaly-api/.env` (шаблон — `.env.example`). `deploy.sh server` передаёт его в контейнер через `--env-file` и откажется перезапускать контейнер, если файла нет. В репозиторий секреты не коммитить.
 
 ### Важно
 
@@ -90,9 +96,10 @@ src/
 server/
   src/
     index.ts        # Hono API сервер (порт 3001)
-    routes/         # API роуты: areas, sectors, routes, sync, download
+    routes/         # API роуты: areas, sectors, routes, sync, download, posts
+    telegram.ts     # Telegram-бот: уведомления, канал, /news
+    translate.ts    # Автоперевод RU → EN/KK
     db/             # SQLite: connection, migrate, seed
-    services/       # Бизнес-логика
 data/
   topo-data.json    # Маршруты, секторы, топо-фото (base64), оверлеи маршрутов
 deploy/
@@ -119,10 +126,15 @@ scripts/            # Утилиты импорта данных (CSV, KML, сж
 | GET | /api/health | Health check |
 | GET | /api/topo-data | Получить topo-data.json |
 | POST | /api/save-topo-data | Сохранить топо из админки (до 20MB) |
+| POST | /api/admin/login | Вход в админку |
+| GET | /api/admin/check | Проверка админ-токена |
 | GET | /api/areas | Список районов |
 | GET | /api/sectors | Список секторов |
 | GET | /api/routes | Список маршрутов |
 | POST | /api/sync/* | Синхронизация пролазов и предложений |
+| GET | /api/download/area/:areaId | Пакет данных района для офлайна |
+| GET | /api/posts, /api/posts/:id | Посты / новости |
+| POST, PATCH, DELETE | /api/posts, /api/posts/:id | Создание, правка, удаление постов (правка/удаление — автор или админ) |
 
 ## Система очков
 
@@ -135,6 +147,8 @@ scripts/            # Утилиты импорта данных (CSV, KML, сж
 | Attempt | 0 | Попытка без прохождения |
 
 За каждую трассу засчитывается **только один scored пролаз** (onsight/flash/redpoint). Toprope и attempt можно логировать неограниченно.
+
+Трасса определяется ключом `сектор | имя | категория` (`ascentDedupKey` в `src/lib/utils.ts`), а не id — id может меняться при реимпорте. Категория входит в ключ, потому что разные трассы могут называться одинаково (например, 6a и 6b+ «Гоголь-моголь»). Если трассы нет на клиенте (архивные не отдаются), ключом служит routeId.
 
 Рейтинг: сумма **10 лучших** результатов climber-а.
 
