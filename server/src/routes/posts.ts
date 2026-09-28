@@ -30,7 +30,10 @@ function buildChannelText(post: any, authorName: string): string {
   const meta: string[] = []
   if (post.type === 'gear' && post.price) meta.push(`💰 ${post.price} ${post.currency || '₸'}`)
   if (post.type === 'partner' && post.event_date) meta.push(`📅 ${post.event_date}`)
-  if (post.type === 'partner' && (post.grade_min || post.grade_max)) meta.push(`📊 ${post.grade_min || '?'}–${post.grade_max || '?'}`)
+  if (post.type === 'partner' && (post.grade_min || post.grade_max)) {
+    const gm = post.grade_min, gx = post.grade_max
+    meta.push(`📊 ${gm && gx ? (gm === gx ? gm : `${gm}–${gx}`) : (gm || gx)}`)
+  }
   if (post.type === 'ride' && post.ride_role) meta.push(post.ride_role === 'driver' ? '🚙 за рулём' : '🧳 ищу машину')
   if (post.type === 'ride' && post.event_date) meta.push(`📅 ${post.event_date}`)
   if (post.type === 'ride' && (post.from_location || post.to_location)) meta.push(`🗺 ${post.from_location || '?'} → ${post.to_location || '?'}`)

@@ -390,7 +390,7 @@ syncRouter.get('/feed', async (c) => {
   }>
 
   // Same defaults as GET /user/:id/public-profile
-  const defaults = { routes: 'all', achievements: 'all', maxGrade: 'all', stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody', projects: 'all', gradeVotes: 'all' }
+  const defaults = { routes: 'all', achievements: 'all', maxGrade: 'all', stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody', projects: 'nobody', gradeVotes: 'nobody' }
 
   // Load privacy settings for involved authors in one query (avoid N+1)
   const authorIds = [...new Set(rawAscents.map(a => a.user_id))]
@@ -539,7 +539,7 @@ syncRouter.get('/user/:id/public-profile', async (c) => {
   const u = db.prepare('SELECT id, display_name, avatar_url, telegram_handle, whatsapp_phone, privacy_settings, created_at FROM app_user WHERE id = ?').get(userId) as any
   if (!u) return c.json({ error: 'not found' }, 404)
   // Defaults: routes/achievements/maxGrade visible to all; stats/dates/contacts hidden
-  const defaults = { routes: 'all', achievements: 'all', maxGrade: 'all', stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody', projects: 'all', gradeVotes: 'all' }
+  const defaults = { routes: 'all', achievements: 'all', maxGrade: 'all', stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody', projects: 'nobody', gradeVotes: 'nobody' }
   let privacy = defaults
   try { privacy = { ...defaults, ...JSON.parse(u.privacy_settings || '{}') } } catch {}
   const isSelf = viewerId === userId

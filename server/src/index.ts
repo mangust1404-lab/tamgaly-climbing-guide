@@ -14,6 +14,7 @@ import { postsRouter } from './routes/posts'
 import { exportTopoDataFromDb } from './db/export-topo-data'
 import { startBotPolling } from './telegram'
 import { getDb } from './db/connection'
+import { startExpireCron } from './jobs/expirePosts'
 
 const app = new Hono()
 
@@ -442,3 +443,6 @@ function shutdown(signal: string) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 process.on('SIGINT', () => shutdown('SIGINT'))
+
+// Start expired-posts cron
+startExpireCron()
