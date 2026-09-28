@@ -1,22 +1,24 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
-import { db, type Route as RouteType, type User as UserType } from '../lib/db/schema'
+import { db, type Route as RouteType } from '../lib/db/schema'
 import { gradeColor } from '../lib/utils'
 import { useI18n } from '../lib/i18n'
+import { useUser } from '../lib/userContext'
 import { TranslatedName } from '../components/ui/TranslatedName'
 
 const STYLE_EMOJI: Record<string, string> = {
-  onsight: '\uD83D\uDC41\uFE0F',
-  flash: '\u26A1',
-  redpoint: '\uD83D\uDD34',
-  toprope: '\uD83D\uDD35',
-  attempt: '\u2B1C',
+  onsight: '👁️',
+  flash: '⚡',
+  redpoint: '🔴',
+  toprope: '🔵',
+  attempt: '⬜',
 }
 
-// Will be derived from actual routes dynamically
+const COMMENT_EMOJI = '💬'
 
 const FOLLOWED_KEY = 'activity_followed_users'
+const FEED_CACHE_KEY = 'activity_feed_cache'
 
 function loadFollowed(): Set<string> {
   try {
@@ -30,12 +32,128 @@ function saveFollowed(ids: Set<string>) {
   localStorage.setItem(FOLLOWED_KEY, JSON.stringify([...ids]))
 }
 
+// --- Server /sync/feed response shapes ---
+interface ServerAscent {
+  id: string
+  local_id: string
+  user_id: string
+  route_id: string
+  date: string
+  style: string
+  rating: number | null
+  notes: string | null
+  points: number
+  created_at: string
+  user_name: string
+  route_name: string | null
+  route_grade: string | null
+}
+
+interface ServerComment {
+  id: string
+  local_id: string
+  user_id: string
+  route_id: string
+  comment: string
+  grade_opinion: string | null
+  rating: number | null
+  created_at: string
+  user_name: string
+  route_name: string | null
+  route_grade: string | null
+}
+
+interface FeedResponse {
+  ascents: ServerAscent[]
+  comments: ServerComment[]
+}
+
+// --- Unified feed item used for rendering ---
+interface AscentFeedItem {
+  kind: 'ascent'
+  key: string
+  userId: string
+  userName: string
+  routeId: string
+  routeName: string | null
+  routeGrade: string | null
+  style: string
+  rating: number | null
+  createdAt: string
+}
+
+interface CommentFeedItem {
+  kind: 'comment'
+  key: string
+  userId: string
+  userName: string
+  routeId: string
+  routeName: string | null
+  routeGrade: string | null
+  comment: string
+  rating: number | null
+  createdAt: string
+}
+
+type FeedItem = AscentFeedItem | CommentFeedItem
+
 export function ActivityPage() {
   const { t, td } = useI18n()
+  const { user } = useUser()
 
-  const ascents = useLiveQuery(() => db.ascents.toArray())
   const routes = useLiveQuery(() => db.routes.toArray())
-  const users = useLiveQuery(() => db.users.toArray())
+
+  // Own local ascents/reviews (incl. unsynced pending ones) so a just-logged
+  // ascent/comment appears immediately, same as before this feature.
+  const ownAscents = useLiveQuery(
+    () => user ? db.ascents.where('userId').equals(user.id).toArray() : [],
+    [user?.id],
+  )
+  const ownReviews = useLiveQuery(
+    () => user ? db.reviews.where('userId').equals(user.id).toArray() : [],
+    [user?.id],
+  )
+
+  const [remoteAscents, setRemoteAscents] = useState<ServerAscent[]>([])
+  const [remoteComments, setRemoteComments] = useState<ServerComment[]>([])
+
+  // Fetch the privacy-aware merged feed from the server. Falls back to the
+  // last cached response (or nothing) when offline / the request fails.
+  useEffect(() => {
+    let cancelled = false
+    const API_BASE = import.meta.env.VITE_API_URL || '/api'
+    const viewerParam = user?.id ? `?viewer=${encodeURIComponent(user.id)}` : ''
+
+    fetch(`${API_BASE}/sync/feed${viewerParam}`)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json() as Promise<FeedResponse>
+      })
+      .then(data => {
+        if (cancelled) return
+        setRemoteAscents(data.ascents || [])
+        setRemoteComments(data.comments || [])
+        try {
+          localStorage.setItem(FEED_CACHE_KEY, JSON.stringify(data))
+        } catch { /* storage full/unavailable: ignore */ }
+      })
+      .catch(() => {
+        if (cancelled) return
+        try {
+          const raw = localStorage.getItem(FEED_CACHE_KEY)
+          if (raw) {
+            const cached = JSON.parse(raw) as FeedResponse
+            setRemoteAscents(cached.ascents || [])
+            setRemoteComments(cached.comments || [])
+            return
+          }
+        } catch { /* corrupt cache: ignore */ }
+        setRemoteAscents([])
+        setRemoteComments([])
+      })
+
+    return () => { cancelled = true }
+  }, [user?.id])
 
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
 
@@ -78,55 +196,111 @@ export function ActivityPage() {
     })
   }, [])
 
-  // Build lookup maps
+  // Build route lookup (for own local items, which only carry a routeId)
   const routeMap = useMemo(() => {
     if (!routes) return new Map<string, RouteType>()
     return new Map(routes.map(r => [r.id, r]))
   }, [routes])
 
-  const userMap = useMemo(() => {
-    if (!users) return new Map<string, UserType>()
-    return new Map(users.map(u => [u.id, u]))
-  }, [users])
+  // Merge server feed + own local (pending/unsynced) items into one list,
+  // deduped by local id so a just-synced item doesn't show up twice.
+  const feedItems = useMemo(() => {
+    const items: FeedItem[] = []
 
-  // Filter and sort ascents
-  const filteredAscents = useMemo(() => {
-    if (!ascents) return []
-
-    let result = [...ascents]
-
-    // Sort newest first
-    result.sort((a, b) => {
-      const dateCompare = b.date.localeCompare(a.date)
-      if (dateCompare !== 0) return dateCompare
-      return b.createdAt.localeCompare(a.createdAt)
-    })
-
-    // Filter by followed users
-    if (showFollowedOnly) {
-      result = result.filter(a => followed.has(a.userId))
+    for (const a of remoteAscents) {
+      items.push({
+        kind: 'ascent',
+        key: a.local_id || a.id,
+        userId: a.user_id,
+        userName: a.user_name,
+        routeId: a.route_id,
+        routeName: a.route_name,
+        routeGrade: a.route_grade,
+        style: a.style,
+        rating: a.rating,
+        createdAt: a.created_at,
+      })
     }
 
-    // Filter by user name search
+    for (const c of remoteComments) {
+      items.push({
+        kind: 'comment',
+        key: c.local_id || c.id,
+        userId: c.user_id,
+        userName: c.user_name,
+        routeId: c.route_id,
+        routeName: c.route_name,
+        routeGrade: c.route_grade,
+        comment: c.comment,
+        rating: c.rating,
+        createdAt: c.created_at,
+      })
+    }
+
+    if (user) {
+      const serverAscentLocalIds = new Set(remoteAscents.map(a => a.local_id))
+      const serverCommentLocalIds = new Set(remoteComments.map(c => c.local_id))
+
+      for (const a of ownAscents || []) {
+        if (serverAscentLocalIds.has(a.localId)) continue
+        const route = routeMap.get(a.routeId)
+        items.push({
+          kind: 'ascent',
+          key: a.localId,
+          userId: a.userId,
+          userName: user.displayName,
+          routeId: a.routeId,
+          routeName: route?.name ?? null,
+          routeGrade: route?.grade ?? null,
+          style: a.style,
+          rating: a.rating ?? null,
+          createdAt: a.createdAt,
+        })
+      }
+
+      for (const r of ownReviews || []) {
+        if (!r.comment || !r.comment.trim()) continue
+        if (serverCommentLocalIds.has(r.localId)) continue
+        const route = routeMap.get(r.routeId)
+        items.push({
+          kind: 'comment',
+          key: r.localId,
+          userId: r.userId,
+          userName: user.displayName,
+          routeId: r.routeId,
+          routeName: route?.name ?? null,
+          routeGrade: route?.grade ?? null,
+          comment: r.comment,
+          rating: r.rating ?? null,
+          createdAt: r.createdAt,
+        })
+      }
+    }
+
+    // Newest first
+    items.sort((x, y) => y.createdAt.localeCompare(x.createdAt))
+    return items
+  }, [remoteAscents, remoteComments, ownAscents, ownReviews, user, routeMap])
+
+  // Filter merged feed (applies to both ascents and comments)
+  const filteredItems = useMemo(() => {
+    let result = feedItems
+
+    if (showFollowedOnly) {
+      result = result.filter(i => followed.has(i.userId))
+    }
+
     if (userSearch.trim()) {
       const q = userSearch.toLowerCase()
-      result = result.filter(a => {
-        const user = userMap.get(a.userId)
-        return user?.displayName?.toLowerCase().includes(q) ?? false
-      })
+      result = result.filter(i => i.userName?.toLowerCase().includes(q) ?? false)
     }
 
-    // Filter by grade
     if (selectedGrades.size > 0) {
-      result = result.filter(a => {
-        const route = routeMap.get(a.routeId)
-        if (!route) return false
-        return selectedGrades.has(route.grade)
-      })
+      result = result.filter(i => !!i.routeGrade && selectedGrades.has(i.routeGrade))
     }
 
     return result
-  }, [ascents, showFollowedOnly, followed, userSearch, userMap, selectedGrades, routeMap])
+  }, [feedItems, showFollowedOnly, followed, userSearch, selectedGrades])
 
   const formatDate = useCallback((dateStr: string) => {
     try {
@@ -182,24 +356,23 @@ export function ActivityPage() {
       </div>
 
       {/* Activity feed */}
-      {filteredAscents.length === 0 ? (
+      {filteredItems.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          <p className="text-4xl mb-3">{'\uD83D\uDCE1'}</p>
+          <p className="text-4xl mb-3">{'📡'}</p>
           <p className="text-sm">{t('activity.noActivity')}</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filteredAscents.map(ascent => {
-            const route = routeMap.get(ascent.routeId)
-            const user = userMap.get(ascent.userId)
-            const styleName = t(`style.${ascent.style}` as 'style.onsight' | 'style.flash' | 'style.redpoint' | 'style.toprope' | 'style.attempt')
-            const styleEmoji = STYLE_EMOJI[ascent.style] || ''
-            const isFollowed = followed.has(ascent.userId)
+          {filteredItems.map(item => {
+            const isFollowed = followed.has(item.userId)
+            const routeLabel = item.routeName
+              ? <TranslatedName name={td(item.routeName)} />
+              : t('activity.unknownRoute')
 
             return (
               <Link
-                key={ascent.localId || ascent.id}
-                to={route ? `/route/${route.id}` : '#'}
+                key={item.key}
+                to={`/route/${item.routeId}`}
                 className="block bg-white border border-gray-100 rounded-lg p-3"
               >
                 <div className="flex items-start gap-3">
@@ -207,14 +380,14 @@ export function ActivityPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Link
-                        to={`/user/${ascent.userId}`}
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/user/${ascent.userId}` }}
+                        to={`/user/${item.userId}`}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/user/${item.userId}` }}
                         className="font-medium text-sm truncate text-blue-700 hover:underline"
                       >
-                        {user?.displayName || t('activity.unknownUser')}
+                        {item.userName || t('activity.unknownUser')}
                       </Link>
                       <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollow(ascent.userId) }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFollow(item.userId) }}
                         className={`text-xs px-1.5 py-0.5 rounded transition-colors flex-shrink-0 ${
                           isFollowed
                             ? 'bg-blue-100 text-blue-700'
@@ -222,36 +395,50 @@ export function ActivityPage() {
                         }`}
                         title={isFollowed ? t('activity.unfollow') : t('activity.follow')}
                       >
-                        {isFollowed ? '\u2605' : '\u2606'}
+                        {isFollowed ? '★' : '☆'}
                       </button>
                     </div>
 
                     {/* Route info */}
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-medium truncate">
-                        {route ? <TranslatedName name={td(route.name)} /> : t('activity.unknownRoute')}
+                        {routeLabel}
                       </span>
-                      {route && (
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${gradeColor(route.grade)}`}>
-                          {route.grade}
+                      {item.routeGrade && (
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${gradeColor(item.routeGrade)}`}>
+                          {item.routeGrade}
                         </span>
                       )}
                     </div>
 
-                    {/* Style and date */}
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <span>{styleEmoji} {styleName}</span>
-                      <span>{'\u00B7'}</span>
-                      <span>{formatDate(ascent.date)}</span>
-                    </div>
+                    {item.kind === 'ascent' ? (
+                      <>
+                        {/* Style and date */}
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span>{STYLE_EMOJI[item.style] || ''} {t(`style.${item.style}` as 'style.onsight' | 'style.flash' | 'style.redpoint' | 'style.toprope' | 'style.attempt')}</span>
+                          <span>{'·'}</span>
+                          <span>{formatDate(item.createdAt)}</span>
+                        </div>
 
-                    {/* Rating stars */}
-                    {ascent.rating != null && ascent.rating > 0 && (
-                      <div className="mt-1 text-xs text-yellow-500">
-                        {Array.from({ length: ascent.rating }, (_, i) => (
-                          <span key={i}>{'\u2B50'}</span>
-                        ))}
-                      </div>
+                        {/* Rating stars */}
+                        {item.rating != null && item.rating > 0 && (
+                          <div className="mt-1 text-xs text-yellow-500">
+                            {Array.from({ length: item.rating }, (_, i) => (
+                              <span key={i}>{'⭐'}</span>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Comment text */}
+                        <div className="text-xs text-gray-700 mb-1">
+                          {COMMENT_EMOJI} {item.comment}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span>{formatDate(item.createdAt)}</span>
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>

@@ -361,6 +361,85 @@ syncRouter.get('/ascents', async (c) => {
   return c.json(ascents)
 })
 
+// Pull merged activity feed: public ascents (privacy-filtered per author) + all route comments.
+// Ascents/reviews used by Leaderboard/Home/Sector/Route/About/PublicProfile keep coming from
+// /sync/ascents and /sync/reviews unfiltered — this endpoint is only for the Activity feed.
+syncRouter.get('/feed', async (c) => {
+  const db = getDb()
+  const viewerId = c.req.query('viewer') || null
+  let limit = parseInt(c.req.query('limit') || '300')
+  if (!Number.isFinite(limit) || limit <= 0) limit = 300
+  if (limit > 1000) limit = 1000
+
+  // Same shape as GET /ascents, just capped to `limit` most recent public ascents
+  const rawAscents = db.prepare(`
+    SELECT a.id, a.local_id, a.user_id, a.route_id, a.date, a.style,
+           a.rating, a.notes, a.points, a.created_at,
+           COALESCE(u.display_name, 'Anonymous') as user_name,
+           r.name as route_name, r.grade as route_grade
+    FROM ascent a
+    LEFT JOIN app_user u ON a.user_id = u.id
+    LEFT JOIN route r ON a.route_id = r.id
+    WHERE a.is_public = 1
+    ORDER BY a.date DESC, a.created_at DESC
+    LIMIT ?
+  `).all(limit) as Array<{
+    id: string; local_id: string; user_id: string; route_id: string; date: string; style: string
+    rating: number | null; notes: string | null; points: number; created_at: string
+    user_name: string; route_name: string | null; route_grade: string | null
+  }>
+
+  // Same defaults as GET /user/:id/public-profile
+  const defaults = { routes: 'all', achievements: 'all', maxGrade: 'all', stats: 'nobody', pyramid: 'nobody', dates: 'nobody', contacts: 'nobody', projects: 'all', gradeVotes: 'all' }
+
+  // Load privacy settings for involved authors in one query (avoid N+1)
+  const authorIds = [...new Set(rawAscents.map(a => a.user_id))]
+  const privacyByUser = new Map<string, typeof defaults>()
+  if (authorIds.length > 0) {
+    const placeholders = authorIds.map(() => '?').join(',')
+    const rows = db.prepare(`SELECT id, privacy_settings FROM app_user WHERE id IN (${placeholders})`).all(...authorIds) as Array<{ id: string; privacy_settings: string | null }>
+    for (const row of rows) {
+      let parsed = defaults
+      try { parsed = { ...defaults, ...JSON.parse(row.privacy_settings || '{}') } } catch { /* malformed json: keep defaults */ }
+      privacyByUser.set(row.id, parsed)
+    }
+  }
+
+  // Load the viewer's accepted friend ids once (avoid calling areFriends per row)
+  const friendIds = new Set<string>()
+  if (viewerId) {
+    const rows = db.prepare(
+      `SELECT user_id, friend_id FROM friendship WHERE status = 'accepted' AND (user_id = ? OR friend_id = ?)`
+    ).all(viewerId, viewerId) as Array<{ user_id: string; friend_id: string }>
+    for (const row of rows) {
+      friendIds.add(row.user_id === viewerId ? row.friend_id : row.user_id)
+    }
+  }
+
+  const ascents = rawAscents.filter(a => {
+    if (viewerId && a.user_id === viewerId) return true
+    const level = (privacyByUser.get(a.user_id) || defaults).routes
+    if (level === 'all') return true
+    if (level === 'friends' && !!viewerId && friendIds.has(a.user_id)) return true
+    return false
+  })
+
+  // Comments: visible to everyone regardless of privacy settings
+  const comments = db.prepare(`
+    SELECT r.id, r.local_id, r.user_id, r.route_id, r.comment, r.grade_opinion, r.rating, r.created_at,
+           COALESCE(u.display_name, 'Anonymous') as user_name,
+           rt.name as route_name, rt.grade as route_grade
+    FROM review r
+    LEFT JOIN app_user u ON r.user_id = u.id
+    LEFT JOIN route rt ON r.route_id = rt.id
+    WHERE r.comment IS NOT NULL AND TRIM(r.comment) != ''
+    ORDER BY r.created_at DESC
+    LIMIT ?
+  `).all(limit)
+
+  return c.json({ ascents, comments })
+})
+
 // Set or update PIN for a user
 syncRouter.post('/user/set-pin', async (c) => {
   const body = await c.req.json()
