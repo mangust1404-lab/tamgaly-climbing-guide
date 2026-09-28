@@ -170,8 +170,10 @@ export function SectorPage() {
   )
 
   const [activeTopoIdx, setActiveTopoIdx] = useState(0)
+  const [topoOpen, setTopoOpen] = useState(false)
   const [zoom, setZoom] = useState(1)
   const imgRef = useRef<HTMLDivElement>(null)
+  const swipeRef = useRef<{ x: number; y: number } | null>(null)
 
   // GPS approach info
   const approachInfo = useMemo(() => {
@@ -210,6 +212,35 @@ export function SectorPage() {
     }
     setSelectedRouteId(prev => prev === routeId ? null : routeId)
   }, [topoRoutes, wallTopos, activeTopoIdx])
+
+  // Open the fullscreen topo lightbox at a given photo index
+  const openTopo = useCallback((idx: number) => {
+    setActiveTopoIdx(idx)
+    setZoom(1)
+    setSelectedRouteId(null)
+    setTopoOpen(true)
+  }, [])
+
+  // Switch to prev/next photo within the lightbox (clamped), resetting zoom + selection
+  const changeTopo = useCallback((dir: number) => {
+    setActiveTopoIdx(i => {
+      const next = i + dir
+      return next >= 0 && next < wallTopos.length ? next : i
+    })
+    setZoom(1)
+    setSelectedRouteId(null)
+  }, [wallTopos.length])
+
+  // Open the lightbox focused on a specific route (switch to its photo + highlight)
+  const openRouteOnTopo = useCallback((routeId: string) => {
+    const tr = topoRoutes?.find(t => t.routeId === routeId)
+    if (tr) {
+      const idx = wallTopos.findIndex(t => t.id === tr.topoId)
+      if (idx !== -1) setActiveTopoIdx(idx)
+    }
+    setSelectedRouteId(routeId)
+    setTopoOpen(true)
+  }, [topoRoutes, wallTopos])
 
   if (!sector) {
     return <div className="p-4 text-gray-400">{t('sector.notFound')}</div>
@@ -282,86 +313,21 @@ export function SectorPage() {
         </div>
       )}
 
-      {/* Topo viewer with route overlays (OpenSeadragon) */}
-      {topoMountReady && activeTopo && activeTopoRoutes.length > 0 && (
-        <div className="mb-2">
-          <TopoViewer
-            imageUrl={activeTopo.imageUrl}
-            imageWidth={activeTopo.imageWidth}
-            imageHeight={activeTopo.imageHeight}
-            topoRoutes={activeTopoRoutes}
-            selectedRouteId={selectedRouteId}
-            onRouteSelect={handleRouteSelect}
-          />
-          <RouteList
-            topoRoutes={activeTopoRoutes}
-            selectedRouteId={selectedRouteId}
-            onSelect={handleRouteSelect}
-          />
-          {/* Topo thumbnails when multiple photos */}
-          {wallTopos.length > 1 && (
-            <div className="flex gap-1 overflow-x-auto px-2 py-1">
-              {wallTopos.map((tp, i) => (
-                <img
-                  key={tp.id}
-                  src={tp.imageUrl}
-                  alt={tp.caption || ''}
-                  onClick={() => { setActiveTopoIdx(i) }}
-                  className={`h-10 w-14 object-cover rounded flex-shrink-0 cursor-pointer border-2 ${
-                    i === activeTopoIdx ? 'border-blue-500' : 'border-transparent'
-                  }`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Photo gallery with smooth zoom (no route overlays yet) */}
-      {activeTopo && activeTopoRoutes.length === 0 && (
-        <div className="mb-1">
-          <div
-            ref={imgRef}
-            className="relative overflow-auto bg-gray-100"
-            style={{ maxHeight: zoom > 1 ? '60vh' : undefined }}
-          >
-            <img
-              src={activeTopo.imageUrl}
-              alt={activeTopo.caption || sector.name}
-              className="block transition-transform duration-200 ease-out"
-              style={{
-                width: zoom > 1 ? `${zoom * 100}%` : '100%',
-                maxWidth: zoom > 1 ? 'none' : '100%',
-                cursor: zoom > 1 ? 'grab' : 'zoom-in',
-              }}
-              onClick={() => { if (zoom === 1) zoomIn() }}
-              draggable={false}
-            />
-            {/* Zoom controls — only show when already zoomed in */}
-            {zoom > 1 && (
-              <div className="absolute top-2 right-2 flex flex-col gap-1" style={{ zIndex: 10 }}>
-                <button onClick={resetZoom} className="w-8 h-8 bg-black/60 text-white rounded-full text-[10px] leading-none">{Math.round(zoom * 100)}%</button>
-                <button onClick={zoomOut} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">−</button>
-              </div>
-            )}
-          </div>
-          {/* Thumbnails + mark button */}
-          <div className="flex items-center justify-between px-2 py-1">
-            {wallTopos.length > 1 ? (
-              <div className="flex gap-1 overflow-x-auto">
-                {wallTopos.map((tp, i) => (
-                  <img
-                    key={tp.id}
-                    src={tp.imageUrl}
-                    alt={tp.caption || ''}
-                    onClick={() => { setActiveTopoIdx(i); setZoom(1) }}
-                    className={`h-10 w-14 object-cover rounded flex-shrink-0 cursor-pointer border-2 ${
-                      i === activeTopoIdx ? 'border-blue-500' : 'border-transparent'
-                    }`}
-                  />
-                ))}
-              </div>
-            ) : <div />}
+      {/* Photo thumbnail strip — tap to open the big topo in a fullscreen lightbox */}
+      {wallTopos.length > 0 && (
+        <div className="px-4 pt-2 pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            {wallTopos.map((tp, i) => (
+              <button
+                key={tp.id}
+                onClick={() => openTopo(i)}
+                className="relative flex-shrink-0 rounded-lg overflow-hidden border border-gray-200 active:opacity-80"
+                title={t('sector.showOnTopo')}
+              >
+                <img src={tp.imageUrl} alt={tp.caption || ''} className="h-20 w-28 object-cover" />
+                <span className="absolute bottom-1 right-1 bg-black/60 text-white rounded px-1 py-0.5 text-[10px] leading-none">⤢</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -373,8 +339,7 @@ export function SectorPage() {
         </div>
       )}
 
-      {/* Routes list — hidden when a route is selected on topo (shown in RouteList above) */}
-      {!selectedRouteId && (
+      {/* Routes list — always visible (primary content) */}
       <div className="px-4 pt-1 pb-4">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold">
@@ -425,7 +390,7 @@ export function SectorPage() {
                   >
                     {tr && (
                       <span
-                        onClick={(e) => { e.preventDefault(); handleRouteSelect(route.id) }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openRouteOnTopo(route.id) }}
                         className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 cursor-pointer"
                         style={{ backgroundColor: tr.color }}
                         title={t('sector.showOnTopo')}
@@ -439,8 +404,8 @@ export function SectorPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
                         <TranslatedName name={td(route.name)} className="text-sm font-medium truncate" />
-                        {avgRating != null && avgRating >= 4 && (
-                          <span className="flex-shrink-0 text-[10px] text-yellow-500">
+                        {avgRating != null && avgRating > 0 && (
+                          <span className={`flex-shrink-0 text-[10px] ${avgRating >= 4 ? 'text-yellow-500' : 'text-gray-400'}`}>
                             ★{avgRating % 1 === 0 ? avgRating : avgRating.toFixed(1)}
                           </span>
                         )}
@@ -478,12 +443,112 @@ export function SectorPage() {
           </div>
         )}
       </div>
-      )}
 
       {/* User suggestions */}
       <div className="px-4 pb-4">
         <SuggestPanel sectorId={sector.id} />
       </div>
+
+      {/* Fullscreen topo lightbox — opened from a thumbnail or a route's number circle */}
+      {topoOpen && activeTopo && (
+        <div
+          className="fixed inset-0 bg-black/95 z-50 flex flex-col"
+          onTouchStart={(e) => { swipeRef.current = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null }}
+          onTouchMove={(e) => { if (e.touches.length >= 2) swipeRef.current = null }}
+          onTouchEnd={(e) => {
+            const s = swipeRef.current
+            swipeRef.current = null
+            if (!s || zoom > 1 || wallTopos.length < 2) return
+            const t = e.changedTouches[0]
+            const dx = t.clientX - s.x
+            const dy = t.clientY - s.y
+            if (Math.abs(dx) > 60 && Math.abs(dx) > 1.5 * Math.abs(dy)) changeTopo(dx < 0 ? 1 : -1)
+          }}
+        >
+          {/* Prev / next arrows (desktop + discoverability; swipe works on touch) */}
+          {wallTopos.length > 1 && activeTopoIdx > 0 && (
+            <button onClick={() => changeTopo(-1)} className="absolute left-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 bg-black/40 text-white rounded-full text-2xl leading-none flex items-center justify-center" aria-label="prev">‹</button>
+          )}
+          {wallTopos.length > 1 && activeTopoIdx < wallTopos.length - 1 && (
+            <button onClick={() => changeTopo(1)} className="absolute right-1 top-1/2 -translate-y-1/2 z-20 w-9 h-9 bg-black/40 text-white rounded-full text-2xl leading-none flex items-center justify-center" aria-label="next">›</button>
+          )}
+          <div className="flex items-center justify-between px-3 py-2 flex-shrink-0">
+            <span className="text-white/80 text-xs truncate">
+              <TranslatedName name={td(sector.name)} />
+              {wallTopos.length > 1 ? ` · ${activeTopoIdx + 1}/${wallTopos.length}` : ''}
+            </span>
+            <button
+              onClick={() => { setTopoOpen(false); setSelectedRouteId(null) }}
+              className="text-white text-3xl leading-none px-2"
+              aria-label={t('back')}
+            >×</button>
+          </div>
+
+          <div className="flex-1 overflow-auto">
+            {topoMountReady && activeTopoRoutes.length > 0 ? (
+              <>
+                <TopoViewer
+                  imageUrl={activeTopo.imageUrl}
+                  imageWidth={activeTopo.imageWidth}
+                  imageHeight={activeTopo.imageHeight}
+                  topoRoutes={activeTopoRoutes}
+                  selectedRouteId={selectedRouteId}
+                  onRouteSelect={handleRouteSelect}
+                />
+                <div className="bg-white">
+                  <RouteList
+                    topoRoutes={activeTopoRoutes}
+                    selectedRouteId={selectedRouteId}
+                    onSelect={handleRouteSelect}
+                  />
+                </div>
+              </>
+            ) : (
+              <div
+                ref={imgRef}
+                className="relative overflow-auto"
+                style={{ maxHeight: '82vh' }}
+              >
+                <img
+                  src={activeTopo.imageUrl}
+                  alt={activeTopo.caption || sector.name}
+                  className="block mx-auto transition-transform duration-200 ease-out"
+                  style={{
+                    width: zoom > 1 ? `${zoom * 100}%` : '100%',
+                    maxWidth: zoom > 1 ? 'none' : '100%',
+                    cursor: zoom > 1 ? 'grab' : 'zoom-in',
+                  }}
+                  onClick={() => { if (zoom === 1) zoomIn() }}
+                  draggable={false}
+                />
+                {zoom > 1 && (
+                  <div className="absolute top-2 right-2 flex flex-col gap-1" style={{ zIndex: 10 }}>
+                    <button onClick={resetZoom} className="w-8 h-8 bg-black/60 text-white rounded-full text-[10px] leading-none">{Math.round(zoom * 100)}%</button>
+                    <button onClick={zoomOut} className="w-8 h-8 bg-black/60 text-white rounded-full text-lg leading-none">−</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Thumbnails to switch photo within the lightbox */}
+          {wallTopos.length > 1 && (
+            <div className="flex gap-1 overflow-x-auto px-2 py-2 bg-black/60 flex-shrink-0">
+              {wallTopos.map((tp, i) => (
+                <img
+                  key={tp.id}
+                  src={tp.imageUrl}
+                  alt={tp.caption || ''}
+                  onClick={() => { setActiveTopoIdx(i); setZoom(1); setSelectedRouteId(null) }}
+                  className={`h-12 w-16 object-cover rounded flex-shrink-0 cursor-pointer border-2 ${
+                    i === activeTopoIdx ? 'border-blue-400' : 'border-transparent'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Ascent form modal */}
       {ascentRoute && (
