@@ -180,6 +180,7 @@ export function ActivityPage() {
   const [userSearch, setUserSearch] = useState('')
   const [followed, setFollowed] = useState<Set<string>>(loadFollowed)
   const [showFollowedOnly, setShowFollowedOnly] = useState(false)
+  const [showCommentsOnly, setShowCommentsOnly] = useState(false)
 
   // Persist followed users
   useEffect(() => {
@@ -302,9 +303,17 @@ export function ActivityPage() {
       result = result.filter(i => followed.has(i.userId))
     }
 
+    if (showCommentsOnly) {
+      result = result.filter(i => i.kind === 'comment')
+    }
+
+    // Matches the author, the route (as shown, i.e. translated) and comment text
     if (userSearch.trim()) {
       const q = userSearch.toLowerCase()
-      result = result.filter(i => i.userName?.toLowerCase().includes(q) ?? false)
+      result = result.filter(i =>
+        [i.userName, i.routeName, i.routeName && td(i.routeName), i.kind === 'comment' ? i.comment : null]
+          .some(v => v?.toLowerCase().includes(q)),
+      )
     }
 
     if (selectedGrades.size > 0) {
@@ -312,7 +321,7 @@ export function ActivityPage() {
     }
 
     return result
-  }, [feedItems, showFollowedOnly, followed, userSearch, selectedGrades])
+  }, [feedItems, showFollowedOnly, showCommentsOnly, followed, userSearch, selectedGrades, td])
 
   const formatDate = useCallback((dateStr: string) => {
     try {
@@ -327,7 +336,7 @@ export function ActivityPage() {
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">{t('activity.title')}</h1>
 
-      {/* User search */}
+      {/* Search: author, route, comment text */}
       <input
         type="text"
         value={userSearch}
@@ -347,6 +356,16 @@ export function ActivityPage() {
           }`}
         >
           {t('activity.followedOnly')} ({followed.size})
+        </button>
+        <button
+          onClick={() => setShowCommentsOnly(v => !v)}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            showCommentsOnly
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          {COMMENT_EMOJI} {t('activity.commentsOnly')}
         </button>
       </div>
 
