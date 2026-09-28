@@ -49,6 +49,12 @@ deploy_server() {
   log "Rebuilding Docker container"
   ssh "$HOST" bash <<'DOCKER'
     cd /opt/tamgaly-api
+    # Secrets live only on the VPS: ADMIN_PASSWORD, TELEGRAM_BOT_TOKEN,
+    # TELEGRAM_ADMIN_CHAT_ID, TELEGRAM_CHANNEL_ID (see .env.example)
+    if [ ! -f /opt/tamgaly-api/.env ]; then
+      echo "MISSING: /opt/tamgaly-api/.env — refusing to restart container"
+      exit 1
+    fi
     docker build -t tamgaly-api .
     docker stop tamgaly-api 2>/dev/null || true
     docker rm tamgaly-api 2>/dev/null || true
@@ -62,10 +68,7 @@ deploy_server() {
       -v /var/www/tamgaly/avatars:/var/www/tamgaly/avatars \
       -v /var/www/tamgaly/posts:/var/www/tamgaly/posts \
       -e PORT=3001 \
-      -e ADMIN_PASSWORD="${ADMIN_PASSWORD:-tamgaly2024}" \
-      -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-8285918522:AAE8rGYFTJUWa2lMf3t-mFjL-rE1rPTNTCw}" \
-      -e TELEGRAM_ADMIN_CHAT_ID="${TELEGRAM_ADMIN_CHAT_ID:-6530516765}" \
-      -e TELEGRAM_CHANNEL_ID="${TELEGRAM_CHANNEL_ID:-@TamgalyClimbing}" \
+      --env-file /opt/tamgaly-api/.env \
       tamgaly-api
     echo "Container status:"
     docker ps --filter name=tamgaly-api --format "{{.Status}}"
